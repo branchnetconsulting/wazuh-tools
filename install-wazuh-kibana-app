@@ -3,20 +3,22 @@
 #
 # install-wazuh-kibana-app
 #
-# Run this on your Linux server where you already have Kibana operating.
-# It will install or upgrade the Wazuh Kibana app, gracefully working around the tendency of the Kibana plugin installer to fail to close properly after a successful install.
-# Invoke this script with a single parameter of the Wazuh version of your Wazuh manager:
+# Run this on your Linux server where you already have Kibana operating.  It is assumed that systemd is in use.
+# It will install or upgrade the Wazuh Kibana app, gracefully working around the tendency of the Kibana plugin installer
+# to fail to close properly after a successful install.
+# Invoke this script with a single parameter of the Wazuh version of your Wazuh manager, like:
 #
 # sudo ./install-wazuh-kibana-app 3.9.2
 #
 
-# Detect running Kibana version.
+# Detect local Kibana version.
 ElasticVersion=`grep "version" /usr/share/kibana/package.json | cut -d\" -f4`
 
+# Confirm a Wazuh version number was supplied.
 if [ "$1" != "" ]; then
         WazuhVersion=$1
 else
-        echo "Please specify the version of Wazuh running on the manager (i.e. 6.9.2)."
+        echo "Please specify the version of Wazuh running on the manager (i.e. 3.9.2)."
         exit
 fi
 
