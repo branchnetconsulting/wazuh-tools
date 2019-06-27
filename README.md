@@ -1,2 +1,2 @@
 # wazuh-tools
-Useful scripts for those using Wazuh
+Useful scripts for those administering Wazuh
