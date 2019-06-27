@@ -1,0 +1,49 @@
+#!/bin/bash
+
+#
+# install-wazuh-kibana-app
+#
+# Run this on your Linux server where you already have Kibana operating.
+# It will install or upgrade the Wazuh Kibana app, gracefully working around the tendency of the Kibana plugin installer to fail to close properly after a successful install.
+# Invoke this script with a single parameter of the Wazuh version of your Wazuh manager:
+#
+# sudo ./install-wazuh-kibana-app 3.9.2
+#
+
+# Detect running Kibana version.
+ElasticVersion=`grep "version" /usr/share/kibana/package.json | cut -d\" -f4`
+
+if [ "$1" != "" ]; then
+        WazuhVersion=$1
+else
+        echo "Please specify the version of Wazuh running on the manager (i.e. 6.9.2)."
+        exit
+fi
+
+echo "Preparing to locally install or upgrade the Wazuh Kibana App for Wazuh $WazuhVersion and Kibana $ElasticVersion..."
+
+AppVersion=$WazuhVersion"_"$ElasticVersion
+echo "Stopping Kibana..."
+systemctl stop kibana
+chown -R kibana:kibana /usr/share/kibana/optimize
+chown -R kibana:kibana /usr/share/kibana/plugins
+sudo -u kibana /usr/share/kibana/bin/kibana-plugin remove wazuh
+rm -rf /usr/share/kibana/optimize/bundles
+echo "Installing now.  Will take a few minutes..."
+sudo -u kibana NODE_OPTIONS="--max-old-space-size=3072" /usr/share/kibana/bin/kibana-plugin install https://packages.wazuh.com/wazuhapp/wazuhapp-$AppVersion.zip &
+
+tail -n20 /var/log/kibana/kibana.log  | egrep "Optimization of bundles for .*, kibana,.*complete in "
+
+while [[ ! `tail -n20 /var/log/kibana/kibana.log  | egrep "Optimization of bundles for .*, kibana,.*complete in "` ]]; do
+        echo "waiting for optimization of bundles to complete..."
+        sleep 10
+done
+
+stuckPID=`ps auxw | grep "kibana-plugin install " | grep -v grep | awk '{print $2}'`
+if [ "$stuckPID" != "" ]; then
+       echo "Optimization was completed but installer instance did not terminate.  Killing it off now..."
+       kill -kill $stuckPID
+fi
+sleep 5
+echo "Restarting Kibana..."
+systemctl start kibana
