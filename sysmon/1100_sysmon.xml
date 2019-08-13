@@ -1,0 +1,192 @@
+<group name="windows,sysmon,">
+
+  <rule id="110000" level="2">
+    <if_sid>550</if_sid>
+    <match>sysmonconfig.xml</match>
+    <description>New sysmonconfig.xml received.  Reload it now.</description>
+  </rule>
+
+  <rule id="61600" level="3" overwrite="yes">
+    <if_sid>60004</if_sid>
+    <field name="win.system.severityValue">^INFORMATION$</field>
+    <description>Windows Sysmon informational event</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="61601" level="3" overwrite="yes">
+    <if_sid>60004</if_sid>
+    <field name="win.system.severityValue">^WARNING$</field>
+    <description>Windows Sysmon warning event</description>
+    <options>no_full_log</options>
+    <group>gpg13_4.12,</group>
+  </rule>
+
+  <rule id="61603" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^1$</field>
+    <description>Sysmon - Event 1: Process creation - $(win.eventdata.description)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event1,</group>
+  </rule>
+
+  <rule id="61604" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^2$</field>
+    <description>Sysmon - Event 2: A process changed a file creation time by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event2,</group>
+  </rule>
+
+  <rule id="61605" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^3$</field>
+    <description>Sysmon - Event 3: Network connection by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event3,</group>
+  </rule>
+
+  <rule id="61606" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^4$</field>
+    <description>Sysmon - Event 4: Sysmon service state changed</description>
+    <options>no_full_log</options>
+    <group>sysmon_event4,</group>
+  </rule>
+
+  <rule id="61607" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^5$</field>
+    <description>Sysmon - Event 5: Process terminated by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event5,</group>
+  </rule>
+
+  <rule id="61608" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^6$</field>
+    <description>Sysmon - Event 6: Driver loaded by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event6,</group>
+  </rule>
+
+  <rule id="61609" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^7$</field>
+    <description>Sysmon - Event 7: Image loaded by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event7,</group>
+  </rule>
+
+  <rule id="61610" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^8$</field>
+    <description>Sysmon - Event 8: CreateRemoteThread by $(win.eventdata.sourceImage)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event8,</group>
+  </rule>
+
+  <rule id="61611" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^9$</field>
+    <description>Sysmon - Event 9: RawAccessRead by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event9,</group>
+  </rule>
+
+  <rule id="61612" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^10$</field>
+    <description>Sysmon - Event 10: ProcessAccess by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_10,</group>
+  </rule>
+
+  <rule id="61613" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^11$</field>
+    <description>Sysmon - Event 11: FileCreate by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_11,</group>
+  </rule>
+
+  <rule id="61614" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^12$</field>
+    <description>Sysmon - Event 12: RegistryEvent (Object create and delete) by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_12,</group>
+  </rule>
+
+  <rule id="61615" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^13$</field>
+    <description>Sysmon - Event 13: RegistryEvent (Value Set) by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_13,</group>
+  </rule>
+
+  <rule id="61616" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^14$</field>
+    <description>Sysmon - Event 14: RegistryEvent (Key and Value Rename) by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_14,</group>
+  </rule>
+
+  <rule id="61617" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^15$</field>
+    <description>Sysmon - Event 15: FileCreateStreamHash by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_15,</group>
+  </rule>
+
+  <rule id="110010" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^17$</field>
+    <description>Sysmon - Event 17: PipeEvent (Pipe Created) by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_17,</group>
+  </rule>
+
+  <rule id="110011" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^18$</field>
+    <description>Sysmon - Event 18: PipeEvent (Pipe Connected) by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_18,</group>
+  </rule>
+
+  <rule id="110012" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^19$</field>
+    <description>Sysmon - Event 19: WmiEvent (WmiEventFilter activity detected) by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_19,</group>
+  </rule>
+
+  <rule id="110013" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^20$</field>
+    <description>Sysmon - Event 20: WmiEvent (WmiEventConsumer activity detected) by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_20,</group>
+  </rule>
+
+  <rule id="110014" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^21$</field>
+    <description>Sysmon - Event ID 21: WmiEvent (WmiEventConsumerToFilter activity detected) by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_21,</group>
+  </rule>
+
+  <rule id="110015" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^22$</field>
+    <description>Sysmon - Event ID 22: DNSEvent (DNS query) by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_22,</group>
+  </rule>
+
+</group>
