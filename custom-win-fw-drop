@@ -3,7 +3,9 @@
 #
 # /var/ossec/integrations/custom-win-fw-drop
 #
-# Custom Wazuh integration script to invoke Windows AR to firewall block an attacking IP via the Wazuh API in response to a Wazuh alert about a Windows event or events
+# Custom Wazuh integration script to use the Wazuh API to invoke a Windows active response to firewall block an offending IP
+# in response to one or more alert-triggering events on a Windows system.
+#
 # developed by Kevin Branch 3/13/2020
 #
 # This program is free software; you can redistribute it and/or modify
@@ -11,11 +13,13 @@
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
 #
-# Wazuh can't automatically invoke Windows active response firewall blocks because ossec-analysisd is limited to passing only three alert fields to an AR script (path, srcip, dstuser).
-# Windows events use a source IP field that Wazuh dynamically decodes as data.win.eventdata.ipAddress which cannot be automatically passed by the active response code in ossec-analysisd.
-# However, the Wazuh API be used to invoke AR scripts on agents with arbitraty parameters.  Thus this integration can be set to be triggered by the same criteria you use in your
-# Windows firewall block active-response section.  It will then extract the data.win.eventdata.ipAddress and agent.id field from the alert JSON record and use them in a Wazuh API call
-# that will correctly trigger a Windows AR firewall block on an agent.
+# Wazuh can't automatically invoke Windows active response firewall blocks because ossec-analysisd is limited to passing only three
+# alert fields to an AR script (path, srcip, dstuser). Windows events use a source IP field that Wazuh dynamically decodes as 
+# data.win.eventdata.ipAddress which cannot be automatically passed by the active response code in ossec-analysisd.
+# However, the Wazuh API be used to invoke AR scripts on agents with arbitraty parameters.  Thus this integration can be set to be 
+# triggered by the same criteria you use in your Windows firewall block active-response section.  It will then extract the 
+# data.win.eventdata.ipAddress and agent.id field from the alert JSON record and use them in a Wazuh API call that will correctly
+# trigger a Windows AR firewall block on an agent.
 #
 # Active response section required in ossec.conf (use timeout length and criteria of your choice)
 #   <active-response>
@@ -39,7 +43,8 @@
 #    APIUSER=admin
 #    APIPASS=ChangeMe1
 #
-# If you are using a Wazuh manager cluster, then put this custom integration script, the above ossec.conf sections and the above api_creds file in place on all of your manager nodes.
+# If you are using a Wazuh manager cluster, then put this custom integration script, the above ossec.conf sections and the above
+# api_creds file in place on all of your manager nodes.
 #
 
 LOCAL=`dirname $0`;
