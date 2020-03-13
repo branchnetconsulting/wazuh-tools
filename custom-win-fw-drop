@@ -1,0 +1,120 @@
+#!/bin/bash
+
+#
+# /var/ossec/integrations/custom-win-fw-drop
+#
+# Custom Wazuh integration script to invoke Windows AR to firewall block an attacking IP via the Wazuh API in response to a Wazuh alert about a Windows event or events
+# developed by Kevin Branch 3/13/2020
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Wazuh can't automatically invoke Windows active response firewall blocks because ossec-analysisd is limited to passing only three alert fields to an AR script (path, srcip, dstuser).
+# Windows events use a source IP field that Wazuh dynamically decodes as data.win.eventdata.ipAddress which cannot be automatically passed by the active response code in ossec-analysisd.
+# However, the Wazuh API be used to invoke AR scripts on agents with arbitraty parameters.  Thus this integration can be set to be triggered by the same criteria you use in your
+# Windows firewall block active-response section.  It will then extract the data.win.eventdata.ipAddress and agent.id field from the alert JSON record and use them in a Wazuh API call
+# that will correctly trigger a Windows AR firewall block on an agent.
+#
+# Active response section required in ossec.conf
+#   <active-response>
+#      <command>netsh-win-2016</command>
+#      <location>local</location>
+#      <rules_id>60204</rules_id>
+#      <timeout>120</timeout>
+#   </active-response>
+#
+# Integration section required in ossec.conf
+#    <integration>
+#       <name>custom-win-fw-drop</name>
+#       <rule_id>60204</rule_id>
+#       <alert_format>json</alert_format>
+#    </integration>
+#
+# File required: /var/ossec/etc/api_creds
+#    APIPROTO=http
+#    APIHOST=127.0.0.1
+#    APIPORT=55000
+#    APIUSER=admin
+#    APIPASS=ChangeMe1
+#
+
+
+LOCAL=`dirname $0`;
+SERVER=`hostname`
+cd $LOCAL
+cd ../
+PWD=`pwd`
+echo "`date` $0 $1 $2 $3" >> ${PWD}/logs/integrations.log
+
+ALERTFILE=$1
+if [ "$ALERTFILE" == "" ]; then
+        echo "no alert file specified" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+if [ ! -f $ALERTFILE ]; then
+        echo "alert file missing" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+
+if [ ! -f /var/ossec/etc/api_creds ]; then
+        echo "Wazuh API credentials file missing: /var/ossec/etc/api_creds" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+. /var/ossec/etc/api_creds
+if [ "$APIPROTO" == "" ]; then
+        echo "no APIPROTO set in API credentials file" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+if [ "$APIHOST" == "" ]; then
+        echo "no APIHOST set in API credentials file" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+if [ "$APIPORT" == "" ]; then
+        echo "no APIPORT set in API credentials file" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+if [ "$APIUSER" == "" ]; then
+        echo "no APIUSER set in API credentials file" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+if [ "$APIPASS" == "" ]; then
+        echo "no APIPASS set in API credentials file" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+
+IP=`cat $ALERTFILE | egrep -o 'ipAddress":"[^"]+' | awk -F\" '{print $NF}'`
+AGENTID=`cat $ALERTFILE | egrep -o 'agent":{"id":"[^"]+' | awk -F\" '{print $NF}'`
+RULEID=`cat $ALERTFILE | egrep -o 'rule":{[^{]+"id":"[^"]+' | awk -F\" '{print $NF}'`
+if [ "$IP" == "" ]; then
+        echo "'data.win.eventdata.ipAddress' field missing in alert record" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+if [ "$AGENTID" == "" ]; then
+        echo "'agent.id' field missing in alert record" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+if [ "$RULEID" == "" ]; then
+        echo "'rule.id' field missing in alert record" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+
+# Determine the timeout period actually defined for the AR
+DUR=`grep "netsh-win-2016" /var/ossec/etc/shared/ar.conf | cut -d" " -f1 | cut -c15-`
+if [ "$DUR" == "" ]; then
+        echo "No stateful netsh-win-2016 active response section is defined in this manager's ossec.conf file" >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+
+# Send API request to invoke AR
+RESULT=`curl -X PUT -u "$APIUSER:$APIPASS" -k $APIPROTO://$APIHOST:$APIPORT/active-response/$AGENTID -H 'Content-Type:application/json' -d "{\"command\":\"netsh-win-2016$DUR\", \"arguments\": [\"-\", \"$IP\", \"integration\", \"$RULEID\"]}" 2> /dev/null`
+
+# Throw an error if a positive response was not received from the API
+if [[ ! `echo $RESULT | grep "Command sent"` ]]; then
+        echo "API call failed" >> ${PWD}/logs/integrations.log
+        echo $RESULT >> ${PWD}/logs/integrations.log
+        exit 1
+fi
+
+exit 0
