@@ -270,7 +270,7 @@ do{
     $count++    
 }until($count -eq 6 -or $success)
 Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh"
-Remove-Item "$env:TEMP\Sysmon.zip -Force
+Remove-Item "$env:TEMP\Sysmon.zip" -Force
 
 if ( $SkipSysmon -eq $false ) {
 	# Download the latest SwiftOnSecurity config file for Sysmon and write it to Wazuh agent shared directory.
@@ -302,6 +302,7 @@ Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-i","
 # Write the active-response script reload-sysmon.cmd to the Wazuh AR directory so that it can be run when new Sysmon configs arrive to import them.
 echo "Writing reload-sysmon.cmd..."
 $ScriptToWrite = @"
+@ECHO OFF
 FOR /F "TOKENS=1* DELIMS= " %%A IN ('DATE/T') DO SET DATE=%%B
 FOR /F "TOKENS=1* DELIMS= " %%A IN ('TIME/T') DO SET TIME=%%A
 ECHO %DATE% %TIME% %0 %1 %2 %3 %4 %5 %6 %7 %8 %9 >> C:\Progra~2\ossec-agent\active-response\active-responses.log
