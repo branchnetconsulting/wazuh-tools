@@ -100,19 +100,18 @@ if ( !($PSVersionTable.PSVersion.Major) -ge 5 ) {
 # If the agent is already connected to the same target manager, the agent name has not changed, and the agent group list is exactly the same,
 # then the registration will be retained by backing up client.keys now and restoring it after reinstallation of the Wazuh agent, skipping self-registration. 
 $file = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
-$file2 = Get-Command "C:\Program Files (x86)\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
+$file2 = Get-Content "C:\Program Files (x86)\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
 if ($file -match "'connected'" ) {
     echo "Agent currently connected, so saving client.keys to $env:TEMP\client.keys.bnc"
     $ALREADY_CONNECTED="yes"
     $OLDNAME=(type "C:\Program Files (x86)\ossec-agent\client.keys").Split(" ")[1]
     Remove-Item -Path "$env:TEMP\client.keys.bnc" -erroraction 'silentlycontinue' | out-null
     Copy-Item 'C:\Program Files (x86)\ossec-agent\client.keys' -Destination "$env:TEMP\client.keys.bnc"
-    if ($file2 -match "Source file:") {
-        $CURR_GROUPS=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
+    if ($file2 -match "Source\sfile:") {
+                $CURR_GROUPS=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
     } else {
-        # If the agent is presently a member of only one agent group, then classify it as unknown so re-registration is forced.
-	# It is unclear how from the agent side to find the current agent group name when the agent is membered into only one group.
-        $CURR_GROUPS="unknown-single-group"
+        # If the agent is presently a member of only one agent group, then pull that group name into current group variable.
+        $CURR_GROUPS=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
     }
 } 
 
@@ -182,13 +181,14 @@ if ($ALREADY_CONNECTED -eq "yes") {
 	echo "Current registered agent name is: $OLDNAME and new target name is: $WazuhAgentName"
 	if ($WazuhAgentName -eq $OLDNAME) {
 		echo "Old and new agent registration names match." 
+                echo "Current group memberships are: $CURR_GROUPS and new target group memberships are: $WazuhGroups"
 		if ($CURR_GROUPS -eq $WazuhGroups) {
-			echo "Old and new agent group memberships match. Will skip self-registration and just restore client.keys backup instead."
+			echo "Old and new agent group memberships match. Will skip self-registration and restore client.keys backup instead."
 			$SKIP_REG = "yes"
 		}
 	}
 } else {
-   echo "Current groups: $CURR_GROUPS and target groups: $WazuhGroups do not match."
+   echo "Current groups and new target groups do not match."
    $SKIP_REG = "no"
 }
 
