@@ -1,15 +1,20 @@
 #
 # deploy-wazuh-windows-agent-suite.ps1
+# by Kevin Branch (kevin@branchnetconsulting.com)
+# with contributions by Ken Fredericksen (ken@branchnetconsulting.com)
 #
-# Deployment script for Wazuh agent and subagents (by default including Sysmon and Osquery).  
+# Deployment script for Wazuh agent and subagents (by default Sysmon and Osquery).  
+#
 # The Agent self registration process is included, but will be skipped if an existing working registration can be recycled.
 #
-# From command shell or powershell (Run as Administrator), run this script as follows:
-# 	PowerShell.exe -ExecutionPolicy Bypass -File ./deploy-wazuh-windows-agent-suite.ps1 -WazuhMgr "10.20.30.40" -WazuhRegPass "theRegistrationPW" -SysmonSrc "https://www.somewhere.com/Sysmon.exe"
+# From command shell or PowerShell (Run as Administrator), run this script as follows:
+# 	PowerShell.exe -ExecutionPolicy Bypass -File ./deploy-wazuh-windows-agent-suite.ps1 -WazuhMgr "10.20.30.40" -WazuhRegPass "theRegistrationPW"
 #
 # This script should work on Windows systems as old as Windows Server 2012 provided PowerShell 5.1 is present.  Likely Powershell 5.0 would be OK.
-# No provision has been made for Sysmon to work on Windows systems that have no 32-bit subsystem present (Windows Nano/Core).  
-# They would need Sysmon64.exe instead of Sysmon.exe.
+#
+# No provision has been made for Sysmon to work on Windows systems that have no 32-bit subsystem present (like Windows Nano and possible Core).  
+# They would need Sysmon64.exe run instead of Sysmon.exe.  A little logic to detect a 64 bit Windows system with no 32 bit subsystem would not
+# be that difficult to add.  
 #
 # This also installs a custom active-response script to be directly invoked via the Wazuh API against all agents using Sysmon 
 # to cause Sysmon.exe on each agent to import and apply the latest version of C:\Program Files (x86)\ossec-agent\shared\sysmonconfig.xml.
