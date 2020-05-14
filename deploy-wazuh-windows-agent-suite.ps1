@@ -1,6 +1,9 @@
 #
+# deploy-wazuh-windows-agent-suite.ps1
+#
 # Deployment script for Wazuh agent and subagents (by default including Sysmon and Osquery).  
 # The Agent self registration process is included, but will be skipped if an existing working registration can be recycled.
+#
 # From command shell or powershell (Run as Administrator), run this script as follows:
 # 	PowerShell.exe -ExecutionPolicy Bypass -File ./deploy-wazuh-windows-agent-suite.ps1 -WazuhMgr "10.20.30.40" -WazuhRegPass "theRegistrationPW"
 #
