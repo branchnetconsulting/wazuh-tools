@@ -315,7 +315,6 @@ FOR /F "TOKENS=1* DELIMS= " %%A IN ('DATE/T') DO SET DATE=%%B
 FOR /F "TOKENS=1* DELIMS= " %%A IN ('TIME/T') DO SET TIME=%%A
 ECHO %DATE% %TIME% %0 %1 %2 %3 %4 %5 %6 %7 %8 %9 >> C:\Progra~2\ossec-agent\active-response\active-responses.log
 c:\progra~2\sysmon-wazuh\Sysmon.exe -c c:\progra~2\ossec-agent\shared\sysmonconfig.xml
-ECHO. >> C:\Progra~2\ossec-agent\active-response\active-responses.log
 "@
 $ScriptToWrite | Out-File -FilePath C:\Progra~2\ossec-agent\active-response\bin\reload-sysmon.cmd -Encoding ASCII
 }
