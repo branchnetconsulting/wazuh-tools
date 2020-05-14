@@ -185,7 +185,7 @@ if ($ALREADY_CONNECTED -eq "yes") {
 if  ($SKIP_REG -eq "no") {
     # Register the agent with the manager
     echo "Registering Wazuh Agent with $WazuhRegMgr..."
-    C:\Progra~2\ossec-agent\agent-auth.exe -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$WazuhGroups"
+    C:\Progra~2\ossec-agent\agent-auth.exe -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$WazuhGroups" -A "$WazuhAgentName"
 } else {
 	Copy-Item "$env:TEMP\client.keys.bnc" -Destination 'C:\Program Files (x86)\ossec-agent\client.keys'
 }
