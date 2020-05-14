@@ -35,6 +35,9 @@
 #    <rules_group>run-directly-via-wazuh-api</rules_group>
 #  </active-response>
 #
+#  To manually invoke the reload-sysmon AR, you can run this on all Wazuh managers to which agents are connected:
+#    /var/ossec/bin/agent_control -b 1.1.1.1 -f reload-sysmon0 -a
+#
 # Last updated by Kevin Branch 5/13/2020.
 #
 
