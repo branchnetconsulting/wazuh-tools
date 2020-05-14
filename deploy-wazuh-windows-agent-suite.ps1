@@ -11,9 +11,6 @@
 # No provision has been made for Sysmon to work on Windows systems that have no 32-bit subsystem present (Windows Nano/Core).  
 # They would need Sysmon64.exe instead of Sysmon.exe.
 #
-# Sysmon executable installer is downloaded directly from custom location rather than the zip file from the official location, because downloading
-# a zip file, extracting an executable from it, and running the executatble tends to trip AV intervention.
-#
 # This also installs a custom active-response script to be directly invoked via the Wazuh API against all agents using Sysmon 
 # to cause Sysmon.exe on each agent to import and apply the latest version of C:\Program Files (x86)\ossec-agent\shared\sysmonconfig.xml.
 # Sections like below are presumed to be in ossec.conf on the Wazuh manager(s).  The script reload-sysmon.cmd must also be on the managers.
@@ -44,7 +41,7 @@
 # $WazuhAgentName   	Name under which to register this agent in place of locally detected Windows host name
 # $WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
 # $WazuhSrc		Static download path to fetch Wazuh agent installer.  Overrides $WazVer
-# $SysmonSrc		Static download path to fetch Sysmon installer.  
+# $SysmonSrc		Static download path to fetch Sysmon installer zip file.  
 # $SysmonConfSrc	Static download path to fetch Sysmon configuration file.
 # $SkipSysmon		Do not install Sysmon.  Completely remove it if present.
 # $OsqueryVer		Full version of Osquery to install, like "4.2.0"
@@ -58,7 +55,7 @@ param ( $WazuhVer = "3.12.3",
 	$WazuhAgentName = $env:computername, 
         $WazuhGroups = "windows,osquery,sysmon", 
         $WazuhSrc, 
-        $SysmonSrc, 
+        $SysmonSrc = "https://download.sysinternals.com/files/Sysmon.zip", 
         $SysmonConfSrc = "https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml", 
         [switch]$SkipSysmon=$false, 
         $OsqueryVer = "4.3.0", 
@@ -261,14 +258,14 @@ $ConfigToWrite | Out-File -FilePath C:/Progra~2/ossec-agent/local_internal_optio
 # Create "C:\Program Files (x86)\sysmon-wazuh" directory if missing
 if ( -not (Test-Path -LiteralPath "C:\Program Files (x86)\sysmon-wazuh" -PathType Container) ) { New-Item -Path "C:\Program Files (x86)\" -Name "sysmon-wazuh" -ItemType "directory" | out-null }
 
-# Download Sysmon.exe 
+# Download Sysmon.zip 
 Remove-Item "C:\Progra~2\sysmon-wazuh\*" -Force
-echo "Downloading Sysmon.exe..."
+echo "Downloading and unzipping Sysmon installer..."
 $count = 0
 $success = $false;
 do{
     try{
-        Invoke-WebRequest -Uri $SysmonSrc -OutFile "C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe"
+        Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
         $success = $true
     }
     catch{
@@ -282,6 +279,8 @@ do{
     }  
     $count++    
 }until($count -eq 6 -or $success)
+Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh"
+Remove-Item "$env:TEMP\Sysmon.zip -Force
 
 if ( $SkipSysmon -eq $false ) {
 	# Download the latest SwiftOnSecurity config file for Sysmon and write it to Wazuh agent shared directory.
