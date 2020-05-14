@@ -72,11 +72,11 @@ param ( $WazuhVer = "3.12.3",
       );
 
 if ($WazuhMgr -eq $null) { 
-	write-host "Must use '-WazugMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
+	write-host "Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
 	exit
 }
 if ($WazuhRegPass -eq $null) { 
-	write-host "Must use '-WazRegPass' to specify the password to use for agent registration."
+	write-host "Must use '-WazuhRegPass' to specify the password to use for agent registration."
 	exit
 }
 if ($WazuhRegMgr -eq $null) { 
