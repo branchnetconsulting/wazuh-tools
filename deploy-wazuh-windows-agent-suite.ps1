@@ -72,11 +72,11 @@ param ( $WazuhVer = "3.12.3",
       );
 
 if ($WazuhMgr -eq $null) { 
-	write-host "Must use '-WazugMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
+	write-host "Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
 	exit
 }
 if ($WazuhRegPass -eq $null) { 
-	write-host "Must use '-WazRegPass' to specify the password to use for agent registration."
+	write-host "Must use '-WazuhRegPass' to specify the password to use for agent registration."
 	exit
 }
 if ($WazuhRegMgr -eq $null) { 
@@ -108,7 +108,7 @@ if ($file -match "'connected'" ) {
     Remove-Item -Path "$env:TEMP\client.keys.bnc" -erroraction 'silentlycontinue' | out-null
     Copy-Item 'C:\Program Files (x86)\ossec-agent\client.keys' -Destination "$env:TEMP\client.keys.bnc"
     if ($file2 -match "Source\sfile:") {
-                $CURR_GROUPS=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
+        $CURR_GROUPS=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
     } else {
         # If the agent is presently a member of only one agent group, then pull that group name into current group variable.
         $CURR_GROUPS=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
