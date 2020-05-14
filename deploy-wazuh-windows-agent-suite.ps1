@@ -110,7 +110,7 @@ if ($file -match "'connected'" ) {
     if ($file2 -match "Source file:") {
         $CURR_GROUPS=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
     } else {
-        # If the agent is presently a member of only one agent group, then classify it as unknown for re-registration if forced.
+        # If the agent is presently a member of only one agent group, then classify it as unknown so re-registration is forced.
 	# It is unclear how from the agent side to find the current agent group name when the agent is membered into only one group.
         $CURR_GROUPS="unknown-single-group"
     }
