@@ -5,7 +5,7 @@
 # The Agent self registration process is included, but will be skipped if an existing working registration can be recycled.
 #
 # From command shell or powershell (Run as Administrator), run this script as follows:
-# 	PowerShell.exe -ExecutionPolicy Bypass -File ./deploy-wazuh-windows-agent-suite.ps1 -WazuhMgr "10.20.30.40" -WazuhRegPass "theRegistrationPW"
+# 	PowerShell.exe -ExecutionPolicy Bypass -File ./deploy-wazuh-windows-agent-suite.ps1 -WazuhMgr "10.20.30.40" -WazuhRegPass "theRegistrationPW" -SysmonSrc "https://www.somewhere.com/Sysmon.exe"
 #
 # This script should work on Windows systems as old as Windows Server 2012 provided PowerShell 5.1 is present.  Likely Powershell 5.0 would be OK.
 # No provision has been made for Sysmon to work on Windows systems that have no 32-bit subsystem present (Windows Nano/Core).  
@@ -58,7 +58,7 @@ param ( $WazuhVer = "3.12.3",
 	$WazuhAgentName = $env:computername, 
         $WazuhGroups = "windows,osquery,sysmon", 
         $WazuhSrc, 
-        $SysmonSrc = "http://www.branchnetconsulting.com/wazuh/Sysmon.exe", 
+        $SysmonSrc, 
         $SysmonConfSrc = "https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml", 
         [switch]$SkipSysmon=$false, 
         $OsqueryVer = "4.3.0", 
@@ -73,6 +73,11 @@ if ($WazuhMgr -eq $null) {
 
 if ($WazuhRegPass -eq $null) { 
 	write-host "Must use '-WazRegPass' to specify the password to use for agent registration."
+	exit
+}
+
+if ($SysmonSrc -eq $null) { 
+	write-host "Must use '-SysmonSrc' to specify a URL for downloading Sysmon.exe."
 	exit
 }
 
