@@ -37,13 +37,13 @@
 #
 
 #
-# $WazuhVer			Full version of Wazuh agent to install, like "3.12.2"
-# $WazuhMgr			IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
+# $WazuhVer		Full version of Wazuh agent to install, like "3.12.2"
+# $WazuhMgr		IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
 # $WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazMgr if not specified)
 # $WazuhRegPass		Password for registration with Wazuh manager (put in quotes).  Required.
-# $WazuhAgentName   Name under which to register this agent in place of locally detected Windows host name
+# $WazuhAgentName   	Name under which to register this agent in place of locally detected Windows host name
 # $WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
-# $WazuhSrc			Static download path to fetch Wazuh agent installer.  Overrides $WazVer
+# $WazuhSrc		Static download path to fetch Wazuh agent installer.  Overrides $WazVer
 # $SysmonSrc		Static download path to fetch Sysmon installer.  
 # $SysmonConfSrc	Static download path to fetch Sysmon configuration file.
 # $SkipSysmon		Do not install Sysmon.  Completely remove it if present.
@@ -55,7 +55,7 @@ param ( $WazuhVer = "3.12.3",
         $WazuhMgr, 
         $WazuhRegMgr, 
         $WazuhRegPass, 
-		$WazuhAgentName = $env:computername, 
+	$WazuhAgentName = $env:computername, 
         $WazuhGroups = "windows,osquery,sysmon", 
         $WazuhSrc, 
         $SysmonSrc = "http://www.branchnetconsulting.com/wazuh/Sysmon.exe", 
