@@ -67,29 +67,19 @@ if ($WazuhMgr -eq $null) {
 	write-host "Must use '-WazugMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
 	exit
 }
-
 if ($WazuhRegPass -eq $null) { 
 	write-host "Must use '-WazRegPass' to specify the password to use for agent registration."
 	exit
 }
-
-if ($SysmonSrc -eq $null) { 
-	write-host "Must use '-SysmonSrc' to specify a URL for downloading Sysmon.exe."
-	exit
-}
-
 if ($WazuhRegMgr -eq $null) { 
     $WazuhRegMgr = $WazuhMgr
 }
-
 if ($WazuhSrc -eq $null) { 
     $WazuhSrc = "https://packages.wazuh.com/3.x/windows/wazuh-agent-$WazuhVer-1.msi"
 }
-
 if ($OsquerySrc -eq $null) { 
     $OsquerySrc = "https://pkg.osquery.io/windows/osquery-$OsqueryVer.msi"
 }
-
 if ( !($PSVersionTable.PSVersion.Major) -ge 5 ) {
 	write-host "PowerShell 5.0 or higher is required by this script."
 	exit
@@ -312,7 +302,6 @@ Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-i","
 # Write the active-response script reload-sysmon.cmd to the Wazuh AR directory so that it can be run when new Sysmon configs arrive to import them.
 echo "Writing reload-sysmon.cmd..."
 $ScriptToWrite = @"
-@ECHO OFF
 FOR /F "TOKENS=1* DELIMS= " %%A IN ('DATE/T') DO SET DATE=%%B
 FOR /F "TOKENS=1* DELIMS= " %%A IN ('TIME/T') DO SET TIME=%%A
 ECHO %DATE% %TIME% %0 %1 %2 %3 %4 %5 %6 %7 %8 %9 >> C:\Progra~2\ossec-agent\active-response\active-responses.log
