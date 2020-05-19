@@ -1,0 +1,75 @@
+#!/bin/bash
+
+#
+# Amazon Linux install and self-register of Wazuh GTIS SIEM agent
+#
+
+WAZ_VER="3.12.3"
+WAZ_MGR=""
+WAZ_REG_MGR=""
+WAZ_PWD=""
+WAZ_GRPS="docker-aws-hosts"
+
+INSTANCE_ID=`curl http://169.254.169.254/latest/meta-data/instance-id`
+LABEL_ENV="app_env_tag"
+LABEL_APP="app_name_tag"
+WAZ_AGENT_NAME="$LABEL_ENV-$LABEL_APP-$INSTANCE_ID"
+
+cd ~
+
+# Dynamically generate a Wazuh config profile name for the major and minor version of a given Linux distro, like ubuntu14, ubuntu 14.04.
+CFG_PROFILE=`. /etc/os-release; echo $ID\`echo $VERSION_ID | cut -d. -f1\`, $ID\`echo $VERSION_ID\``
+
+# Wazuh Agent download/install/register
+wget -O /tmp/wazuh-agent-$WAZ_VER-1.x86_64.rpm https://packages.wazuh.com/3.x/yum/wazuh-agent-$WAZ_VER-1.x86_64.rpm
+yum -y install /tmp/wazuh-agent-$WAZ_VER-1.x86_64.rpm
+rm -f /tmp/wazuh-agent-$WAZ_VER-1.x86_64.rpm
+/var/ossec/bin/agent-auth -m $WAZ_REG_MGR -P "$WAZ_PWD" -G "$WAZ_GRPS" -A $WAZ_AGENT_NAME
+
+#
+# Dynamically generate ossec.conf
+#
+echo "
+<ossec_config>
+  <client>
+    <server>
+      <address>$WAZ_MGR</address>
+      <port>1514</port>
+      <protocol>tcp</protocol>
+    </server>
+    <config-profile>$CFG_PROFILE</config-profile>
+    <notify_time>60</notify_time>
+    <time-reconnect>180</time-reconnect>
+    <auto_restart>yes</auto_restart>
+    <crypto_method>aes</crypto_method>
+  </client>
+  <active-response>
+    <disabled>yes</disabled>
+  </active-response>
+  <labels>
+    <label key=\"instance-id\">$INSTANCE_ID</label>
+    <label key=\"env\">$LABEL_ENV</label>
+    <label key=\"app\">$LABEL_APP</label>
+  </labels>
+  <logging>
+    <log_format>json</log_format>
+  </logging>
+</ossec_config>
+" > /var/ossec/etc/ossec.conf
+
+#
+# Generate local_internal_options.conf
+#
+echo "
+logcollector.remote_commands=1
+wazuh_command.remote_commands=1
+sca.remote_commands=1
+" > /var/ossec/etc/local_internal_options.conf
+
+yum -y install python-pip
+pip install docker
+
+echo -e '#!/bin/bash\nsystemctl stop wazuh-agent; rm -rf /var/ossec/logs/*; systemctl start wazuh-agent' > /etc/cron.daily/flush-logs;
+systemctl restart cron
+
+systemctl restart wazuh-agent
