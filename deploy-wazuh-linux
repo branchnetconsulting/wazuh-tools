@@ -136,7 +136,7 @@ echo "
     <disabled>no</disabled>
   </active-response>
   <logging>
-    <log_format>json</log_format>
+    <log_format>plain, json</log_format>
   </logging>  
 </ossec_config>
 " > /var/ossec/etc/ossec.conf
