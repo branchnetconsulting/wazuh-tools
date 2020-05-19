@@ -18,7 +18,7 @@ if [ "$WAZ_AGENT_NAME" == "" ]; then
 fi
 
 if [ "$WAZ_REG_MGR" == "" ]; then
-        WAZ_REG_MGR="$WAZUH_MGR"
+        WAZ_REG_MGR="$WAZ_MGR"
 fi
 
 cd ~
@@ -91,7 +91,7 @@ if [ "$ALREADY_CONNECTED" == "yes" ]; then
         fi
 fi
 if [ "$SKIP_REG" == "no" ]; then
-        /var/ossec/bin/agent-auth -m $WAZ_REG_MGR -P "$WAZ_PWD" -G "$WAZ_GRPS" -A $WAZ_AGENT_NAME
+        /var/ossec/bin/agent-auth -m "$WAZ_REG_MGR" -P "$WAZ_PWD" -G "$WAZ_GRPS" -A "$WAZ_AGENT_NAME"
 else
         cp -p /tmp/client.keys /var/ossec/etc/
 fi
