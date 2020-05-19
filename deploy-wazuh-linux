@@ -3,9 +3,7 @@
 #
 # Usage:
 #
-# WAZ_VER="3.12.2" OSQ_VER="4.3.0" WAZ_MGR="WAZUH_MANAGER_NAME_OR_IP" WAZ_PWD="REGISTRATION_PASSWORD" WAZ_GRPS="osquery" WAZ_AGENT_NAME="OPTIONAL_CUSTOM_AGENT_NAME"
-#
-# (WAZ_AGENT_NAME is optional.)
+# WAZ_VER="3.12.3" OSQ_VER="4.3.0" WAZ_MGR="WAZUH_MANAGER_NAME_OR_IP" WAZ_REG_MGR="OPTIONAL WAZUH_REGISTRATION_MANAGER_NAME_OR_IP" WAZ_PWD="REGISTRATION_PASSWORD" WAZ_GRPS="osquery" WAZ_AGENT_NAME="OPTIONAL_CUSTOM_AGENT_NAME"
 #
 
 # Bail if this box is running Security Onion
@@ -17,6 +15,10 @@ fi
 # If no custom agent name specificed, use the internal hostname.
 if [ "$WAZ_AGENT_NAME" == "" ]; then
         WAZ_AGENT_NAME=`hostname`
+fi
+
+if [ "$WAZ_REG_MGR" == "" ]; then
+        WAZ_REG_MGR="$WAZUH_MGR"
 fi
 
 cd ~
@@ -89,7 +91,7 @@ if [ "$ALREADY_CONNECTED" == "yes" ]; then
         fi
 fi
 if [ "$SKIP_REG" == "no" ]; then
-        /var/ossec/bin/agent-auth -m $WAZ_MGR -P "$WAZ_PWD" -G "$WAZ_GRPS" -A $WAZ_AGENT_NAME
+        /var/ossec/bin/agent-auth -m $WAZ_REG_MGR -P "$WAZ_PWD" -G "$WAZ_GRPS" -A $WAZ_AGENT_NAME
 else
         cp -p /tmp/client.keys /var/ossec/etc/
 fi
@@ -133,6 +135,9 @@ echo "
   <active-response>
     <disabled>no</disabled>
   </active-response>
+  <logging>
+    <log_format>json</log_format>
+  </logging>  
 </ossec_config>
 " > /var/ossec/etc/ossec.conf
 
@@ -158,9 +163,9 @@ else
         service wazuh-agent restart
 fi
 
-echo "Waiting one minute before checking connection status to manager..."
-sleep 60
-if [[ `cat /var/ossec/var/run/ossec-agentd.state  | grep "'connected'"` ]]; then
+echo "Waiting 15 seconds before checking connection status to manager..."
+sleep 15
+if [[ `cat /var/ossec/logs/ossec.log | grep "Connected to the server "` ]]; then
         echo "Agent has succesfully reported into the manager."
 else
         echo "Something appears to have gone wrong.  Agent is not connected to the manager."
