@@ -1,24 +1,104 @@
+#!/bin/bash
+
 #
-# Linux Wazuh agent install and self-register, plus install osquery
+# deploy-wazuh-linux
+# by Kevin Branch (kevin@branchnetconsulting.com)
 #
-# Usage:
+# Deployment script for Wazuh agent and Wazuh-integrated Osquery on Ubuntu/Debian and CentOS/RedHat/Amazon Linux systems.
+# After preserving the working Wazuh agent registration key if present, Wazuh/OSSEC agent and/or Osquery are completely purged and then reinstalled,
+# with an option to skip Osquery.
+# The Wazuh agent self registration process is included, but will be skipped if an existing working registration can be recycled.  
+# Agent name and group names must match exactly for registration to be recycled.  This will keep the same agent id associated with the agent.
 #
-# WAZ_VER="3.12.3" OSQ_VER="4.3.0" WAZ_MGR="WAZUH_MANAGER_NAME_OR_IP" WAZ_REG_MGR="OPTIONAL WAZUH_REGISTRATION_MANAGER_NAME_OR_IP" WAZ_PWD="REGISTRATION_PASSWORD" WAZ_GRPS="osquery" WAZ_AGENT_NAME="OPTIONAL_CUSTOM_AGENT_NAME"
+# Parameters:
+#
+# WazuhMgr			Required: IP or FQDN of the Wazuh manager for ongoing agent connections.  
+# WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection if other than above (defaults to WazuhMgr value if not specified)
+# WazuhRegPass		Required: password for registration with Wazuh manager (put in quotes).
+# WazuhVer			Full version of Wazuh agent to install, like "3.12.3".  Defaults to latest stable version.
+# WazuhAgentName	Name under which to register this agent in place of locally detected Linux host name
+# WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
+#					Do not includes "linux", "ubuntu", or "centos" groups as these are autodetected and will dynamically be inserted as the first groups.
+#					Also, do not include "osquery" as this will automatically be included unless SkipOsquery is set to "1".
+# WazuhSrc			Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
+# OsqueryVer		Full version of Osquery to install.  Defaults to latest stable version.
+# OsquerySrc		Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
+# SkipOsquery		Set to "1" to skip installing Osquery, which will also result in Osquery being removed if present.  Osquery installed by default.
+#
+# Example minimal usage:
+#
+# WazuhMgr="siem.company.com" WazuhRegPass="self-reg-pw" ./deploy-wazuh-linux
+#
+# The above would (re)install the latest stable Wazuh agent and Osquery.
+# It would also self-register with the specified Wazuh manager using the specified password, unless an existing working registration can be kept.
+# The agent would be registered with agent groups "linux,ubuntu,osquery" or "linux,centos,osquery" depending on if this is an rpm or deb system.
 #
 
-# Bail if this box is running Security Onion
+if [ "$WazuhVer" == "" ]; then
+	WazuhVer="3.12.3"
+fi
+
+if [ "$OsqueryVer" == "" ]; then
+	OsqueryVer="4.3.0"
+fi
+
+# Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.
+# Among other things, this affects the automatically assigned starting set of agent group names to include "ubuntu" or "centos".
+# This needs to be refined, but reflects the Linux flavors I actually work with.
+WazuhGroupsPrefix="linux,"
+if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
+	LinuxFamily = "deb"
+	WazuhGroupsPrefix="${WazuhGroupsPrefix}ubuntu,"
+else
+	LinuxFamily="rpm"
+	WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
+fi
+if [ "$SkipOsquery" != "1" ]; then
+	WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,"
+fi
+WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
+# If there were no additional groups, strip off the trailing comma in the list.
+WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
+
+# Bail if this box is running Security Onion which conflicts with standard Wazuh agent packages.
 if [ -f /etc/nsm/securityonion.conf ]; then
         echo "This deployment script is not compatible with Security Onion.  Do a manual tarball install and registration instead."
         exit
 fi
 
-# If no custom agent name specificed, use the internal hostname.
-if [ "$WAZ_AGENT_NAME" == "" ]; then
-        WAZ_AGENT_NAME=`hostname`
+if [ "$WazuhMgr" == "" ]; then
+	exho "WazuhMgr variable must be used to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
+	exit
 fi
 
-if [ "$WAZ_REG_MGR" == "" ]; then
-        WAZ_REG_MGR="$WAZ_MGR"
+if [ "$WazuhRegPass" == "" ]; then
+	echo "WazuhRegPass variable must be used to specify the password to use for agent registration."
+	exit
+fi
+
+if [ "$WazuhRegMgr" == "" ]; then
+	WazuhRegMgr="$WazuhMgr"
+fi
+
+if [ "$WazuhSrc" == "" ]; then 
+	if [ "$LinuxFamily" == "deb" ]; then	
+		WazuhSrc="https://packages.wazuh.com/3.x/apt/pool/main/w/wazuh-agent/wazuh-agent_$WazuhVer-1_amd64.deb"
+	else
+		WazuhSrc="https://packages.wazuh.com/3.x/yum/wazuh-agent-$WazuhVer-1.x86_64.rpm"
+	fi
+fi
+
+if [ "$OsquerySrc" == "" ]; then
+	if [ "$LinuxFamily" == "deb" ]; then	
+		OsquerySrc="https://pkg.osquery.io/deb/osquery_${OsqueryVer}_1.linux.amd64.deb"
+	else
+		OsquerySrc="https://pkg.osquery.io/rpm/osquery-${OsqueryVer}-1.linux.x86_64.rpm"
+	fi
+fi
+
+# If no custom agent name specified, use the internal Linux hostname.
+if [ "$WazuhAgentName" == "" ]; then
+	WazuhAgentName=`hostname`
 fi
 
 cd ~
@@ -55,21 +135,18 @@ CFG_PROFILE=`. /etc/os-release; echo $ID\`echo $VERSION_ID | cut -d. -f1\`, $ID\
 #
 # Branch between Ubuntu and CentOS for Wazuh agent installation steps
 #
-if [[ -f /etc/os-release && `grep -i ubuntu /etc/os-release` ]]; then
+if [ "$LinuxFamily" == "deb" ]; then
         # Wazuh Agent remove/download/install
-        rm -f /tmp/wazuh-agent_$WAZ_VER-1_amd64.deb 2> /dev/null
-        wget -O /tmp/wazuh-agent_$WAZ_VER-1_amd64.deb https://packages.wazuh.com/3.x/apt/pool/main/w/wazuh-agent/wazuh-agent_$WAZ_VER-1_amd64.deb
-        # Using dpkg because it seems ubuntu 14 refuses to install local deb file via apt-get.  Otherwise apt-get install would work for newer Ubuntu.
-        dpkg -i /tmp/wazuh-agent_$WAZ_VER-1_amd64.deb
-        rm -f /tmp/wazuh-agent_$WAZ_VER-1_amd64.deb
-        WAZ_GRPS="linux,ubuntu,$WAZ_GRPS"
+        rm -f /tmp/wazuh-agent_$WazuhVer-1_amd64.deb 2> /dev/null
+        wget -O /tmp/wazuh-agent_$WazuhVer-1_amd64.deb $WazuhSrc
+        dpkg -i /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
+        rm -f /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
 else
         # Wazuh Agent remove/download/install
-        rm -f /tmp/wazuh-agent-$WAZ_VER-1.x86_64.rpm 2> /dev/null
-        wget -O /tmp/wazuh-agent-$WAZ_VER-1.x86_64.rpm https://packages.wazuh.com/3.x/yum/wazuh-agent-$WAZ_VER-1.x86_64.rpm
-        yum -y install /tmp/wazuh-agent-$WAZ_VER-1.x86_64.rpm
-        rm -f /tmp/wazuh-agent-$WAZ_VER-1.x86_64.rpm
-        WAZ_GRPS="linux,centos,$WAZ_GRPS"
+        rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm 2> /dev/null
+        wget -O /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm $WazuhSrc
+        yum -y install /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
+        rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
 fi
 
 #
@@ -79,40 +156,44 @@ fi
 SKIP_REG="no"
 if [ "$ALREADY_CONNECTED" == "yes" ]; then
         echo "Agent is presently connected..."
-        echo "Current registered agent name is $OLDNAME and new target name is: $WAZ_AGENT_NAME"
-        if [ "$WAZ_AGENT_NAME" == "$OLDNAME" ]; then
+        echo "Current registered agent name is $OLDNAME and new target name is: $WazuhAgentName"
+        if [ "$WazuhAgentName" == "$OLDNAME" ]; then
                 echo "Old and new agent registration names match."
-                if [ "$CURR_GROUPS" == "$WAZ_GRPS" ]; then
+                if [ "$CURR_GROUPS" == "$WazuhGroups" ]; then
                         echo -e "Old and new agent group memberships match.\nWill skip self-registration and just restore client.keys backup instead..."
                         SKIP_REG=1
                 else
-                        echo "Current groups: $CURR_GROUPS and target groups: $WAZ_GRPS do not match."
+                        echo "Current groups: $CURR_GROUPS and target groups: $WazuhGroups do not match."
                 fi
         fi
 fi
 if [ "$SKIP_REG" == "no" ]; then
-        /var/ossec/bin/agent-auth -m "$WAZ_REG_MGR" -P "$WAZ_PWD" -G "$WAZ_GRPS" -A "$WAZ_AGENT_NAME"
+        /var/ossec/bin/agent-auth -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$WazuhGroups" -A "$WazuhAgentName"
 else
         cp -p /tmp/client.keys /var/ossec/etc/
 fi
 
 #
-# Osquery remove/download/install (different for ubuntu vs centos)
+# Remove Osquery if present.  If not set to be skipped, then next download and install it.
 #
-if [[ -f /etc/os-release && `grep -i ubuntu /etc/os-release` ]]; then
+if [ "$LinuxFamily" == "deb" ]; then
         dpkg --purge osquery 2> /dev/null
-        rm -rf /var/osquery/osquery.db /var/osquery /var/log/osquery
+        rm -rf /var/osquery /var/log/osquery /usr/share/osquery
         rm -f osquery.deb 2> /dev/null
-        wget -O osquery.deb https://pkg.osquery.io/deb/osquery_${OSQ_VER}_1.linux.amd64.deb
-        dpkg -i osquery.deb
-        rm -f osquery.deb 2> /dev/null
+		if [ "$SkipOsquery" != "1" ]; then
+			wget -O osquery.deb $OsquerySrc
+			dpkg -i osquery.deb
+			rm -f osquery.deb 2> /dev/null
+		fi
 else
         yum -y erase osquery 2> /dev/null
-        rm -rf /var/osquery/osquery.db /var/osquery /var/log/osquery
+        rm -rf /var/osquery /var/log/osquery /usr/share/osquery
         rm -f osquery.rpm 2> /dev/null
-        wget -O osquery.rpm https://pkg.osquery.io/rpm/osquery-${OSQ_VER}-1.linux.x86_64.rpm
-        yum -y install osquery.rpm
-        rm -f osquery.rpm 2> /dev/null
+		if [ "$SkipOsquery" != "1" ]; then
+			wget -O osquery.rpm $OsquerySrc
+			yum -y install osquery.rpm
+			rm -f osquery.rpm 2> /dev/null
+		fi
 fi
 
 #
@@ -122,7 +203,7 @@ echo "
 <ossec_config>
   <client>
     <server>
-      <address>$WAZ_MGR</address>
+      <address>$WazuhMgr</address>
       <port>1514</port>
       <protocol>tcp</protocol>
     </server>
@@ -132,9 +213,6 @@ echo "
     <auto_restart>yes</auto_restart>
     <crypto_method>aes</crypto_method>
   </client>
-  <active-response>
-    <disabled>no</disabled>
-  </active-response>
   <logging>
     <log_format>plain, json</log_format>
   </logging>  
@@ -142,7 +220,7 @@ echo "
 " > /var/ossec/etc/ossec.conf
 
 #
-# Dynamically genrate local_internal_options.conf
+# Dynamically generate local_internal_options.conf
 #
 echo "
 # Logcollector - If it should accept remote commands from the manager
