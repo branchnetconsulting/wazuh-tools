@@ -47,7 +47,7 @@ fi
 # This needs to be refined, but reflects the Linux flavors I actually work with.
 WazuhGroupsPrefix="linux,"
 if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
-	LinuxFamily = "deb"
+	LinuxFamily="deb"
 	WazuhGroupsPrefix="${WazuhGroupsPrefix}ubuntu,"
 else
 	LinuxFamily="rpm"
