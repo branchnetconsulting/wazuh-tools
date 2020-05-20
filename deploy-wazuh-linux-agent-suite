@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# deploy-wazuh-linux
+# deploy-wazuh-linux-agent-suite
 # by Kevin Branch (kevin@branchnetconsulting.com)
 #
 # Deployment script for Wazuh agent and Wazuh-integrated Osquery on Ubuntu/Debian and CentOS/RedHat/Amazon Linux systems.
@@ -27,7 +27,7 @@
 #
 # Example minimal usage:
 #
-# WazuhMgr="siem.company.com" WazuhRegPass="self-reg-pw" ./deploy-wazuh-linux
+# WazuhMgr="siem.company.com" WazuhRegPass="self-reg-pw" ./deploy-wazuh-linux-agent-suite
 #
 # The above would (re)install the latest stable Wazuh agent and Osquery.
 # It would also self-register with the specified Wazuh manager using the specified password, unless an existing working registration can be kept.
