@@ -36,6 +36,7 @@ cd ~
 CFG_PROFILE=`. /etc/os-release; echo $ID\`echo $VERSION_ID | cut -d. -f1\`, $ID\`echo $VERSION_ID\``
 
 # Wazuh Agent download/install/register
+yum -y -q install wget
 wget -q -O /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm https://packages.wazuh.com/3.x/yum/wazuh-agent-$waz_ver-1.x86_64.rpm
 yum -y install /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
 rm -f /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
