@@ -4,16 +4,31 @@
 # Amazon Linux install and self-register of Wazuh GTIS SIEM agent
 #
 
-WAZ_VER="3.12.3"
-WAZ_MGR=""
-WAZ_REG_MGR=""
-WAZ_PWD=""
-WAZ_GRPS="docker-aws-hosts"
+# Dynamic named parameters
+environment=${environment:-}
+app_name=${app_name:-}
+waz_ver=${waz_ver:-3.12.3}
+waz_mgr=${waz_mgr:-}
+waz_reg_mgr=${waz_reg_mgr:-}
+waz_pwd=${waz_pwd:-}
+waz_grps=${waz_grps:-docker-aws-hosts}
 
-INSTANCE_ID=`curl http://169.254.169.254/latest/meta-data/instance-id`
-LABEL_ENV="app_env_tag"
-LABEL_APP="app_name_tag"
-WAZ_AGENT_NAME="$LABEL_ENV-$LABEL_APP-$INSTANCE_ID"
+while [ $# -gt 0 ]; do
+
+   if [[ $1 == *"--"* ]]; then
+        param="${1/--/}"
+        declare $param="$2"
+        # echo $1 $2 // Optional to see the parameter:value result
+   fi
+
+  shift
+done
+## End Dyamic named parameters
+
+INSTANCE_ID=`curl -s http://169.254.169.254/latest/meta-data/instance-id`
+LABEL_ENV=$environment
+LABEL_APP=$app_name
+WAZ_AGENT_NAME="$LABEL_APP-$LABEL_ENV-$INSTANCE_ID"
 
 cd ~
 
@@ -21,10 +36,10 @@ cd ~
 CFG_PROFILE=`. /etc/os-release; echo $ID\`echo $VERSION_ID | cut -d. -f1\`, $ID\`echo $VERSION_ID\``
 
 # Wazuh Agent download/install/register
-wget -O /tmp/wazuh-agent-$WAZ_VER-1.x86_64.rpm https://packages.wazuh.com/3.x/yum/wazuh-agent-$WAZ_VER-1.x86_64.rpm
-yum -y install /tmp/wazuh-agent-$WAZ_VER-1.x86_64.rpm
-rm -f /tmp/wazuh-agent-$WAZ_VER-1.x86_64.rpm
-/var/ossec/bin/agent-auth -m $WAZ_REG_MGR -P "$WAZ_PWD" -G "$WAZ_GRPS" -A $WAZ_AGENT_NAME
+wget -q -O /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm https://packages.wazuh.com/3.x/yum/wazuh-agent-$waz_ver-1.x86_64.rpm
+yum -y install /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
+rm -f /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
+/var/ossec/bin/agent-auth -m $waz_reg_mgr -P "$waz_pwd" -G "$waz_grps" -A $WAZ_AGENT_NAME
 
 #
 # Dynamically generate ossec.conf
@@ -33,7 +48,7 @@ echo "
 <ossec_config>
   <client>
     <server>
-      <address>$WAZ_MGR</address>
+      <address>$waz_mgr</address>
       <port>1514</port>
       <protocol>tcp</protocol>
     </server>
@@ -66,10 +81,10 @@ wazuh_command.remote_commands=1
 sca.remote_commands=1
 " > /var/ossec/etc/local_internal_options.conf
 
-yum -y install python-pip
-pip install docker
+yum -y install python27-pip
+/usr/bin/pip-2.7 install docker
 
-echo -e '#!/bin/bash\nsystemctl stop wazuh-agent; rm -rf /var/ossec/logs/*; systemctl start wazuh-agent' > /etc/cron.daily/flush-logs;
-systemctl restart cron
+echo -e '#!/bin/bash\nservice wazuh-agent stop; rm -rf /var/ossec/logs/*; service wazuh-agent start' > /etc/cron.daily/flush-logs;
+service crond restart
 
-systemctl restart wazuh-agent
+service wazuh-agent restart
