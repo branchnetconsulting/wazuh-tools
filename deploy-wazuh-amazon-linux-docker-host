@@ -30,6 +30,9 @@ LABEL_ENV=$environment
 LABEL_APP=$app_name
 WAZ_AGENT_NAME="$LABEL_APP-$LABEL_ENV-$INSTANCE_ID"
 
+#Ensure prerequisite tools are installed
+yum -q -y install wget
+
 cd ~
 
 # Dynamically generate a Wazuh config profile name for the major and minor version of a given Linux distro, like ubuntu14, ubuntu 14.04.
