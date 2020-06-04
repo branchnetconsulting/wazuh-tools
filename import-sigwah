@@ -1,12 +1,16 @@
 #!/bin/bash
 
 #
+# ********************
+# *** EXPERIMENTAL ***
+# ********************
+#
 # Build a single local Wazuh rule file called sigwah.xml derived from the translated/curated Sigma rules from SanWieb.
 # Transform the sysmon related rules to use <if_sid> instead of <if_group> to prevent rule tree explosion.
 # 
 # Thanks to the Sigma (https://neo23x0.github.io/sigma/) and sigWah projects (https://github.com/SanWieb/sigWah) for the great work!
 #
-# Non-sysmon sigWah rules are presently disabled by the script because they need to be made children of specific parent rules
+# Non-sysmon sigWah rules are presently disabled by this script because they need to be made children of specific parent rules
 # rather than use <if_group>windows</if_group> which causes a 6000% increase in the size of the Wazuh internal rule tree.
 #
 
@@ -16,6 +20,8 @@ cd sigWah
 echo '<group name="sigma,">' > /var/ossec/etc/rules/sigwah.xml
 ( find ./ossec-rules -name "*.xml" -exec cat {} \; ; )  >> /var/ossec/etc/rules/sigwah.xml
 echo '</group>' >> /var/ossec/etc/rules/sigwah.xml
+
+# Transform the sysmon-specific sigWah files to be children of specific parent rules.
 sed -i 's/<if_group>sysmon_event1<\/if_group>/<if_sid>61603<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
 sed -i 's/<if_group>sysmon_event2<\/if_group>/<if_sid>61604<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
 sed -i 's/<if_group>sysmon_event3<\/if_group>/<if_sid>61605<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
