@@ -1,0 +1,36 @@
+#!/bin/bash
+
+#
+# Build a single local Wazuh rule file called sigwah derived from the translated/curated Sigma rules from SanWieb
+# Transform the sysmon related rules to use <if_sid> instead of <if_group> to prevent rule tree explosion.
+# 
+# Non-sysmon sigWah rules don't work yet because they need to be made children of specific parent rules rather than
+# using <if_group>windows</if_group> which causes a 6000% increase in the size of the Wazuh internal rule tree.
+#
+
+rm -rf sigWah
+git clone  https://github.com/SanWieb/sigWah.git
+cd sigWah
+echo '<group name="sigma,">' > /var/ossec/etc/rules/sigwah.xml
+( find ./ossec-rules -name "*.xml" -exec cat {} \; ; )  >> /var/ossec/etc/rules/sigwah.xml
+echo '</group>' >> /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event1<\/if_group>/<if_sid>61603<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event2<\/if_group>/<if_sid>61604<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event3<\/if_group>/<if_sid>61605<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event4<\/if_group>/<if_sid>61606<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event5<\/if_group>/<if_sid>61607<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event6<\/if_group>/<if_sid>61608<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event7<\/if_group>/<if_sid>61609<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event8<\/if_group>/<if_sid>61610<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event9<\/if_group>/<if_sid>61611<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event_10<\/if_group>/<if_sid>61612<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event_11<\/if_group>/<if_sid>61613<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event_12<\/if_group>/<if_sid>61614<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event_13<\/if_group>/<if_sid>61615<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event_14<\/if_group>/<if_sid>61616<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>sysmon_event_15<\/if_group>/<if_sid>61617<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
+
+# This intentionally breaks all of the non-sysmon Sigma rules.  They need to be hung off of specific parents.
+# To leave the "<if_group>windows</if_group>" intact on the sigma rules results in analysisd being bogged down
+# with an extra 200000+ rules are reported by "Total rules enabled" in ossec.log
+sed -i 's/<if_group>windows<\/if_group>/<decoded_as>windows_eventchannel<\/decoded_as>/g' /var/ossec/etc/rules/sigwah.xml
