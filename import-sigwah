@@ -1,11 +1,13 @@
 #!/bin/bash
 
 #
-# Build a single local Wazuh rule file called sigwah derived from the translated/curated Sigma rules from SanWieb
+# Build a single local Wazuh rule file called sigwah.xml derived from the translated/curated Sigma rules from SanWieb.
 # Transform the sysmon related rules to use <if_sid> instead of <if_group> to prevent rule tree explosion.
 # 
-# Non-sysmon sigWah rules don't work yet because they need to be made children of specific parent rules rather than
-# using <if_group>windows</if_group> which causes a 6000% increase in the size of the Wazuh internal rule tree.
+# Thanks to the Sigma (https://neo23x0.github.io/sigma/) and sigWah projects (https://github.com/SanWieb/sigWah) for the great work!
+#
+# Non-sysmon sigWah rules are presently disabled by the script because they need to be made children of specific parent rules
+# rather than use <if_group>windows</if_group> which causes a 6000% increase in the size of the Wazuh internal rule tree.
 #
 
 rm -rf sigWah
