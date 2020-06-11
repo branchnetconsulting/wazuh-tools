@@ -8,6 +8,15 @@
 # Just paste in the [full_log] JSON record strong from a Windows eventchannel event in Kibana and this script should successfully
 # test it for you.
 #
+# Note that by default, all stock Wazuh Windows eventchannel rules have full_log disabled, so you will have to remove this line
+# from the rules you want to produce [full_log] so that you can test them with ossec-logtest-eventchannel:
+#    <options>no_full_log</options
+# You could do this granularly or to remove this line across the entire stock ruleset, you could run this:
+#    sed -i '/<options>no_full_log</options>/d' /var/ossec/ruleset/rules/*
+# At a bare minimum you must remove this line from rule 60000 or ossec-logtest-eventchannel will not work.
+# To put the ruleset back to the latest stock ruleset with the no_full_log lines back again:
+#   /var/ossec/bin/update_ruleset
+#
 
 sed 's/<rule_dir>ruleset\/rules<\/rule_dir>/<rule_dir>ruleset\/rules-logtest<\/rule_dir>/' /var/ossec/etc/ossec.conf > /var/ossec/etc/ossec-logtest.conf
 mkdir /var/ossec/ruleset/rules-logtest 2> /dev/null
