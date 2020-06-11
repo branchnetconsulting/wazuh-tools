@@ -4,7 +4,7 @@
 # ossec-logtest-eventchannel
 # by Kevin Branch
 #
-# Use this variant of the standard ossec-logtest tool for testing Wazuh decoders and rules involving Windows EventChannel events.  
+# Use this wrapper of the standard ossec-logtest tool for testing Wazuh decoders and rules involving Windows EventChannel events.  
 # Just paste in the [full_log] JSON record strong from a Windows eventchannel event in Kibana and this script should successfully
 # test it for you.
 #
