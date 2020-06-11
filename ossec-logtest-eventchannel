@@ -13,6 +13,7 @@
 #    <options>no_full_log</options
 # You could do this granularly, or to remove this line across the entire stock ruleset, you could run this:
 #    sed -i '/<options>no_full_log</options>/d' /var/ossec/ruleset/rules/*
+# You may also have custom Windows rules in /var/ossec/etc/rules/ from which the no_full_log line needs to be removed.
 # At a bare minimum you must remove this line from rule 60000 or ossec-logtest-eventchannel will not work.
 # To put the stock ruleset back to the latest stock ruleset with the no_full_log lines back again:
 #    /var/ossec/bin/update_ruleset
