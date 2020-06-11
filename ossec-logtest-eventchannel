@@ -12,7 +12,7 @@
 sed 's/<rule_dir>ruleset\/rules<\/rule_dir>/<rule_dir>ruleset\/rules-logtest<\/rule_dir>/' /var/ossec/etc/ossec.conf > /var/ossec/etc/ossec-logtest.conf
 mkdir /var/ossec/ruleset/rules-logtest 2> /dev/null
 rsync -pog /var/ossec/ruleset/rules/* /var/ossec/ruleset/rules-logtest/
-sed -i '/<rule id="60000" level="0">/,+8 d' /var/ossec/ruleset/rules-logtest/0575-win-base_rules.xml
-sed -i 's/<group name="windows,">/<group name="windows,">\n\n  <rule id="60000" level="0">\n    <decoded_as>json<\/decoded_as>\n    <field name="win.system.providerName">\\.+<\/field>\n    <options>no_full_log<\/options>\n    <description>Group of windows rules<\/description>\n  <\/rule>/
+sed -i '/<rule id="60000" level="0">/,+7 d' /var/ossec/ruleset/rules-logtest/0575-win-base_rules.xml
+sed -i 's/<group name="windows,">/<group name="windows,">\n\n  <rule id="60000" level="0">\n    <decoded_as>json<\/decoded_as>\n    <field name="win.system.providerName">\\.+<\/field>\n    <description>Group of windows rules<\/description>\n  <\/rule>/
 ' /var/ossec/ruleset/rules-logtest/0575-win-base_rules.xml
 /var/ossec/bin/ossec-logtest -c /var/ossec/etc/ossec-logtest.conf $1 $2 $3
