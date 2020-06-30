@@ -67,7 +67,7 @@ if [ -f /etc/nsm/securityonion.conf ]; then
 fi
 
 if [ "$WazuhMgr" == "" ]; then
-	exho "WazuhMgr variable must be used to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
+	echo "WazuhMgr variable must be used to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
 	exit
 fi
 
