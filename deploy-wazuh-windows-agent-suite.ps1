@@ -42,34 +42,36 @@
 #
 
 #
-# $WazuhVer		Full version of Wazuh agent to install, like "3.12.2"
-# $WazuhMgr		IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
+# $WazuhVer			Full version of Wazuh agent to install, like "3.12.2"
+# $WazuhMgr			IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
 # $WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazuhMgr if not specified)
 # $WazuhRegPass		Password for registration with Wazuh manager (put in quotes).  Required.
-# $WazuhAgentName   	Name under which to register this agent in place of locally detected Windows host name
+# $WazuhAgentName	Name under which to register this agent in place of locally detected Windows host name
 # $WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
-# $WazuhSrc		Static download path to fetch Wazuh agent installer.  Overrides $WazVer
+# $WazuhSrc			Static download path to fetch Wazuh agent installer.  Overrides $WazVer
 # $SysmonSrc		Static download path to fetch Sysmon installer zip file.  
 # $SysmonConfSrc	Static download path to fetch Sysmon configuration file.
 # $SkipSysmon		Do not install Sysmon.  Completely remove it if present.
 # $OsqueryVer		Full version of Osquery to install, like "4.2.0"
 # $OsquerySrc		Static download path to fetch Osquery agent installer.  Overrides $OsqVer
 # $SkipOsquery		Do not install Osquery.  Completely remove it if present.
+# $Local			Expect all download files already to be present in current directory.  Do not use any $...Src parameters with this.
 #
-param ( $WazuhVer = "3.12.3", 
-        $WazuhMgr, 
-        $WazuhRegMgr, 
-        $WazuhRegPass, 
+param ( $WazuhVer = "3.13.1", 
+	$WazuhMgr, 
+	$WazuhRegMgr, 
+	$WazuhRegPass, 
 	$WazuhAgentName = $env:computername, 
-        $WazuhGroups = "windows,osquery,sysmon", 
-        $WazuhSrc, 
-        $SysmonSrc = "https://download.sysinternals.com/files/Sysmon.zip", 
-        $SysmonConfSrc = "https://raw.githubusercontent.com/branchnetconsulting/sysmon-config/master/sysmonconfig-export.xml", 
-        [switch]$SkipSysmon=$false, 
-        $OsqueryVer = "4.3.0", 
-        $OsquerySrc, 
-        [switch]$SkipOsquery=$false
-      );
+	$WazuhGroups = "windows,osquery,sysmon", 
+	$WazuhSrc, 
+	$SysmonSrc = "https://download.sysinternals.com/files/Sysmon.zip", 
+	$SysmonConfSrc = "https://raw.githubusercontent.com/branchnetconsulting/sysmon-config/master/sysmonconfig-export.xml", 
+	[switch]$SkipSysmon=$false, 
+	$OsqueryVer = "4.4.0", 
+	$OsquerySrc, 
+	[switch]$SkipOsquery=$false,
+	[switch]$Local=$false
+);
 
 if ($WazuhMgr -eq $null) { 
 	write-host "Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
@@ -91,6 +93,30 @@ if ($OsquerySrc -eq $null) {
 if ( !($PSVersionTable.PSVersion.Major) -ge 5 ) {
 	write-host "PowerShell 5.0 or higher is required by this script."
 	exit
+}
+
+# If "-Local" option selected, confirm all required local files are present.
+if ( $Local -eq $true ) {
+	if ( -not (Test-Path -LiteralPath "nuget.zip") ) {
+		Write-Output "Option '-Local' specified but no 'nuget.zip' file was found in current directory.  Giving up and aborting the installation..."
+		exit
+	}
+	if ( -not (Test-Path -LiteralPath "wazuh-agent.msi") ) {
+		Write-Output "Option '-Local' specified but no 'wazuh-agent.msi' file was found in current directory.  Giving up and aborting the installation..."
+		exit
+	}
+	if ( -not (Test-Path -LiteralPath "Sysmon.zip") ) {
+		Write-Output "Option '-Local' specified but no 'Sysmon.zip' file was found in current directory.  Giving up and aborting the installation..."
+		exit
+	}	
+	if ( -not (Test-Path -LiteralPath "sysmonconfig.xml") ) {
+		Write-Output "Option '-Local' specified but no 'sysmonconfig.xml' file was found in current directory.  Giving up and aborting the installation..."
+		exit
+	}	
+	if ( -not (Test-Path -LiteralPath "osquery.msi") ) {
+		Write-Output "Option '-Local' specified but no 'osquery.msi' file was found in current directory.  Giving up and aborting the installation..."
+		exit
+	}
 }
 
 # Set https protocol defaults to try stronger TLS first and allow all three forms of TLS
@@ -115,63 +141,80 @@ if ($file -match "'connected'" ) {
     }
 } 
 
-# Dependency
-cd c:\
-echo "Installing dependency (NuGet) to be able to uninstall other packages"
-$count = 0
-$success = $false;
-do{
-    try{
-		Install-PackageProvider -Name NuGet -Force
-		$success = $true
-    }
-    catch{
-		if ($count -lt 5) {
-			Write-Output "Download attempt failed.  Will retry 10 seconds."
-		} else {
-			Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
-			exit
+# NuGet Dependency
+
+if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
+	echo "Installing dependency (NuGet) to be able to uninstall other packages..."
+	if ( $Local -eq $false ) {
+		cd c:\
+		$count = 0
+		$success = $false;
+		do{
+			try{
+				Install-PackageProvider -Name NuGet -Force
+				$success = $true
+			}
+			catch{
+				if ($count -lt 5) {
+					Write-Output "Download attempt failed.  Will retry 10 seconds."
+				} else {
+					Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
+					exit
+				}
+				Start-sleep -Seconds 10
+			}  
+			$count++    
+		}until($count -eq 6 -or $success)
+	} else {
+		if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies" -PathType Container ) ) {
+			New-Item -ItemType "directory" -Path "C:\Program Files\PackageManagement\ProviderAssemblies"
 		}
-		Start-sleep -Seconds 10
-    }  
-    $count++    
-}until($count -eq 6 -or $success)
+		Expand-Archive "nuget.zip" -DestinationPath "C:\Program Files\PackageManagement\ProviderAssemblies\"
+		Import-PackageProvider -Name NuGet
+	}
+}
 
 #
 # Wazuh Agent 
 #
 
-# Download the correct version of the Wazuh installer MSI
-echo "Downloading $WazuhSrc"
-$count = 0
-$success = $false;
-do{
-    try{
-        Invoke-WebRequest -Uri $WazuhSrc -OutFile wazuh-agent.msi
-        $success = $true
-    }
-    catch{
-		if ($count -lt 5) {
-			Write-Output "Download attempt failed.  Will retry 10 seconds."
-		} else {
-			Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
-			exit
+# Download Wazuh Agent installer or confirm it is already locally present if "-Local" option specified.
+if ( $Local -eq $false ) {
+	# Download the correct version of the Wazuh installer MSI
+	echo "Downloading $WazuhSrc"
+	$count = 0
+	$success = $false;
+	do{
+		try{
+			Invoke-WebRequest -Uri $WazuhSrc -OutFile wazuh-agent.msi
+			$success = $true
 		}
-		Start-sleep -Seconds 10
-    }  
-    $count++    
-}until($count -eq 6 -or $success)
+		catch{
+			if ($count -lt 5) {
+				Write-Output "Download attempt failed.  Will retry 10 seconds."
+			} else {
+				Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
+				exit
+			}
+			Start-sleep -Seconds 10
+		}  
+		$count++    
+	}until($count -eq 6 -or $success)
+}
 
-# If Wazuh agent already present, blow it away
+
+# If Wazuh agent already installed, blow it away
 echo "Stopping old Wazuh Agent if present"
 net stop wazuh
 echo "Uninstalling old Wazuh Agent if present"
 Uninstall-Package -Name "Wazuh Agent" -erroraction 'silentlycontinue' | out-null
 
-# Install Wazuh Agent and then clean up the installer file
+# Install Wazuh Agent and then remove the installer file
 echo "Installing Wazuh Agent"
 Start-Process -FilePath wazuh-agent.msi -ArgumentList "/q" -Wait -WindowStyle 'Hidden'
-rm .\wazuh-agent.msi
+if ( $Local -eq $false ) {
+	rm .\wazuh-agent.msi
+}
 
 # If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
 # This should keep us from burning through so many agent ID numbers.
@@ -263,48 +306,59 @@ $ConfigToWrite | Out-File -FilePath C:/Progra~2/ossec-agent/local_internal_optio
 # Create "C:\Program Files (x86)\sysmon-wazuh" directory if missing
 if ( -not (Test-Path -LiteralPath "C:\Program Files (x86)\sysmon-wazuh" -PathType Container) ) { New-Item -Path "C:\Program Files (x86)\" -Name "sysmon-wazuh" -ItemType "directory" | out-null }
 
-# Download Sysmon.zip 
-Remove-Item "C:\Progra~2\sysmon-wazuh\*" -Force
-echo "Downloading and unzipping Sysmon installer..."
-$count = 0
-$success = $false;
-do{
-    try{
-        Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
-        $success = $true
-    }
-    catch{
-		if ($count -lt 5) {
-			Write-Output "Download attempt failed.  Will retry 10 seconds."
-		} else {
-			Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
-			exit
-		}
-		Start-sleep -Seconds 10
-    }  
-    $count++    
-}until($count -eq 6 -or $success)
-Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh"
-Remove-Item "$env:TEMP\Sysmon.zip" -Force
 
-if ( $SkipSysmon -eq $false ) {
-	# Download the latest SwiftOnSecurity config file for Sysmon and write it to Wazuh agent shared directory.
-	# This is only to seed it so that the install process works even if the official and perhaps localized file hasn't propagated down from Wazuh manager yet.
-	echo "Downloading $SysmonConfSrc as sysmonconfig.xml..."
+# Download and unzip Sysmon.zip, or unzip it from local directory if "-Local" option specified.
+# Sysmon must be acquired locally or via download even if "-SkipSysmon" was specified, so that we can use Sysmon.exe to uninstall Sysmon.
+Remove-Item "C:\Progra~2\sysmon-wazuh\*" -Force
+if ( $Local -eq $false ) {
+	echo "Downloading and unzipping Sysmon installer..."
 	$count = 0
 	$success = $false;
 	do{
 		try{
-			Invoke-WebRequest -Uri "$SysmonConfSrc" -OutFile "C:\Program Files (x86)\ossec-agent\shared\sysmonconfig.xml"
+			Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
 			$success = $true
 		}
 		catch{
-			Write-Output "Next attempt in 10 seconds"
+			if ($count -lt 5) {
+				Write-Output "Download attempt failed.  Will retry 10 seconds."
+			} else {
+				Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
+				exit
+			}
 			Start-sleep -Seconds 10
 		}  
 		$count++    
 	}until($count -eq 6 -or $success)
-	if(-not($success)){exit}
+	Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh"
+	Remove-Item "$env:TEMP\Sysmon.zip" -Force
+} else {
+	Expand-Archive "Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh\"
+}
+
+if ( $SkipSysmon -eq $false ) {
+	# Download SwiftOnSecurity config file for Sysmon or confirm it is already locally present if "-Local" option specified.
+	if ( $Local -eq $false ) {
+		# Download the latest SwiftOnSecurity config file for Sysmon and write it to Wazuh agent shared directory.
+		# This is only to seed it so that the install process works even if the official and perhaps localized file hasn't propagated down from Wazuh manager yet.
+		echo "Downloading $SysmonConfSrc as sysmonconfig.xml..."
+		$count = 0
+		$success = $false;
+		do{
+			try{
+				Invoke-WebRequest -Uri "$SysmonConfSrc" -OutFile "C:\Program Files (x86)\ossec-agent\shared\sysmonconfig.xml"
+				$success = $true
+			}
+			catch{
+				Write-Output "Next attempt in 10 seconds"
+				Start-sleep -Seconds 10
+			}  
+			$count++    
+		}until($count -eq 6 -or $success)
+		if(-not($success)){exit}
+	} else {	
+		Copy-Item "sysmonconfig.xml" -Destination "C:\Program Files (x86)\ossec-agent\shared\"
+	}
 }
 
 echo "Removing Sysmon if present..."
@@ -341,31 +395,35 @@ Uninstall-Package -Name "osquery" -erroraction 'silentlycontinue' | out-null
 Remove-Item "C:\Progra~1\osquery" -recurse -erroraction 'silentlycontinue'
 
 if ( $SkipOsquery -eq $false ) {
-	# Download the osquery MSI
-	echo "Downloading $OsquerySrc..."
-	$count = 0
-	$success = $false;
-	do{
-		try{
-			Invoke-WebRequest -Uri $OsquerySrc -OutFile osquery.msi
-			$success = $true
-		}
-		catch{
-			if ($count -lt 5) {
-				Write-Output "Download attempt failed.  Will retry 10 seconds."
-			} else {
-				Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
-				exit
+	# Download Osquery installer or confirm it is already locally present if "-Local" option specified.
+	if ( $Local -eq $false ) {
+		# Download the osquery MSI
+		echo "Downloading $OsquerySrc..."
+		$count = 0
+		$success = $false;
+		do{
+			try{
+				Invoke-WebRequest -Uri $OsquerySrc -OutFile osquery.msi
+				$success = $true
 			}
-			Start-sleep -Seconds 10
-		}  
-		$count++    
-	}until($count -eq 6 -or $success)
+			catch{
+				if ($count -lt 5) {
+					Write-Output "Download attempt failed.  Will retry 10 seconds."
+				} else {
+					Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
+					exit
+				}
+				Start-sleep -Seconds 10
+			}  
+			$count++    
+		}until($count -eq 6 -or $success)
+	} 	
 
 	# Install osquery
 	Start-Process -FilePath osquery.msi -ArgumentList "/q" -Wait -WindowStyle 'Hidden'
-	rm .\osquery.msi
-
+	if ( $Local -eq $false ) {
+		rm .\osquery.msi
+	}
 	# Remove the Windows service that the MSI installed which we do not want
 	echo "Removing the osquery Windows service so Wazuh agent can manage it instead..."
 	Start-Process -FilePath C:\Progra~1\osquery\osqueryd\osqueryd.exe -ArgumentList "--uninstall" -Wait -WindowStyle 'Hidden'
