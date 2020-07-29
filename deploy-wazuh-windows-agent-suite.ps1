@@ -98,10 +98,10 @@ if ( !($PSVersionTable.PSVersion.Major) -ge 5 ) {
 # Blend standard/dynamic groups with custom groups
 $WazuhGroupsPrefix = "windows,"
 if ( $SkipOsquery -eq $false ) {
-	WazuhGroupsPrefix = $WazuhGroupsPrefix+"osquery,"
+	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"osquery,"
 }
 if ( $SkipSysmon -eq $false ) {
-	WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,"
+	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,"
 }
 $WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
 $WazuhGroups = $WazuhGroups.TrimEnd(",")
