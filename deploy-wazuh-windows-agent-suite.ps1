@@ -95,6 +95,9 @@ if ( !($PSVersionTable.PSVersion.Major) -ge 5 ) {
 	exit
 }
 
+# If there is a trailing comma in the WazuhGroups list, then remove it since agent-auth chokes on trailing commas.
+$WazuhGroups=$WazuhGroups.TrimEnd(",")
+
 # If "-Local" option selected, confirm all required local files are present.
 if ( $Local -eq $true ) {
 	if ( -not (Test-Path -LiteralPath "nuget.zip") ) {
