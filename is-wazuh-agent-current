@@ -13,7 +13,7 @@
 #
 # Required parameters:
 #
-# $WazuhVer			Full Wazuh agent version number, like "3.12.2"
+# $WazuhVer		Full Wazuh agent version number, like "3.12.2"
 # $OsqueryVer		Full version of Osquery, like "4.2.0" (always N.N.N format)
 # $SysmonVer		Full version of Sysmon, like "11.11" (always N.N format)
 # $SkipSysmon		Do not examine Sysmon.
