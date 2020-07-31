@@ -62,7 +62,7 @@ param ( $WazuhVer = "3.13.1",
 	$WazuhRegMgr, 
 	$WazuhRegPass, 
 	$WazuhAgentName = $env:computername, 
-	$WazuhGroups = "windows,osquery,sysmon", 
+	$WazuhGroups, 
 	$WazuhSrc, 
 	$SysmonSrc = "https://download.sysinternals.com/files/Sysmon.zip", 
 	$SysmonConfSrc = "https://raw.githubusercontent.com/branchnetconsulting/sysmon-config/master/sysmonconfig-export.xml", 
@@ -94,6 +94,17 @@ if ( !($PSVersionTable.PSVersion.Major) -ge 5 ) {
 	write-host "PowerShell 5.0 or higher is required by this script."
 	exit
 }
+
+# Blend standard/dynamic groups with custom groups
+$WazuhGroupsPrefix = "windows,"
+if ( $SkipOsquery -eq $false ) {
+	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"osquery,"
+}
+if ( $SkipSysmon -eq $false ) {
+	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,"
+}
+$WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
+$WazuhGroups = $WazuhGroups.TrimEnd(",")
 
 # If "-Local" option selected, confirm all required local files are present.
 if ( $Local -eq $true ) {
