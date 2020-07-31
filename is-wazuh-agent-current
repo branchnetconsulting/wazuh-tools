@@ -1,5 +1,5 @@
 #
-# IsWazuhAgentCurrent.ps1
+# is-wazuh-agent-current.ps1
 #
 # This script is to be used to determine if there is need to call the deploy-wazuh-windows-agent-suite.ps1 script.
 # If any of the follwing test families fail, a return code of 1 will be returned.  Otherwise it will return a 0.
