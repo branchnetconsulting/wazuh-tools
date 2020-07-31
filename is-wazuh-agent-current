@@ -28,6 +28,7 @@ param ( $WazuhVer,
 		$WazuhGroups
 );
 
+# If false, there will be no output except a 0 or 1 return value.
 $DBG = $false
 
 #
