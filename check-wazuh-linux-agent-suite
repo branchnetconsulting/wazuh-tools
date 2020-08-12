@@ -11,7 +11,7 @@
 # 3 - Is the target version of Wazuh agent installed?
 # 4 - Is the target version of Osquery installed and running?
 #
-# Parameters:+
+# Parameters:
 #
 # $WazuhVer		Full Wazuh agent version number to confirm, like "3.12.2"
 # $OsqueryVer		Full version of Osquery to validate, like "4.2.0" (always N.N.N format)
