@@ -16,16 +16,20 @@
 # $WazuhVer		Full Wazuh agent version number, like "3.12.2"
 # $OsqueryVer		Full version of Osquery, like "4.2.0" (always N.N.N format)
 # $SysmonVer		Full version of Sysmon, like "11.11" (always N.N format)
+#
+# Optional parameters:
+#
+# $WazuhGroups		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
 # $SkipSysmon		Do not examine Sysmon.
 # $SkipOsquery		Do not examine Osquery.
-# $WazuhGroups		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
 #
+
 param ( $WazuhVer, 
 		$OsqueryVer, 
 		$SysmonVer, 
 		[switch]$SkipSysmon=$false, 
 		[switch]$SkipOsquery=$false,
-		$WazuhGroups
+		$WazuhGroups=""
 );
 
 # If false, there will be no output except a 0 or 1 return value.
@@ -37,7 +41,7 @@ $DBG = $false
 $file = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
 if ( -not ($file -match "'connected'" ) ) {
 	if ($DBG) { Write-Output "The Wazuh agent is not connected to the Wazuh manager." }
-	return 1
+	exit 1
 }
 
 #
@@ -65,7 +69,7 @@ $WazuhGroups = $WazuhGroups.TrimEnd(",")
 if ($DBG) { Write-Output "Target agent group membership:  $WazuhGroups" }
 if ( -not ( $CURR_GROUPS -eq $WazuhGroups ) ) {
 	if ($DBG) { Write-Output "Current and expected agent group membership differ." }
-	return 1
+	exit 1
 }
 
 #
@@ -76,7 +80,7 @@ if ($DBG) { Write-Output "Current Wazuh agent version is: $version" }
 if ($DBG) { Write-Output "Target Wazuh agent version is:  $WazuhVer" }
 if ( -not ( $WazuhVer.Trim() -eq $version.Trim() ) ) {
 	if ($DBG) { Write-Output "Current and expected Wazuh agent version differ." }
-	return 1
+	exit 1
 }
 
 if ( $SkipSysmon -eq $false ) {
@@ -86,7 +90,7 @@ if ( $SkipSysmon -eq $false ) {
 	# Local Sysmon.exe file exists?
 	if ( -not (Test-Path -LiteralPath "C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe") ) {
 		if ($DBG) { Write-Output "Sysmon appears to not be installed." }
-		return 1
+		exit 1
 	}
 	# Local Sysmon.exe file at target version?
 	$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe").FileVersion
@@ -94,13 +98,13 @@ if ( $SkipSysmon -eq $false ) {
 	if ($DBG) { Write-Output "Target Sysmon version is:  $SysmonVer" }
 	if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
 		if ($DBG) { Write-Output "Current and expected Sysmon version differ." }
-		return 1
+		exit 1
 	}
 	# Sysmon driver loaded?
 	$fltOut = (fltMC.exe) | Out-String
 	if ( -not ( $fltOut -match 'SysmonDrv' ) ) {
 		if ($DBG) { Write-Output "Sysmon driver is not loaded." }
-		return 1
+		exit 1
 	}
 }
 
@@ -111,7 +115,7 @@ if ( $SkipOsquery -eq $false ) {
 	# Local osqueryd.exe present?
 	if ( -not (Test-Path -LiteralPath "C:\Program Files\osquery\osqueryd\osqueryd.exe") ) {
 		if ($DBG) { Write-Output "Osquery executable appears to be missing." }
-		return 1
+		exit 1
 	}
 	# Correct version?
 	$osqver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files\osquery\osqueryd\osqueryd.exe").FileVersion
@@ -120,14 +124,14 @@ if ( $SkipOsquery -eq $false ) {
 	if ($DBG) { Write-Output "Target Osquery version is:  $OsqueryVer" }
 	if ( -not ( $osqver.Trim() -eq $OsqueryVer.Trim() ) ) {
 		if ($DBG) { Write-Output "Current and expected Osquery version differ." }
-		return 1
+		exit 1
 	}
 	# Actually running?
 	if ( -not ( Get-Process -Name "osqueryd" -erroraction 'silentlycontinue' ) ) {
 		if ($DBG) { Write-Output "Osquery does not appear to be running." }
-		return 1
+		exit 1
 	}
 }
 
 # All relevant tests passed, so return a success code.
-return 0
+exit 0
