@@ -1,0 +1,20 @@
+#
+# check-wazuh-linux-agent-suite
+#
+# This script is to be used to determine if there is need to call the deploy-wazuh-linux-agent-suite script.
+# If any of the follwing test families fail, an exit code of 1 will be returned.  Otherwise it will return an exit code of 0.
+#
+# 1 - Is the agent presently really connected to the Wazuh manager?
+# 2 - Is the agent currently a member of all intended Wazuh agent groups?
+# 3 - Is the target version of Wazuh agent installed?
+# 5 - Is the target version of Osquery installed
+#
+# Parameters:
+#
+# $WazuhVer			Full Wazuh agent version number to confirm, like "3.12.2"
+# $OsqueryVer		Full version of Osquery to validate, like "4.2.0" (always N.N.N format)
+# $WazuhGroups		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
+# $SkipOsquery		Do not examine Osquery.
+#
+# Sample way to fetch and use this script:
+#
