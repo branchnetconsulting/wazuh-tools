@@ -1,5 +1,5 @@
 #
-# is-wazuh-agent-current.ps1
+# check-wazuh-windows-agent-suite.ps1
 #
 # This script is to be used to determine if there is need to call the deploy-wazuh-windows-agent-suite.ps1 script.
 # If any of the follwing test families fail, a return code of 1 will be returned.  Otherwise it will return a 0.
@@ -22,6 +22,12 @@
 # $WazuhGroups		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
 # $SkipSysmon		Do not examine Sysmon.
 # $SkipOsquery		Do not examine Osquery.
+#
+# Sample way to fetch and use this script:
+#
+# Invoke-WebRequest -Uri https://raw.githubusercontent.com/branchnetconsulting/wazuh-tools/master/check-wazuh-windows-agent-suite.ps1 -OutFile check-wazuh-windows-agent-suite.ps1
+# .\check-wazuh-windows-agent-suite.ps1 -WazuhVer "3.13.1" -OsqueryVer "4.4.0" -SysmonVer "11.11"
+# if ( ($?) ) { echo "All is current." } else { echo "Need to deploy/redeploy." }
 #
 
 param ( $WazuhVer, 
