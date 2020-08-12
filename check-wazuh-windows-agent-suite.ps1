@@ -11,14 +11,11 @@
 # 4 - Is the target version of Sysmon installed
 # 5 - Is the target version of Osquery installed
 #
-# Required parameters:
+# Parameters:
 #
-# $WazuhVer		Full Wazuh agent version number, like "3.12.2"
-# $OsqueryVer		Full version of Osquery, like "4.2.0" (always N.N.N format)
-# $SysmonVer		Full version of Sysmon, like "11.11" (always N.N format)
-#
-# Optional parameters:
-#
+# $WazuhVer		Full Wazuh agent version number to confirm, like "3.12.2"
+# $OsqueryVer		Full version of Osquery to validate, like "4.2.0" (always N.N.N format)
+# $SysmonVer		Full version of Sysmon to validate, like "11.11" (always N.N format)
 # $WazuhGroups		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
 # $SkipSysmon		Do not examine Sysmon.
 # $SkipOsquery		Do not examine Osquery.
