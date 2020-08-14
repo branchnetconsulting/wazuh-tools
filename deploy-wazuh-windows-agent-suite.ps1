@@ -75,11 +75,11 @@ param ( $WazuhVer = "3.13.1",
 
 if ($WazuhMgr -eq $null) { 
 	write-host "Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
-	exit
+	exit 1
 }
 if ($WazuhRegPass -eq $null) { 
 	write-host "Must use '-WazuhRegPass' to specify the password to use for agent registration."
-	exit
+	exit 1
 }
 if ($WazuhRegMgr -eq $null) { 
     $WazuhRegMgr = $WazuhMgr
@@ -92,7 +92,7 @@ if ($OsquerySrc -eq $null) {
 }
 if ( !($PSVersionTable.PSVersion.Major) -ge 5 ) {
 	write-host "PowerShell 5.0 or higher is required by this script."
-	exit
+	exit 1
 }
 
 # Blend standard/dynamic groups with custom groups
@@ -110,23 +110,23 @@ $WazuhGroups = $WazuhGroups.TrimEnd(",")
 if ( $Local -eq $true ) {
 	if ( -not (Test-Path -LiteralPath "nuget.zip") ) {
 		Write-Output "Option '-Local' specified but no 'nuget.zip' file was found in current directory.  Giving up and aborting the installation..."
-		exit
+		exit 1
 	}
 	if ( -not (Test-Path -LiteralPath "wazuh-agent.msi") ) {
 		Write-Output "Option '-Local' specified but no 'wazuh-agent.msi' file was found in current directory.  Giving up and aborting the installation..."
-		exit
+		exit 1
 	}
 	if ( -not (Test-Path -LiteralPath "Sysmon.zip") ) {
 		Write-Output "Option '-Local' specified but no 'Sysmon.zip' file was found in current directory.  Giving up and aborting the installation..."
-		exit
+		exit 1
 	}	
 	if ( -not (Test-Path -LiteralPath "sysmonconfig.xml") ) {
 		Write-Output "Option '-Local' specified but no 'sysmonconfig.xml' file was found in current directory.  Giving up and aborting the installation..."
-		exit
+		exit 1
 	}	
 	if ( -not (Test-Path -LiteralPath "osquery.msi") ) {
 		Write-Output "Option '-Local' specified but no 'osquery.msi' file was found in current directory.  Giving up and aborting the installation..."
-		exit
+		exit 1
 	}
 }
 
@@ -170,7 +170,7 @@ if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAs
 					Write-Output "Download attempt failed.  Will retry 10 seconds."
 				} else {
 					Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
-					exit
+					exit 1
 				}
 				Start-sleep -Seconds 10
 			}  
@@ -205,7 +205,7 @@ if ( $Local -eq $false ) {
 				Write-Output "Download attempt failed.  Will retry 10 seconds."
 			} else {
 				Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
-				exit
+				exit 1
 			}
 			Start-sleep -Seconds 10
 		}  
@@ -335,7 +335,7 @@ if ( $Local -eq $false ) {
 				Write-Output "Download attempt failed.  Will retry 10 seconds."
 			} else {
 				Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
-				exit
+				exit 1
 			}
 			Start-sleep -Seconds 10
 		}  
@@ -366,7 +366,7 @@ if ( $SkipSysmon -eq $false ) {
 			}  
 			$count++    
 		}until($count -eq 6 -or $success)
-		if(-not($success)){exit}
+		if(-not($success)){exit 1}
 	} else {	
 		Copy-Item "sysmonconfig.xml" -Destination "C:\Program Files (x86)\ossec-agent\shared\"
 	}
@@ -422,7 +422,7 @@ if ( $SkipOsquery -eq $false ) {
 					Write-Output "Download attempt failed.  Will retry 10 seconds."
 				} else {
 					Write-Output "Download attempt still failed.  Giving up and aborting the installation..."
-					exit
+					exit 1
 				}
 				Start-sleep -Seconds 10
 			}  
@@ -454,6 +454,8 @@ Start-Sleep -s 15
 $file = Get-Content "C:\Program Files (x86)\ossec-agent\ossec.log" -erroraction 'silentlycontinue'
 if ($file -match "Connected to the server " ) {
 	echo "This agent has successfully connected to the Wazuh manager!"
+	exit 0
 } else {
 	echo "This agent FAILED to connect to the Wazuh manager."
+	exit 1
 }
