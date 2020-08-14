@@ -36,11 +36,11 @@
 
 if [ -f /etc/nsm/securityonion.conf ]; then
 	echo "This deploy script cannot be used on Security Onion servers/sensors."
-	exit
+	exit 1
 fi
 if [[ `grep server /etc/ossec-init.conf` ]]; then
 	echo "Wazuh manager appears installed on this system.  Remove it before attempting to deploy Wazuh agent on it."
-	exit
+	exit 1
 fi
 
 
@@ -73,17 +73,17 @@ WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
 # Bail if this box is running Security Onion which conflicts with standard Wazuh agent packages.
 if [ -f /etc/nsm/securityonion.conf ]; then
         echo "This deployment script is not compatible with Security Onion.  Do a manual tarball install and registration instead."
-        exit
+        exit 1
 fi
 
 if [ "$WazuhMgr" == "" ]; then
 	echo "WazuhMgr variable must be used to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
-	exit
+	exit 1
 fi
 
 if [ "$WazuhRegPass" == "" ]; then
 	echo "WazuhRegPass variable must be used to specify the password to use for agent registration."
-	exit
+	exit 1
 fi
 
 if [ "$WazuhRegMgr" == "" ]; then
@@ -255,6 +255,8 @@ echo "Waiting 15 seconds before checking connection status to manager..."
 sleep 15
 if [[ `cat /var/ossec/logs/ossec.log | grep "Connected to the server "` ]]; then
         echo "Agent has successfully reported into the manager."
+	exit 0
 else
         echo "Something appears to have gone wrong.  Agent is not connected to the manager."
+	exit 1
 fi
