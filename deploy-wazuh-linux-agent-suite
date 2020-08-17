@@ -1,6 +1,5 @@
 #!/bin/bash
 
-#
 # deploy-wazuh-linux-agent-suite
 # by Kevin Branch (kevin@branchnetconsulting.com)
 #
@@ -38,13 +37,13 @@
 WazuhMgr=${WazuhMgr:-}
 WazuhRegMgr=${WazuhRegMgr:-}
 WazuhRegPass=${WazuhRegPass:-}
-WazuhVer=${WazuhVer:-}
+WazuhVer=${WazuhVer:-3.13.1}
 WazuhAgentName=${WazuhAgentName:-}
 WazuhGroups=${WazuhGroups:-}
 WazuhSrc=${WazuhSrc:-}
-OsqueryVer=${OsqueryVer:-}
+OsqueryVer=${OsqueryVer:-4.4.0}
 OsquerySrc=${OsquerySrc:-}
-SkipOsquery=${SkipOsquery}
+SkipOsquery=${SkipOsquery:-}
 
 while [ $# -gt 0 ]; do
 
@@ -65,15 +64,6 @@ fi
 if [[ `grep server /etc/ossec-init.conf` ]]; then
 	echo "Wazuh manager appears installed on this system.  Remove it before attempting to deploy Wazuh agent on it."
 	exit 1
-fi
-
-
-if [ "$WazuhVer" == "" ]; then
-	WazuhVer="3.13.1"
-fi
-
-if [ "$OsqueryVer" == "" ]; then
-	OsqueryVer="4.4.0"
 fi
 
 # Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.
