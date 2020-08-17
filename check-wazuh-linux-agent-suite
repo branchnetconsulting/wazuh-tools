@@ -1,0 +1,107 @@
+#!/bin/bash
+
+#
+# check-wazuh-linux-agent-suite
+#
+# This script is to be used to determine if there is need to call the deploy-wazuh-linux-agent-suite script.
+# If any of the follwing test families fail, an exit code of 1 will be returned.  Otherwise it will return an exit code of 0.
+#
+# 1 - Is the agent presently really connected to the Wazuh manager?
+# 2 - Is the agent currently a member of all intended Wazuh agent groups?
+# 3 - Is the target version of Wazuh agent installed?
+# 4 - Is the target version of Osquery installed and running?
+#
+# Parameters:
+#
+# $WazuhVer		Full Wazuh agent version number to confirm, like "3.12.2"
+# $OsqueryVer		Full version of Osquery to validate, like "4.2.0" (always N.N.N format)
+# $WazuhGroups		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
+# $SkipOsquery		Do not examine Osquery.
+#
+# Sample way to fetch and use this script:
+#
+# curl https://raw.githubusercontent.com/branchnetconsulting/wazuh-tools/master/check-wazuh-linux-agent-suite > check-wazuh-linux-agent-suite
+# chmod 700 check-wazuh-linux-agent-suite
+# OsqueryVer="4.4.0" WazuhVer="3.13.1" ./check-wazuh-linux-agent-suite
+# if [ "$?" == "0" ]; then echo "All is current."; else echo "Need to deploy/redeploy."; fi
+#
+
+# Set to 1 to enable debug output, otherwise set to 0 which should produce no output other than the exit code.
+DBG=0;
+
+#
+# 1 - Is the agent presently really connected to the Wazuh manager?
+#
+if [[ ! `grep "'connected'" /var/ossec/var/run/ossec-agentd.state 2> /dev/null` ]]; then
+	if [ "$DBG" == "1" ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager."; fi
+	exit 1
+else
+	if [ "$DBG" == "1" ]; then echo "The Wazuh agent is connected to the Wazuh manager."; fi
+fi
+
+#
+# 2 - Is the agent currently a member of all intended Wazuh agent groups, and no others?
+#
+# Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.
+# Among other things, this affects the automatically assigned starting set of agent group names to include "ubuntu" or "centos".
+# This needs to be refined, but reflects the Linux flavors I actually work with.
+WazuhGroupsPrefix="linux,"
+if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
+	LinuxFamily="deb"
+	WazuhGroupsPrefix="${WazuhGroupsPrefix}ubuntu,"
+else
+	LinuxFamily="rpm"
+	WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
+fi
+if [ "$SkipOsquery" != "1" ]; then
+	WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,"
+fi
+WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
+# If there were no additional groups, strip off the trailing comma in the list.
+WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
+CURR_GROUPS=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
+if [ "$DBG" == "1" ]; then echo "Current agent groups: $CURR_GROUPS"; fi
+if [ "$DBG" == "1" ]; then echo "Target agent groups:  $WazuhGroups"; fi
+if [ "$CURR_GROUPS" != "$WazuhGroups" ]; then
+	if [ "$DBG" == "1" ]; then echo "*** Current and target groups to not match."; fi
+	exit 1
+else
+	if [ "$DBG" == "1" ]; then echo "Current and target groups match."; fi
+fi
+
+#
+# 3 - Is the target version of Wazuh agent installed?
+#
+if [[ ! `grep "\"v$WazuhVer\"" /etc/ossec-init.conf` ]]; then
+	if [ "$DBG" == "1" ]; then echo "*** The running Wazuh agent does not appear to be at the desired version ($WazuhVer)."; fi
+	exit 1
+else
+	if [ "$DBG" == "1" ]; then echo "The running Wazuh agent appears to be at the desired version ($WazuhVer)."; fi
+fi
+
+#
+# 4 - If not ignoring Osquery, is the target version of Osquery installed and running?
+#
+if [ "$SkipOsquery" != "1" ]; then
+	if [[ ! `pstree | egrep "wazuh-modulesd.*osqueryd"` ]]; then
+	        if [ "$DBG" == "1" ]; then echo "*** No osqueryd child process was found under the wazuh-modulesd process."; fi
+	        exit 1
+	else
+		if [ "$DBG" == "1" ]; then echo "Osqueryd was found running under the wazuh-modulesd process."; fi
+	fi
+	CURR_OSQ_VER=`/usr/bin/osqueryi --csv "select version from osquery_info;" | tail -n1`
+	if [ ! "$CURR_OSQ_VER" == "$OsqueryVer" ]; then
+	        if [ "$DBG" == "1" ]; then echo "*** The version of Osquery running on this system ($CURR_OSQ_VER) is not the target version ($OsqueryVer)."; fi
+	        exit 1
+	else
+		if [ "$DBG" == "1" ]; then echo "The target version of Osquery is running on this system."; fi
+	fi
+else
+	if [ "$DBG" == "1" ]; then echo "Ignoring Osquery..."; fi
+fi
+
+#
+# Passed!
+#
+if [ "$DBG" == "1" ]; then echo "All appears current on this system with respect to the Wazuh Linux agent suite."; fi
+exit 0
