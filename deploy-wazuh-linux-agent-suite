@@ -34,16 +34,16 @@
 #
 
 # Dynamic named parameters
-WazuhMgr=${WazuhMgr:-}
-WazuhRegMgr=${WazuhRegMgr:-}
-WazuhRegPass=${WazuhRegPass:-}
-WazuhVer=${WazuhVer:-3.13.1}
-WazuhAgentName=${WazuhAgentName:-}
-WazuhGroups=${WazuhGroups:-}
-WazuhSrc=${WazuhSrc:-}
-OsqueryVer=${OsqueryVer:-4.4.0}
-OsquerySrc=${OsquerySrc:-}
-SkipOsquery=${SkipOsquery:-}
+WazuhMgr=
+WazuhRegMgr=
+WazuhRegPass=
+WazuhVer=3.13.1
+WazuhAgentName=
+WazuhGroups=
+WazuhSrc=
+OsqueryVer=4.4.0
+OsquerySrc=
+SkipOsquery=
 
 while [ $# -gt 0 ]; do
 

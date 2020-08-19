@@ -27,10 +27,10 @@
 #
 
 # Dynamic named parameters
-WazuhVer=${WazuhVer:-}
-OsqueryVer=${OsqueryVer:-}
-WazuhGroups=${WazuhGroups:-}
-SkipOsquery=${SkipOsquery}
+WazuhVer=
+OsqueryVer=
+WazuhGroups=
+SkipOsquery=
 
 while [ $# -gt 0 ]; do
 
