@@ -95,12 +95,24 @@ if ( $SkipSysmon -eq $false ) {
 		if ($DBG) { Write-Output "Sysmon appears to not be installed." }
 		exit 1
 	}
+	# Local SysmonDrv.sys file exists?
+	if ( -not (Test-Path -LiteralPath "c:\windows\SysmonDrv.sys") ) {
+		if ($DBG) { Write-Output "SysmonDrv.sys appears to not be installed." }
+		exit 1
+	}
 	# Local Sysmon.exe file at target version?
 	$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe").FileVersion
 	if ($DBG) { Write-Output "Current Sysmon version is: $smver" }
 	if ($DBG) { Write-Output "Target Sysmon version is:  $SysmonVer" }
 	if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
 		if ($DBG) { Write-Output "Current and expected Sysmon version differ." }
+		exit 1
+	}
+	# SysmonDrv.sys at target version?
+	$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
+	if ($DBG) { Write-Output "Current SysmonDrv.sys version is: $SysmonDrvVer" }
+	if ( -not ( $SysmonDrvVer.Trim() -eq $SysmonVer.Trim() ) ) {
+		if ($DBG) { Write-Output "" }
 		exit 1
 	}
 	# Sysmon driver loaded?
