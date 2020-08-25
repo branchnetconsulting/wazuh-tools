@@ -1,6 +1,5 @@
 #!/bin/bash
 
-#
 # deploy-wazuh-linux-agent-suite
 # by Kevin Branch (kevin@branchnetconsulting.com)
 #
@@ -27,12 +26,36 @@
 #
 # Example minimal usage:
 #
-# WazuhMgr="siem.company.com" WazuhRegPass="self-reg-pw" ./deploy-wazuh-linux-agent-suite
+# ./deploy-wazuh-linux-agent-suite --WazuhMgr "siem.company.com" --WazuhRegPass "self-reg-pw"
 #
 # The above would (re)install the latest stable Wazuh agent and Osquery.
 # It would also self-register with the specified Wazuh manager using the specified password, unless an existing working registration can be kept.
 # The agent would be registered with agent groups "linux,ubuntu,osquery" or "linux,centos,osquery" depending on if this is an rpm or deb system.
 #
+
+# Dynamic named parameters
+WazuhMgr=
+WazuhRegMgr=
+WazuhRegPass=
+WazuhVer=3.13.1
+WazuhAgentName=
+WazuhGroups=
+WazuhSrc=
+OsqueryVer=4.4.0
+OsquerySrc=
+SkipOsquery=
+
+while [ $# -gt 0 ]; do
+
+   if [[ $1 == *"--"* ]]; then
+        param="${1/--/}"
+        declare $param="$2"
+        # echo $1 $2 // Optional to see the parameter:value result
+   fi
+
+  shift
+done
+## End Dyamic named parameters
 
 if [ -f /etc/nsm/securityonion.conf ]; then
 	echo "This deploy script cannot be used on Security Onion servers/sensors."
@@ -41,15 +64,6 @@ fi
 if [[ `grep server /etc/ossec-init.conf` ]]; then
 	echo "Wazuh manager appears installed on this system.  Remove it before attempting to deploy Wazuh agent on it."
 	exit 1
-fi
-
-
-if [ "$WazuhVer" == "" ]; then
-	WazuhVer="3.13.1"
-fi
-
-if [ "$OsqueryVer" == "" ]; then
-	OsqueryVer="4.4.0"
 fi
 
 # Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.

@@ -22,9 +22,27 @@
 #
 # curl https://raw.githubusercontent.com/branchnetconsulting/wazuh-tools/master/check-wazuh-linux-agent-suite > check-wazuh-linux-agent-suite
 # chmod 700 check-wazuh-linux-agent-suite
-# OsqueryVer="4.4.0" WazuhVer="3.13.1" ./check-wazuh-linux-agent-suite
+# ./check-wazuh-linux-agent-suite --OsqueryVer "4.4.0" --WazuhVer "3.13.1"
 # if [ "$?" == "0" ]; then echo "All is current."; else echo "Need to deploy/redeploy."; fi
 #
+
+# Dynamic named parameters
+WazuhVer=
+OsqueryVer=
+WazuhGroups=
+SkipOsquery=
+
+while [ $# -gt 0 ]; do
+
+   if [[ $1 == *"--"* ]]; then
+        param="${1/--/}"
+        declare $param="$2"
+        # echo $1 $2 // Optional to see the parameter:value result
+   fi
+
+  shift
+done
+## End Dyamic named parameters
 
 # Set to 1 to enable debug output, otherwise set to 0 which should produce no output other than the exit code.
 DBG=0;
