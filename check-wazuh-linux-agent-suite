@@ -13,10 +13,10 @@
 #
 # Parameters:
 #
-# --WazuhVer		Full Wazuh agent version number to confirm, like "3.12.2"
-# --OsqueryVer		Full version of Osquery to validate, like "4.2.0" (always N.N.N format)
-# --WazuhGroups		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
-# --SkipOsquery		Do not examine Osquery.
+# -WazuhVer		Full Wazuh agent version number to confirm, like "3.12.2"
+# -OsqueryVer		Full version of Osquery to validate, like "4.2.0" (always N.N.N format)
+# -WazuhGroups		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
+# -SkipOsquery		Do not examine Osquery.
 #
 # Sample way to fetch and use this script:
 #
@@ -29,23 +29,18 @@
 # Set to 1 to enable debug output, otherwise set to 0 which should produce no output other than the exit code.
 DBG=0;
 
-# Dynamic named parameters
+# Dynamic named parameters with optional default values set.
 WazuhVer=
 OsqueryVer=
 WazuhGroups=
 SkipOsquery=
-
 while [ $# -gt 0 ]; do
-
-   if [[ $1 == *"--"* ]]; then
-        param="${1/--/}"
-        declare $param="$2"
-        # echo $1 $2 // Optional to see the parameter:value result
-   fi
-
-  shift
+	if [[ $1 == *"-"* ]]; then
+        	param="${1/-/}"
+		declare $param="$2"
+	fi
+	shift
 done
-## End Dyamic named parameters
 
 #
 # 1 - Is the agent presently really connected to the Wazuh manager?
