@@ -42,20 +42,20 @@
 #
 
 #
-# $WazuhVer			Full version of Wazuh agent to install, like "3.12.2"
-# $WazuhMgr			IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
-# $WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazuhMgr if not specified)
-# $WazuhRegPass		Password for registration with Wazuh manager (put in quotes).  Required.
-# $WazuhAgentName	Name under which to register this agent in place of locally detected Windows host name
-# $WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
-# $WazuhSrc			Static download path to fetch Wazuh agent installer.  Overrides $WazVer
-# $SysmonSrc		Static download path to fetch Sysmon installer zip file.  
-# $SysmonConfSrc	Static download path to fetch Sysmon configuration file.
-# $SkipSysmon		Do not install Sysmon.  Completely remove it if present.
-# $OsqueryVer		Full version of Osquery to install, like "4.2.0"
-# $OsquerySrc		Static download path to fetch Osquery agent installer.  Overrides $OsqVer
-# $SkipOsquery		Do not install Osquery.  Completely remove it if present.
-# $Local			Expect all download files already to be present in current directory.  Do not use any $...Src parameters with this.
+# -WazuhVer			Full version of Wazuh agent to install, like "3.12.2"
+# -WazuhMgr			IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
+# -WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazuhMgr if not specified)
+# -WazuhRegPass		Password for registration with Wazuh manager (put in quotes).  Required.
+# -WazuhAgentName	Name under which to register this agent in place of locally detected Windows host name
+# -WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
+# -WazuhSrc			Static download path to fetch Wazuh agent installer.  Overrides $WazVer
+# -SysmonSrc		Static download path to fetch Sysmon installer zip file.  
+# -SysmonConfSrc	Static download path to fetch Sysmon configuration file.
+# -SkipSysmon		Do not install Sysmon.  Completely remove it if present.
+# -OsqueryVer		Full version of Osquery to install, like "4.2.0"
+# -OsquerySrc		Static download path to fetch Osquery agent installer.  Overrides $OsqVer
+# -SkipOsquery		Do not install Osquery.  Completely remove it if present.
+# -Local			Expect all download files already to be present in current directory.  Do not use any $...Src parameters with this.
 #
 param ( $WazuhVer = "3.13.1", 
 	$WazuhMgr, 
