@@ -26,6 +26,9 @@
 # if [ "$?" == "0" ]; then echo "All is current."; else echo "Need to deploy/redeploy."; fi
 #
 
+# Set to 1 to enable debug output, otherwise set to 0 which should produce no output other than the exit code.
+DBG=0;
+
 # Dynamic named parameters
 WazuhVer=
 OsqueryVer=
@@ -43,9 +46,6 @@ while [ $# -gt 0 ]; do
   shift
 done
 ## End Dyamic named parameters
-
-# Set to 1 to enable debug output, otherwise set to 0 which should produce no output other than the exit code.
-DBG=0;
 
 #
 # 1 - Is the agent presently really connected to the Wazuh manager?
