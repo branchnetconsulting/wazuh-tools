@@ -22,7 +22,7 @@
 #
 # curl https://raw.githubusercontent.com/branchnetconsulting/wazuh-tools/master/check-wazuh-linux-agent-suite > check-wazuh-linux-agent-suite
 # chmod 700 check-wazuh-linux-agent-suite
-# ./check-wazuh-linux-agent-suite --OsqueryVer "4.4.0" --WazuhVer "3.13.1"
+# ./check-wazuh-linux-agent-suite -OsqueryVer "4.4.0" -WazuhVer "3.13.1"
 # if [ "$?" == "0" ]; then echo "All is current."; else echo "Need to deploy/redeploy."; fi
 #
 
