@@ -11,29 +11,29 @@
 #
 # Parameters:
 #
-# --WazuhMgr		Required: IP or FQDN of the Wazuh manager for ongoing agent connections.  
-# --WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection if other than above (defaults to WazuhMgr value if not specified)
-# --WazuhRegPass		Required: password for registration with Wazuh manager (put in quotes).
-# --WazuhVer		Full version of Wazuh agent to install, like "3.12.3".  Defaults to latest stable version.
-# --WazuhAgentName	Name under which to register this agent in place of locally detected Linux host name
-# --WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
+# -WazuhMgr		Required: IP or FQDN of the Wazuh manager for ongoing agent connections.  
+# -WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection if other than above (defaults to WazuhMgr value if not specified)
+# -WazuhRegPass		Required: password for registration with Wazuh manager (put in quotes).
+# -WazuhVer		Full version of Wazuh agent to install, like "3.12.3".  Defaults to latest stable version.
+# -WazuhAgentName	Name under which to register this agent in place of locally detected Linux host name
+# -WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
 #			Do not includes "linux", "ubuntu", or "centos" groups as these are autodetected and will dynamically be inserted as the first groups.
 #			Also, do not include "osquery" as this will automatically be included unless SkipOsquery is set to "1".
-# --WazuhSrc		Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
-# --OsqueryVer		Full version of Osquery to install.  Defaults to latest stable version.
-# --OsquerySrc		Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
-# --SkipOsquery		Set to "1" to skip installing Osquery, which will also result in Osquery being removed if present.  Osquery installed by default.
+# -WazuhSrc		Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
+# -OsqueryVer		Full version of Osquery to install.  Defaults to latest stable version.
+# -OsquerySrc		Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
+# -SkipOsquery		Set to "1" to skip installing Osquery, which will also result in Osquery being removed if present.  Osquery installed by default.
 #
 # Example minimal usage:
 #
-# ./deploy-wazuh-linux-agent-suite --WazuhMgr "siem.company.com" --WazuhRegPass "self-reg-pw"
+# ./deploy-wazuh-linux-agent-suite -WazuhMgr "siem.company.com" -WazuhRegPass "self-reg-pw"
 #
 # The above would (re)install the latest stable Wazuh agent and Osquery.
 # It would also self-register with the specified Wazuh manager using the specified password, unless an existing working registration can be kept.
 # The agent would be registered with agent groups "linux,ubuntu,osquery" or "linux,centos,osquery" depending on if this is an rpm or deb system.
 #
 
-# Dynamic named parameters
+# Dynamic named parameters with optional default values.
 WazuhMgr=
 WazuhRegMgr=
 WazuhRegPass=
@@ -44,18 +44,14 @@ WazuhSrc=
 OsqueryVer=4.4.0
 OsquerySrc=
 SkipOsquery=
-
 while [ $# -gt 0 ]; do
-
-   if [[ $1 == *"--"* ]]; then
-        param="${1/--/}"
-        declare $param="$2"
-        # echo $1 $2 // Optional to see the parameter:value result
-   fi
-
-  shift
+	if [[ $1 == *"--"* ]]; then
+	param="${1/--/}"
+		declare $param="$2"
+		# echo $1 $2 // Optional to see the parameter:value result
+	fi
+	shift
 done
-## End Dyamic named parameters
 
 if [ -f /etc/nsm/securityonion.conf ]; then
 	echo "This deploy script cannot be used on Security Onion servers/sensors."
