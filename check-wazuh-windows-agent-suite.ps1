@@ -27,6 +27,9 @@
 # if ( ($?) ) { echo "All is current." } else { echo "Need to deploy/redeploy." }
 #
 
+# If false, there will be no output except a 0 or 1 return value.
+$DBG = $false
+
 param ( $WazuhVer, 
 		$OsqueryVer, 
 		$SysmonVer, 
@@ -34,9 +37,6 @@ param ( $WazuhVer,
 		[switch]$SkipOsquery=$false,
 		$WazuhGroups=""
 );
-
-# If false, there will be no output except a 0 or 1 return value.
-$DBG = $false
 
 #
 # 1 - Is the agent presently really connected to the Wazuh manager?
