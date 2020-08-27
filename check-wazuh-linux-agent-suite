@@ -15,16 +15,16 @@
 #
 # -WazuhMgr		IP or FQDN of the Wazuh manager for ongoing agent connections. (Required)
 # -WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazuhMgr if not specified)
-# -WazuhVer		Full Wazuh agent version number to confirm, like "3.12.2"
-# -OsqueryVer		Full version of Osquery to validate, like "4.2.0" (always N.N.N format)
+# -WazuhVer		Full Wazuh agent version number to confirm, like "3.12.2" (Required)
+# -OsqueryVer		Full version of Osquery to validate, like "4.2.0" (always N.N.N format) (Required unless -SkipOsquery specified)
 # -WazuhGroups 		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
-# -SkipOsquery		Set to "1" to not examine Osquery. (Optional)
+# -SkipOsquery		Set to "1" to skip the default examination of Osquery. (Optional)
 #
 # Sample way to fetch and use this script:
 #
 # curl https://raw.githubusercontent.com/branchnetconsulting/wazuh-tools/master/check-wazuh-linux-agent-suite > check-wazuh-linux-agent-suite
 # chmod 700 check-wazuh-linux-agent-suite
-# ./check-wazuh-linux-agent-suite -OsqueryVer "4.4.0" -WazuhVer "3.13.1"
+# ./check-wazuh-linux-agent-suite -WazuhMgr "siem.company.com" -OsqueryVer "4.4.0" -WazuhVer "3.13.1"
 # if [ "$?" == "0" ]; then echo "All is current."; else echo "Need to deploy/redeploy."; fi
 #
 
