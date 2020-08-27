@@ -28,7 +28,7 @@ function tprobe() {
 
 # example call
 tprobe www.google.com 443
-# if the above fails
+# if the above probe fails execution of this script stops immediately and nothing here or below will run.
 
 # another example call
 tprobe 8.8.4.4 443
