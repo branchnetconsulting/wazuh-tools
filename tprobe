@@ -9,7 +9,7 @@ function tprobe() {
                 tpr_ip=$1
         else
                 if [ "$DBG" == "1" ]; then echo "Looking up IP for host $1..."; fi
-                tpr_ip=`getent hosts $1 | awk '{ print $1 }' | head -n1`
+                tpr_ip=`getent ahostsv4 $1 | awk '{ print $1 }' | head -n1`
         fi
         if [ "$tpr_ip" == "" ]; then
                 if [ "$DBG" == "1" ]; then echo "*** Failed to find IP for $1."; fi
