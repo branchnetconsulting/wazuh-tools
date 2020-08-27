@@ -18,6 +18,7 @@
 # -WazuhVer		Full Wazuh agent version number to confirm, like "3.12.2" (Required)
 # -OsqueryVer		Full version of Osquery to validate, like "4.2.0" (always N.N.N format) (Required unless -SkipOsquery specified)
 # -WazuhGroups 		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
+#                       If not specified, agent group membership will not be checked at all.
 # -SkipOsquery		Set to "1" to skip the default examination of Osquery and assume Osquery is not installed on agent. (Optional)
 #
 # Sample way to fetch and use this script:
@@ -61,7 +62,7 @@ WazuhMgr=
 WazuhRegMgr=
 WazuhVer=
 OsqueryVer=
-WazuhGroups=
+WazuhGroups="#NOGROUP#"
 SkipOsquery="0"
 while [ $# -gt 0 ]; do
 	if [[ $1 == *"-"* ]]; then
@@ -112,28 +113,33 @@ fi
 # Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.
 # Among other things, this affects the automatically assigned starting set of agent group names to include "ubuntu" or "centos".
 # This needs to be refined, but reflects the Linux flavors I actually work with.
-WazuhGroupsPrefix="linux,"
-if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
-	LinuxFamily="deb"
-	WazuhGroupsPrefix="${WazuhGroupsPrefix}ubuntu,"
+# Do not perform agent group check if 
+if [ $WazuhGroups != "#NOGROUP#" ]; then
+	WazuhGroupsPrefix="linux,"
+	if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
+		LinuxFamily="deb"
+		WazuhGroupsPrefix="${WazuhGroupsPrefix}ubuntu,"
+	else
+		LinuxFamily="rpm"
+		WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
+	fi
+	if [ "$SkipOsquery" != "1" ]; then
+		WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,"
+	fi
+	WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
+	# If there were no additional groups, strip off the trailing comma in the list.
+	WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
+	CURR_GROUPS=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
+	if [ "$DBG" == "1" ]; then echo "Current agent groups: $CURR_GROUPS"; fi
+	if [ "$DBG" == "1" ]; then echo "Target agent groups:  $WazuhGroups"; fi
+	if [ "$CURR_GROUPS" != "$WazuhGroups" ]; then
+		if [ "$DBG" == "1" ]; then echo "*** Current and target groups to not match."; fi
+		exit 1
+	else
+		if [ "$DBG" == "1" ]; then echo "Current and target groups match."; fi
+	fi
 else
-	LinuxFamily="rpm"
-	WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
-fi
-if [ "$SkipOsquery" != "1" ]; then
-	WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,"
-fi
-WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
-# If there were no additional groups, strip off the trailing comma in the list.
-WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
-CURR_GROUPS=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
-if [ "$DBG" == "1" ]; then echo "Current agent groups: $CURR_GROUPS"; fi
-if [ "$DBG" == "1" ]; then echo "Target agent groups:  $WazuhGroups"; fi
-if [ "$CURR_GROUPS" != "$WazuhGroups" ]; then
-	if [ "$DBG" == "1" ]; then echo "*** Current and target groups to not match."; fi
-	exit 1
-else
-	if [ "$DBG" == "1" ]; then echo "Current and target groups match."; fi
+	if [ "$DBG" == "1" ]; then echo "Skipping the agent group check since no -WazuhGroups was provided."; fi
 fi
 
 #
