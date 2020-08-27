@@ -13,10 +13,11 @@
 #
 # Parameters:
 #
+# -WazuhMgr		IP or FQDN of the Wazuh manager for ongoing agent connections. (Required)
+# -WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazuhMgr if not specified)
 # -WazuhVer		Full Wazuh agent version number to confirm, like "3.12.2"
 # -OsqueryVer		Full version of Osquery to validate, like "4.2.0" (always N.N.N format)
 # -WazuhGroups 		Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes.
-# -SkipSysmon 		Set to "1" to not examine Sysmon. (Optional)
 # -SkipOsquery		Set to "1" to not examine Osquery. (Optional)
 #
 # Sample way to fetch and use this script:
@@ -30,11 +31,38 @@
 # Set to 1 to enable debug output, otherwise set to 0 which should produce no output other than the exit code.
 DBG=0;
 
+# Function for probing the Wazuh agent connection and Wazuh agent self-registration ports on the manager(s).
+function tprobe() {
+        if [ "$DBG" == "1" ]; then echo "Preparing to probe $1 on port $2..."; fi
+        if [[ `echo $1 | grep -P "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$"` ]]; then
+                if [ "$DBG" == "1" ]; then echo "$1 appears to be an IP number."; fi
+                tpr_ip=$1
+        else
+                if [ "$DBG" == "1" ]; then echo "Looking up IP for host $1..."; fi
+                tpr_ip=`getent ahostsv4 $1 | awk '{ print $1 }' | head -n1`
+        fi
+        if [ "$tpr_ip" == "" ]; then
+                if [ "$DBG" == "1" ]; then echo "*** Failed to find IP for $1."; fi
+                exit 2
+        fi
+        if [ "$DBG" == "1" ]; then echo "Probing $tpr_ip:$2..."; fi
+        echo > /dev/tcp/$tpr_ip/$2 &
+        sleep 2
+        if [[ `ps auxw | awk '{print $2}' | egrep "^$!"` ]]; then
+                if [ "$DBG" == "1" ]; then echo "*** Failed to get response from $1 on tcp/$2."; fi
+                kill $!
+                exit 2
+        fi
+        if [ "$DBG" == "1" ]; then echo "Success!"; fi
+}
+
 # Dynamic named parameters with optional default values set.
+WazuhMgr=
+WazuhRegMgr=
 WazuhVer=
 OsqueryVer=
 WazuhGroups=
-SkipOsquery=
+SkipOsquery="0"
 while [ $# -gt 0 ]; do
 	if [[ $1 == *"-"* ]]; then
         	param="${1/-/}"
@@ -42,6 +70,31 @@ while [ $# -gt 0 ]; do
 	fi
 	shift
 done
+
+if [ "$WazuhMgr" == "" ]; then
+	if [ "$DBG" == "1" ]; then echo "*** Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."; fi
+	exit 2
+fi
+if [ "$WazuhRegMgr" == "" ]; then
+	WazuhRegMgr=$WazuhMgr 
+fi
+if [ "$WazuhVer" == "" ]; then
+	if [ "$DBG" == "1" ]; then echo "*** Must use '-WazuhVer' to specify the Wazuh Agent version to check for."; fi
+	exit 2
+fi
+if [ "$OsqueryVer" == "" ]; then
+	if [ "$DBG" == "1" ]; then echo "*** Must use '-OsqueryVer' to specify the Osquery version to check for."; fi
+	exit 2
+fi
+if [ "$OsqueryVer" == "" -a "$SkipOsquery" == "0" ]; then
+	if [ "$DBG" == "1" ]; then echo "If -SkipOsquery is not specified, then -OsqueryVer must be provided."; fi
+	exit 2
+fi
+
+# Confirm the self registration and agent connection ports on the manager(s) are responsive.  
+# If either are not, then (re)deployment is not feasible, so return and exit code of 2 so as to not trigger the attempt of such.
+tprobe $WazuhMgr 1514
+tprobe $WazuhRegMgr 1515
 
 #
 # 1 - Is the agent presently really connected to the Wazuh manager?
