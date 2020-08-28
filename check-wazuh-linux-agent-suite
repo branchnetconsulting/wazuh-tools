@@ -64,6 +64,10 @@ WazuhVer=
 OsqueryVer=
 WazuhGroups="#NOGROUP#"
 SkipOsquery="0"
+if [[ "$1" != "-"* ]]; then
+	if [ $DBG ]; then echo "*** Each parameter name must start with a dash."; fi
+	exit 2
+fi
 while [ $# -gt 0 ]; do
 	if [[ $1 == "-"* ]]; then
         param="${1/-/}"
