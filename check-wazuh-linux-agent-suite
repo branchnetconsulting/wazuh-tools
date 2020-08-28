@@ -102,7 +102,7 @@ if [ "$OsqueryVer" == "" -a "$SkipOsquery" == "0" ]; then
 fi
 
 # Confirm the self registration and agent connection ports on the manager(s) are responsive.  
-# If either are not, then (re)deployment is not feasible, so return and exit code of 2 so as to not trigger the attempt of such.
+# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
 tprobe $WazuhMgr 1514
 tprobe $WazuhRegMgr 1515
 
