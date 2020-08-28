@@ -81,9 +81,6 @@ while [ $# -gt 0 ]; do
 	fi
 	shift
 done
-#if [ "$SkipOsquery" == "" ]; then
-#	SkipOsquery="1"
-#fi
 
 if [ "$WazuhMgr" == "" ]; then
 	if [ $DBG ]; then echo "*** Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."; fi
