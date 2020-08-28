@@ -3,11 +3,10 @@
 #
 # check-wazuh-linux-agent-suite
 #
-# This script is to be used to determine if there is need to call the deploy-wazuh-linux-agent-suite script, which would only be warranted if this script returns exit code 1.
-# If any of the follwing test families fail, an exit code of 1 will be returned.
-# If the call to this script is deemed broken, an exit code of 2 will be returned.
-# If any of the pre-test probes for a response on the manager(s) on 1514 and 1515 fail, then (re)deployment is presumed impossible at this time so an exit code of 0 is returned.
-# The default exit code is 0 which indicates a (re)deployment is not called for and/or possible at this time.
+# This script is to be used to determine if there is need to call the deploy-wazuh-linux-agent-suite script, which would only be warranted if this script returns exit code of 1.
+# If any of the listed test families fail, an exit code of 1 will be returned.
+# If the call to this script is deemed broken, or either the Wazuh Manager connect port or registration port are unresponsive to a probe, an exit code of 2 will be returned.
+# The default exit code is 0.
 #
 # 1 - Is the agent presently really connected to the Wazuh manager?
 # 2 - Is the agent currently a member of all intended Wazuh agent groups?
