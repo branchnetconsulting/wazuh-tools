@@ -29,32 +29,32 @@
 # echo "Exit code: $?"
 #
 
-# Set to 1 to enable debug output, otherwise set to 0 which should produce no output other than the exit code.
-DBG=0;
+# Uncommend this line to enable debug output, otherwise there should be no output other than the exit code.
+#DBG=1
 
 # Function for probing the Wazuh agent connection and Wazuh agent self-registration ports on the manager(s).
 function tprobe() {
-        if [ "$DBG" == "1" ]; then echo "Preparing to probe $1 on port $2..."; fi
+        if [ $DBG ]; then echo "Preparing to probe $1 on port $2..."; fi
         if [[ `echo $1 | grep -P "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$"` ]]; then
-                if [ "$DBG" == "1" ]; then echo "$1 appears to be an IP number."; fi
+                if [ $DBG ]; then echo "$1 appears to be an IP number."; fi
                 tpr_ip=$1
         else
-                if [ "$DBG" == "1" ]; then echo "Looking up IP for host $1..."; fi
+                if [ $DBG ]; then echo "Looking up IP for host $1..."; fi
                 tpr_ip=`getent ahostsv4 $1 | awk '{ print $1 }' | head -n1`
         fi
         if [ "$tpr_ip" == "" ]; then
-                if [ "$DBG" == "1" ]; then echo "*** Failed to find IP for $1."; fi
+                if [ $DBG ]; then echo "*** Failed to find IP for $1."; fi
                 exit 2
         fi
-        if [ "$DBG" == "1" ]; then echo "Probing $tpr_ip:$2..."; fi
+        if [ $DBG ]; then echo "Probing $tpr_ip:$2..."; fi
         echo > /dev/tcp/$tpr_ip/$2 &
         sleep 2
         if [[ `ps auxw | awk '{print $2}' | egrep "^$!"` ]]; then
-                if [ "$DBG" == "1" ]; then echo "*** Failed to get response from $1 on tcp/$2."; fi
+                if [ $DBG ]; then echo "*** Failed to get response from $1 on tcp/$2."; fi
                 kill $!
                 exit 2
         fi
-        if [ "$DBG" == "1" ]; then echo "Success!"; fi
+        if [ $DBG ]; then echo "Success!"; fi
 }
 
 # Dynamic named parameters with optional default values set.
@@ -65,30 +65,33 @@ OsqueryVer=
 WazuhGroups="#NOGROUP#"
 SkipOsquery="0"
 while [ $# -gt 0 ]; do
-	if [[ $1 == *"-"* ]]; then
-        	param="${1/-/}"
+	if [[ $1 == "-"* ]]; then
+        param="${1/-/}"
 		declare $param="$2"
+		if [[ "$2" == "-"* || $# == 1 ]]; then
+			if [ $DBG ]; then echo "*** Each parameter name must be followed by a value."; fi
+			exit 2
+		fi
 	fi
 	shift
 done
+#if [ "$SkipOsquery" == "" ]; then
+#	SkipOsquery="1"
+#fi
 
 if [ "$WazuhMgr" == "" ]; then
-	if [ "$DBG" == "1" ]; then echo "*** Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."; fi
+	if [ $DBG ]; then echo "*** Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."; fi
 	exit 2
 fi
 if [ "$WazuhRegMgr" == "" ]; then
 	WazuhRegMgr=$WazuhMgr 
 fi
 if [ "$WazuhVer" == "" ]; then
-	if [ "$DBG" == "1" ]; then echo "*** Must use '-WazuhVer' to specify the Wazuh Agent version to check for."; fi
-	exit 2
-fi
-if [ "$OsqueryVer" == "" ]; then
-	if [ "$DBG" == "1" ]; then echo "*** Must use '-OsqueryVer' to specify the Osquery version to check for."; fi
+	if [ $DBG ]; then echo "*** Must use '-WazuhVer' to specify the Wazuh Agent version to check for."; fi
 	exit 2
 fi
 if [ "$OsqueryVer" == "" -a "$SkipOsquery" == "0" ]; then
-	if [ "$DBG" == "1" ]; then echo "If -SkipOsquery is not specified, then -OsqueryVer must be provided."; fi
+	if [ $DBG ]; then echo "If -SkipOsquery is not specified, then -OsqueryVer must be provided."; fi
 	exit 2
 fi
 
@@ -101,10 +104,10 @@ tprobe $WazuhRegMgr 1515
 # 1 - Is the agent presently really connected to the Wazuh manager?
 #
 if [[ ! `grep "'connected'" /var/ossec/var/run/ossec-agentd.state 2> /dev/null` ]]; then
-	if [ "$DBG" == "1" ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager."; fi
+	if [ $DBG ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager."; fi
 	exit 1
 else
-	if [ "$DBG" == "1" ]; then echo "The Wazuh agent is connected to the Wazuh manager."; fi
+	if [ $DBG ]; then echo "The Wazuh agent is connected to the Wazuh manager."; fi
 fi
 
 #
@@ -114,7 +117,7 @@ fi
 # Among other things, this affects the automatically assigned starting set of agent group names to include "ubuntu" or "centos".
 # This needs to be refined, but reflects the Linux flavors I actually work with.
 # Do not perform agent group check if 
-if [ $WazuhGroups != "#NOGROUP#" ]; then
+if [ "$WazuhGroups" != "#NOGROUP#" ]; then
 	WazuhGroupsPrefix="linux,"
 	if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
 		LinuxFamily="deb"
@@ -130,26 +133,26 @@ if [ $WazuhGroups != "#NOGROUP#" ]; then
 	# If there were no additional groups, strip off the trailing comma in the list.
 	WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
 	CURR_GROUPS=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
-	if [ "$DBG" == "1" ]; then echo "Current agent groups: $CURR_GROUPS"; fi
-	if [ "$DBG" == "1" ]; then echo "Target agent groups:  $WazuhGroups"; fi
+	if [ $DBG ]; then echo "Current agent groups: $CURR_GROUPS"; fi
+	if [ $DBG ]; then echo "Target agent groups:  $WazuhGroups"; fi
 	if [ "$CURR_GROUPS" != "$WazuhGroups" ]; then
-		if [ "$DBG" == "1" ]; then echo "*** Current and target groups to not match."; fi
+		if [ $DBG ]; then echo "*** Current and target groups to not match."; fi
 		exit 1
 	else
-		if [ "$DBG" == "1" ]; then echo "Current and target groups match."; fi
+		if [ $DBG ]; then echo "Current and target groups match."; fi
 	fi
 else
-	if [ "$DBG" == "1" ]; then echo "Skipping the agent group check since no -WazuhGroups was provided."; fi
+	if [ $DBG ]; then echo "Skipping the agent group check since no -WazuhGroups was provided."; fi
 fi
 
 #
 # 3 - Is the target version of Wazuh agent installed?
 #
 if [[ ! `grep "\"v$WazuhVer\"" /etc/ossec-init.conf` ]]; then
-	if [ "$DBG" == "1" ]; then echo "*** The running Wazuh agent does not appear to be at the desired version ($WazuhVer)."; fi
+	if [ $DBG ]; then echo "*** The running Wazuh agent does not appear to be at the desired version ($WazuhVer)."; fi
 	exit 1
 else
-	if [ "$DBG" == "1" ]; then echo "The running Wazuh agent appears to be at the desired version ($WazuhVer)."; fi
+	if [ $DBG ]; then echo "The running Wazuh agent appears to be at the desired version ($WazuhVer)."; fi
 fi
 
 #
@@ -157,24 +160,24 @@ fi
 #
 if [ "$SkipOsquery" != "1" ]; then
 	if [[ ! `pstree | egrep "wazuh-modulesd.*osqueryd"` ]]; then
-	        if [ "$DBG" == "1" ]; then echo "*** No osqueryd child process was found under the wazuh-modulesd process."; fi
+	        if [ $DBG ]; then echo "*** No osqueryd child process was found under the wazuh-modulesd process."; fi
 	        exit 1
 	else
-		if [ "$DBG" == "1" ]; then echo "Osqueryd was found running under the wazuh-modulesd process."; fi
+		if [ $DBG ]; then echo "Osqueryd was found running under the wazuh-modulesd process."; fi
 	fi
 	CURR_OSQ_VER=`/usr/bin/osqueryi --csv "select version from osquery_info;" | tail -n1`
 	if [ ! "$CURR_OSQ_VER" == "$OsqueryVer" ]; then
-	        if [ "$DBG" == "1" ]; then echo "*** The version of Osquery running on this system ($CURR_OSQ_VER) is not the target version ($OsqueryVer)."; fi
+	        if [ $DBG ]; then echo "*** The version of Osquery running on this system ($CURR_OSQ_VER) is not the target version ($OsqueryVer)."; fi
 	        exit 1
 	else
-		if [ "$DBG" == "1" ]; then echo "The target version of Osquery is running on this system."; fi
+		if [ $DBG ]; then echo "The target version of Osquery is running on this system."; fi
 	fi
 else
-	if [ "$DBG" == "1" ]; then echo "Ignoring Osquery..."; fi
+	if [ $DBG ]; then echo "Ignoring Osquery..."; fi
 fi
 
 #
 # Passed!
 #
-if [ "$DBG" == "1" ]; then echo "All appears current on this system with respect to the Wazuh Linux agent suite."; fi
+if [ $DBG ]; then echo "All appears current on this system with respect to the Wazuh Linux agent suite."; fi
 exit 0
