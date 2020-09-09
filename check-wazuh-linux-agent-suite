@@ -22,6 +22,7 @@
 # -WazuhGroups          Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes. Use "" to expect zero extra groups.
 #                       If not specified, agent group membership will not be checked at all.
 # -SkipOsquery          Set this flag to skip the default examination of Osquery and assume Osquery is not installed on agent. (Optional)
+# -help                 Show command syntax
 #
 # Sample way to fetch and use this script:
 #
