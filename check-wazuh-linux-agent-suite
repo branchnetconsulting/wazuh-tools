@@ -133,10 +133,12 @@ if [ "$WazuhRegMgr" == "" ]; then
 fi
 if [ "$WazuhVer" == "" ]; then
         echo -e "\n*** Must use '-WazuhVer' to specify the Wazuh Agent version to check for."
+        show_usage
         exit 2
 fi
 if [ "$OsqueryVer" == "" -a $SkipOsquery == 0 ]; then
         echo -e "\nIf -SkipOsquery is not specified, then -OsqueryVer must be provided."
+        show_usage
         exit 2
 fi
 
