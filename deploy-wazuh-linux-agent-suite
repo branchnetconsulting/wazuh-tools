@@ -1,5 +1,6 @@
 #!/bin/bash
 
+#
 # deploy-wazuh-linux-agent-suite
 # by Kevin Branch (kevin@branchnetconsulting.com)
 #
@@ -11,55 +12,155 @@
 #
 # Parameters:
 #
-# -WazuhMgr		Required: IP or FQDN of the Wazuh manager for ongoing agent connections.  
-# -WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection if other than above (defaults to WazuhMgr value if not specified)
-# -WazuhRegPass		Required: password for registration with Wazuh manager (put in quotes).
-# -WazuhVer		Full version of Wazuh agent to install, like "3.12.3".  Defaults to latest stable version.
+# -WazuhMgr         Required: IP or FQDN of the Wazuh manager for ongoing agent connections.  
+# -WazuhRegMgr      IP or FQDN of the Wazuh manager for agent registration connection if other than above (defaults to WazuhMgr value if not specified)
+# -WazuhRegPass     Required: password for registration with Wazuh manager (put in quotes).
+# -WazuhVer         Full version of Wazuh agent to install, like "3.12.3".  
 # -WazuhAgentName	Name under which to register this agent in place of locally detected Linux host name
 # -WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
-#			Do not includes "linux", "ubuntu", or "centos" groups as these are autodetected and will dynamically be inserted as the first groups.
-#			Also, do not include "osquery" as this will automatically be included unless SkipOsquery is set to "1".
-# -WazuhSrc		Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
-# -OsqueryVer		Full version of Osquery to install.  Defaults to latest stable version.
-# -OsquerySrc		Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
-# -SkipOsquery		Set to "1" to skip installing Osquery, which will also result in Osquery being removed if present.  Osquery installed by default.
+#                   Do not includes "linux", "ubuntu", or "centos" groups as these are autodetected and will dynamically be inserted as the first groups.
+#                   Also, do not include "osquery" as this will automatically be included unless SkipOsquery is set to "1".
+# -WazuhSrc         Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
+# -OsqueryVer       Full version of Osquery to install.  
+# -OsquerySrc       Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
+# -SkipOsquery      Set this flag to skip installing Osquery, which will also result in Osquery being removed if present.  Osquery installed by default.
+# -help             Show command syntax
 #
 # Example minimal usage:
 #
-# ./deploy-wazuh-linux-agent-suite -WazuhMgr "siem.company.com" -WazuhRegPass "self-reg-pw"
+# ./deploy-wazuh-linux-agent-suite -WazuhMgr siem.company.com -WazuhRegPass "self-reg-pw" -WazuhVer 3.13.1 -OsqueryVer 4.3.0
 #
 # The above would (re)install the latest stable Wazuh agent and Osquery.
 # It would also self-register with the specified Wazuh manager using the specified password, unless an existing working registration can be kept.
 # The agent would be registered with agent groups "linux,ubuntu,osquery" or "linux,centos,osquery" depending on if this is an rpm or deb system.
 #
 
-# Dynamic named parameters with optional default values.
+# Uncomment this line to enable debug output, otherwise output will be less verbose.
+#DBG=1
+
+function show_usage() {
+   LBLU='\033[1;34m'
+   NC='\033[0m'
+   printf "\nCommand syntax:\n   $0 \n      -WazuhMgr ${LBLU}WAZUH_MANAGER${NC}\n      [-WazuhRegMgr ${LBLU}WAZUH_REGISTRATION_MANAGER${NC}]\n      -WazuhRegPass \"${LBLU}WAZUH_REGISTRATION_PASSWORD${NC}\"\n      {-WazuhVer ${LBLU}WAZUH_VERSION${NC} | -WazuhSrc ${LBLU}WAZUH_AGENT_DOWNLOAD_URL${NC}}\n      [-WazuhAgentName ${LBLU}WAZUH_AGENT_NAME_OVERRIDE${NC}]\n      [-WazuhGroups {${LBLU}LIST_OF_EXTRA_GROUPS${NC} | \"\"}]\n      {-OsqueryVer ${LBLU}OSQUERY_VERSION${NC} | -OsquerySrc ${LBLU}OSQUERY_DOWNLOAD_URL${NC} | -SkipOsquery}\n      [-help]\n\n"
+   printf "Example:\n   $0 -WazuhMgr ${LBLU}siem.company.org${NC} -WazuhRegPass ${LBLU}\"h58fg3FS###12\"${NC} -WazuhVer ${LBLU}3.13.1${NC} -OsqueryVer ${LBLU}3.4.0${NC} -WazuhGroups ${LBLU}finance,denver${NC}\n\n"
+   exit 2
+}
+function check_value() {
+   if [[ "$1" == "" || "$1" == "-"* ]]; then
+      show_usage
+   fi
+}
+
+# Named parameter optional default values
 WazuhMgr=
 WazuhRegMgr=
 WazuhRegPass=
-WazuhVer=3.13.1
-WazuhAgentName=
-WazuhGroups=
+WazuhVer=
 WazuhSrc=
-OsqueryVer=4.4.0
+WazuhAgentName=
+WazuhGroups="#NOGROUP#"
+OsqueryVer=
 OsquerySrc=
-SkipOsquery=
-while [ $# -gt 0 ]; do
-	if [[ $1 == *"--"* ]]; then
-	param="${1/--/}"
-		declare $param="$2"
-		# echo $1 $2 // Optional to see the parameter:value result
-	fi
-	shift
+SkipOsquery=0
+
+while [ "$1" != "" ]; do
+   case $1 in
+      -WazuhMgr )     shift
+                      check_value $1
+                      WazuhMgr=$1
+                      ;;
+      -WazuhRegMgr )  shift
+                      check_value $1
+                      WazuhRegMgr=$1
+                      ;;
+      -WazuhRegPass ) shift
+                      check_value $1
+                      WazuhRegPass=$1
+                      ;;
+	  -WazuhVer )     shift
+                      check_value $1
+                      WazuhVer="$1"
+                      ;;
+	  -WazuhSrc )     shift
+                      check_value $1
+                      WazuhSrc="$1"
+                      ;;
+	  -WazuhAgentName ) shift
+                      check_value $1
+                      WazuhAgentName="$1"
+					  ;;
+      -WazuhGroups )  if [[ "$2" == "" ]]; then
+                         shift
+                         WazuhGroups=""
+                      elif [[ "$2" == "-"* ]]; then
+                         WazuhGroups=""
+                      else
+                         shift
+                         WazuhGroups="$1"
+                      fi
+                      ;;
+      -OsqueryVer )   shift
+                      check_value $1
+                      OsqueryVer="$1"
+                      ;;
+      -OsquerySrc )   shift
+                      check_value $1
+                      OsquerySrc="$1"
+                      ;;
+      -SkipOsquery )  # no shift
+                      SkipOsquery=1
+                      ;;
+      -help )         show_usage
+                      ;;
+      * )             show_usage
+   esac
+   shift
 done
 
+if [ "$WazuhGroups" == "#NOGROUP#" ]; then
+	GROUPS_SKIPPED=1
+	WazuhGroups=""
+else
+	GROUPS_SKIPPED=0   
+fi
+
 if [ -f /etc/nsm/securityonion.conf ]; then
-	echo "This deploy script cannot be used on Security Onion servers/sensors."
-	exit 1
+	echo -e "\n*** This deploy script cannot be used on a system where Security Onion is installed."
+	show_usage
+	exit 2
 fi
 if [[ `grep server /etc/ossec-init.conf` ]]; then
-	echo "Wazuh manager appears installed on this system.  Remove it before attempting to deploy Wazuh agent on it."
-	exit 1
+	echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."
+	show_usage
+	exit 2
+fi
+
+if [ "$WazuhMgr" == "" ]; then
+	echo -e "\n*** WazuhMgr variable must be used to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
+    show_usage
+	exit 2
+fi
+
+if [ "$WazuhRegPass" == "" ]; then
+	echo -e "\n*** WazuhRegPass variable must be used to specify the password to use for agent registration."
+	show_usage
+	exit 2
+fi
+
+if [ "$WazuhVer" == "" -a "$WazuhSrc" == "" ]; then
+	echo -e "\n*** Must use '-WazuhVer' or '-WazuhSrc' to specify which Wazuh agent to (re)install (and possibly download first)."
+	show_usage
+	exit 2
+fi
+
+if [ "$WazuhVer" != "" -a "$WazuhSrc" != "" ]; then
+	echo -e "\n*** Must use either '-WazuhVer' or '-WazuhSrc' (not both) to specify which Wazuh agent to (re)install (and possibly download first)."
+	show_usage
+	exit 2
+fi
+
+if [ "$WazuhRegMgr" == "" ]; then
+	WazuhRegMgr="$WazuhMgr"
 fi
 
 # Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.
@@ -73,32 +174,12 @@ else
 	LinuxFamily="rpm"
 	WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
 fi
-if [ "$SkipOsquery" != "1" ]; then
+if [ $SkipOsquery == 0 ]; then
 	WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,"
 fi
 WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
 # If there were no additional groups, strip off the trailing comma in the list.
 WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
-
-# Bail if this box is running Security Onion which conflicts with standard Wazuh agent packages.
-if [ -f /etc/nsm/securityonion.conf ]; then
-        echo "This deployment script is not compatible with Security Onion.  Do a manual tarball install and registration instead."
-        exit 1
-fi
-
-if [ "$WazuhMgr" == "" ]; then
-	echo "WazuhMgr variable must be used to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
-	exit 1
-fi
-
-if [ "$WazuhRegPass" == "" ]; then
-	echo "WazuhRegPass variable must be used to specify the password to use for agent registration."
-	exit 1
-fi
-
-if [ "$WazuhRegMgr" == "" ]; then
-	WazuhRegMgr="$WazuhMgr"
-fi
 
 if [ "$WazuhSrc" == "" ]; then 
 	if [ "$LinuxFamily" == "deb" ]; then	
@@ -107,6 +188,19 @@ if [ "$WazuhSrc" == "" ]; then
 		WazuhSrc="https://packages.wazuh.com/3.x/yum/wazuh-agent-$WazuhVer-1.x86_64.rpm"
 	fi
 fi
+
+if [ "$OsqueryVer" == "" -a $SkipOsquery == 0 -a "$OsquerySrc" == "" ]; then
+	echo -e "\n*** Must use '-OsqueryVer' or '-OsquerySrc' or '-SkipOsquery' to indicate if/how to handle Osquery (re)installation/removal."
+	show_usage
+	exit 2
+fi
+
+if [ "$OsqueryVer" != "" -a "$OsquerySrc" != "" ]; then
+	echo -e "\n*** Cannot specify both '-OsqueryVer' and '-OsquerySrc'."
+	show_usage
+	exit 2
+fi
+
 
 if [ "$OsquerySrc" == "" ]; then
 	if [ "$LinuxFamily" == "deb" ]; then	
@@ -124,15 +218,33 @@ fi
 cd ~
 
 # Take note if agent is already connected to a Wazuh manager and collect relevant data
+ALREADY_CONNECTED=0
 if [[ `cat /var/ossec/var/run/ossec-agentd.state 2> /dev/null | grep "'connected'"` ]]; then
-        ALREADY_CONNECTED="yes"
-        OLDNAME=`cut -d" " -f2 /var/ossec/etc/client.keys 2> /dev/null`
-        CURR_GROUPS=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
-        rm -f /tmp/client.keys 2> /dev/null
-        cp -p /var/ossec/etc/client.keys /tmp/
+	ALREADY_CONNECTED=1
+	OLDNAME=`cut -d" " -f2 /var/ossec/etc/client.keys 2> /dev/null`
+	CURR_GROUPS=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
+	rm -f /tmp/client.keys 2> /dev/null
+	cp -p /var/ossec/etc/client.keys /tmp/
 fi
 
-# Shut down and clean out any previous Wazuh or OSSEC agent or manager
+if [ $DBG ]; then 
+	echo -e "\nWazuhMgr: $WazuhMgr"
+	echo "WazuhRegMgr: $WazuhRegMgr"
+	echo "WazuhRegPass: $WazuhRegPass"
+	echo "WazuhVer: $WazuhVer"
+	echo "WazuhAgentName: $WazuhAgentName"
+	echo "WazuhSrc: $WazuhSrc"
+	echo "OsqueryVer: $OsqueryVer"
+	echo "OsquerySrc: $OsquerySrc"
+	echo "SkipOsquery: $SkipOsquery"
+	echo "ALREADY_CONNECTED: $ALREADY_CONNECTED"
+	echo "OLDNAME: $OLDNAME"
+	echo "WazuhGroups: $WazuhGroups"
+	echo "CURR_GROUPS: $CURR_GROUPS"
+	echo -e "GROUPS_SKIPPED: $GROUPS_SKIPPED\n"
+fi
+
+# Shut down and clean out any previous Wazuh or OSSEC agent
 systemctl stop wazuh-agent 2> /dev/null
 systemctl stop ossec-hids-agent 2> /dev/null
 systemctl stop ossec-agent 2> /dev/null
@@ -156,64 +268,70 @@ CFG_PROFILE=`. /etc/os-release; echo $ID\`echo $VERSION_ID | cut -d. -f1\`, $ID\
 # Branch between Ubuntu and CentOS for Wazuh agent installation steps
 #
 if [ "$LinuxFamily" == "deb" ]; then
-        # Wazuh Agent remove/download/install
-        rm -f /tmp/wazuh-agent_$WazuhVer-1_amd64.deb 2> /dev/null
-        wget -O /tmp/wazuh-agent_$WazuhVer-1_amd64.deb $WazuhSrc
-        dpkg -i /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
-        rm -f /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
+	# Wazuh Agent remove/download/install
+	rm -f /tmp/wazuh-agent_$WazuhVer-1_amd64.deb 2> /dev/null
+	wget -O /tmp/wazuh-agent_$WazuhVer-1_amd64.deb $WazuhSrc
+	dpkg -i /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
+	rm -f /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
 else
-        # Wazuh Agent remove/download/install
-        rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm 2> /dev/null
-        wget -O /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm $WazuhSrc
-        yum -y install /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
-        rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
+	# Wazuh Agent remove/download/install
+	rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm 2> /dev/null
+	wget -O /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm $WazuhSrc
+	yum -y install /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
+	rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
 fi
 
 #
 # If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
 # This should keep us from burning through so many agent ID numbers.
+# Furthermore, when re-registering, if -WazuhGroups was not specified and an existing set of group memberships is detected and the agent is presently connected, 
+# then preserve those groups during the re-registration instead of rebuilding a standard group list.
 #
-SKIP_REG="no"
+SKIP_REG=0
 if [ "$ALREADY_CONNECTED" == "yes" ]; then
-        echo "Agent is presently connected..."
-        echo "Current registered agent name is $OLDNAME and new target name is: $WazuhAgentName"
-        if [ "$WazuhAgentName" == "$OLDNAME" ]; then
-                echo "Old and new agent registration names match."
-                if [ "$CURR_GROUPS" == "$WazuhGroups" ]; then
-                        echo -e "Old and new agent group memberships match.\nWill skip self-registration and just restore client.keys backup instead..."
-                        SKIP_REG=1
-                else
-                        echo "Current groups: $CURR_GROUPS and target groups: $WazuhGroups do not match."
-                fi
-        fi
+	echo "Agent is presently connected..."
+	echo "Current registered agent name is $OLDNAME and new target name is: $WazuhAgentName"
+	if [ "$WazuhAgentName" == "$OLDNAME" ]; then
+		echo "Old and new agent registration names match."
+		if [ "$CURR_GROUPS" == "$WazuhGroups" ]; then
+			echo -e "Old and new agent group memberships match.\nWill skip self-registration and just restore client.keys backup instead..."
+			SKIP_REG=1
+		else
+			echo "Current groups: $CURR_GROUPS and target groups: $WazuhGroups do not match."
+		fi
+	fi
 fi
-if [ "$SKIP_REG" == "no" ]; then
-        /var/ossec/bin/agent-auth -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$WazuhGroups" -A "$WazuhAgentName"
+if [ $SKIP_REG == 0 ]; then
+	if [ $GROUPS_SKIPPED == 1 -a "$CURR_GROUPS" != "" -a $ALREADY_CONNECTED == 1 ]; then
+		/var/ossec/bin/agent-auth -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$CURR_GROUPS" -A "$WazuhAgentName"
+	else
+		/var/ossec/bin/agent-auth -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$WazuhGroups" -A "$WazuhAgentName"
+	fi
 else
-        cp -p /tmp/client.keys /var/ossec/etc/
+	cp -p /tmp/client.keys /var/ossec/etc/
 fi
 
 #
 # Remove Osquery if present.  If not set to be skipped, then next download and install it.
 #
 if [ "$LinuxFamily" == "deb" ]; then
-        dpkg --purge osquery 2> /dev/null
-        rm -rf /var/osquery /var/log/osquery /usr/share/osquery
-        rm -f osquery.deb 2> /dev/null
-		if [ "$SkipOsquery" != "1" ]; then
-			wget -O osquery.deb $OsquerySrc
-			dpkg -i osquery.deb
-			rm -f osquery.deb 2> /dev/null
-		fi
+	dpkg --purge osquery 2> /dev/null
+	rm -rf /var/osquery /var/log/osquery /usr/share/osquery
+	rm -f osquery.deb 2> /dev/null
+	if [ $SkipOsquery == 0 ]; then
+		wget -O osquery.deb $OsquerySrc
+		dpkg -i osquery.deb
+		rm -f osquery.deb 2> /dev/null
+	fi
 else
-        yum -y erase osquery 2> /dev/null
-        rm -rf /var/osquery /var/log/osquery /usr/share/osquery
-        rm -f osquery.rpm 2> /dev/null
-		if [ "$SkipOsquery" != "1" ]; then
-			wget -O osquery.rpm $OsquerySrc
-			yum -y install osquery.rpm
-			rm -f osquery.rpm 2> /dev/null
-		fi
+	yum -y erase osquery 2> /dev/null
+	rm -rf /var/osquery /var/log/osquery /usr/share/osquery
+	rm -f osquery.rpm 2> /dev/null
+	if [ $SkipOsquery == 0 ]; then
+		wget -O osquery.rpm $OsquerySrc
+		yum -y install osquery.rpm
+		rm -f osquery.rpm 2> /dev/null
+	fi
 fi
 
 #
@@ -256,17 +374,17 @@ sca.remote_commands=1
 
 # Restart the Wazuh agent (and Osquery subagent)
 if [[ `which systemctl 2> /dev/null` ]]; then
-        systemctl restart wazuh-agent
+	systemctl restart wazuh-agent
 else
-        service wazuh-agent restart
+	service wazuh-agent restart
 fi
 
 echo "Waiting 15 seconds before checking connection status to manager..."
 sleep 15
 if [[ `cat /var/ossec/logs/ossec.log | grep "Connected to the server "` ]]; then
-        echo "Agent has successfully reported into the manager."
+	echo "Agent has successfully reported into the manager."
 	exit 0
 else
-        echo "Something appears to have gone wrong.  Agent is not connected to the manager."
+	echo "Something appears to have gone wrong.  Agent is not connected to the manager."
 	exit 1
 fi
