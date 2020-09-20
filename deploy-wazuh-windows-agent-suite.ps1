@@ -12,35 +12,12 @@
 #
 # This script should work on Windows systems as old as Windows Server 2012 provided PowerShell 5.1 is present.  Likely Powershell 5.0 would be OK.
 #
-# No provision has been made for Sysmon to work on Windows systems that have no 32-bit subsystem present (like Windows Nano and possible Core).  
+# No provision has been made for Sysmon to work on Windows systems that have no 32-bit subsystem present (like Windows Nano and possibly Core).  
 # They would need Sysmon64.exe run instead of Sysmon.exe.  A little logic to detect a 64 bit Windows system with no 32 bit subsystem would not
 # be that difficult to add.  
 #
-# This also installs a custom active-response script to be directly invoked via the Wazuh API against all agents using Sysmon 
-# to cause Sysmon.exe on each agent to import and apply the latest version of C:\Program Files (x86)\ossec-agent\shared\sysmonconfig.xml.
-# Sections like below are presumed to be in ossec.conf on the Wazuh manager(s).  The script reload-sysmon.cmd must also be on the managers.
+# Last updated by Kevin Branch 9/19/2020.
 #
-#  <command>
-#    <name>reload-sysmon</name>
-#    <executable>reload-sysmon.cmd</executable>
-#    <expect/>
-#    <timeout_allowed>no</timeout_allowed>
-#  </command>
-#
-#  <active-response>
-#    <disabled>no</disabled>
-#    <command>reload-sysmon</command>
-#    <location>local</location>
-#    <!-- This AR is only to be invoked via a direct Wazuh API call.  Group below does not exist. -->
-#    <rules_group>run-directly-via-wazuh-api</rules_group>
-#  </active-response>
-#
-#  To manually invoke the reload-sysmon AR, you can run this on all Wazuh managers to which agents are connected:
-#    /var/ossec/bin/agent_control -b 1.1.1.1 -f reload-sysmon0 -a
-#
-# Last updated by Kevin Branch 5/13/2020.
-#
-
 #
 # -WazuhVer			Full version of Wazuh agent to install, like "3.12.2"
 # -WazuhMgr			IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
@@ -51,23 +28,25 @@
 # -WazuhSrc			Static download path to fetch Wazuh agent installer.  Overrides $WazVer
 # -SysmonSrc		Static download path to fetch Sysmon installer zip file.  
 # -SysmonConfSrc	Static download path to fetch Sysmon configuration file.
+# -SysmonHash       SHA256 hash of the Sysmon download file for validation.  Required if -SysmonConfSrc is used.
 # -SkipSysmon		Do not install Sysmon.  Completely remove it if present.
 # -OsqueryVer		Full version of Osquery to install, like "4.2.0"
 # -OsquerySrc		Static download path to fetch Osquery agent installer.  Overrides $OsqVer
 # -SkipOsquery		Do not install Osquery.  Completely remove it if present.
 # -Local			Expect all download files already to be present in current directory.  Do not use any $...Src parameters with this.
 #
-param ( $WazuhVer = "3.13.1", 
+param ( $WazuhVer, 
 	$WazuhMgr, 
 	$WazuhRegMgr, 
 	$WazuhRegPass, 
 	$WazuhAgentName = $env:computername, 
 	$WazuhGroups, 
 	$WazuhSrc, 
-	$SysmonSrc = "https://download.sysinternals.com/files/Sysmon.zip", 
+	$SysmonSrc, 
 	$SysmonConfSrc = "https://raw.githubusercontent.com/branchnetconsulting/sysmon-config/master/sysmonconfig-export.xml", 
+	$SysmonHash,
 	[switch]$SkipSysmon=$false, 
-	$OsqueryVer = "4.4.0", 
+	$OsqueryVer, 
 	$OsquerySrc, 
 	[switch]$SkipOsquery=$false,
 	[switch]$Local=$false
@@ -80,6 +59,22 @@ if ($WazuhMgr -eq $null) {
 if ($WazuhRegPass -eq $null) { 
 	write-host "Must use '-WazuhRegPass' to specify the password to use for agent registration."
 	exit 1
+}
+if ($WazuhVer -eq $null) { 
+	write-host "Must use '-WazuhVer' to specify the target version of Wazuh agent, like 3.13.1."
+	exit
+}
+if ( ($OsqueryVer -eq $null) -and ( $SkipOsquery -eq $false ) -and ( $SysmonSrc -eq $null ) ) { 
+	write-host "Must use '-OsqueryVer' to specify the password to use for agent registration."
+	exit
+}
+if ($SysmonSrc -eq $null) { 
+    $SysmonSrc = "https://download.sysinternals.com/files/Sysmon.zip"
+} else {
+	if ( $SysmonHash -eq $null ) {
+		write-host "When specifying -SysmonSrc, the -SysmonHash option must also be used to specify the SHA256 hash to verify the Sysmon installer."
+		exit
+	}
 }
 if ($WazuhRegMgr -eq $null) { 
     $WazuhRegMgr = $WazuhMgr
@@ -341,8 +336,16 @@ if ( $Local -eq $false ) {
 		}  
 		$count++    
 	}until($count -eq 6 -or $success)
+	# If a hash was provided then calculate the hash of the downloaded Sysmon.zip and if the hashes don't match then fail.
+	if ( -not ( $SysmonHash -eq $null ) ) {
+		$SysmonRealHash=(Get-FileHash "$env:TEMP\Sysmon.zip" -Algorithm SHA256).Hash
+		if ( -not ( $SysmonHash -eq $SysmonRealHash ) ) {
+			Write-Output "The Sysmon verification hash does not match the downloaded $SysmonSrc."
+			exit 1
+		}
+	}
 	Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh"
-	Remove-Item "$env:TEMP\Sysmon.zip" -Force
+	Remove-Item "$env:TEMP\Sysmon.zip" -Force -erroraction 'silentlycontinue'
 } else {
 	Expand-Archive "Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh\"
 }
@@ -372,27 +375,18 @@ if ( $SkipSysmon -eq $false ) {
 	}
 }
 
+#
+# Expand the Sysmon removal process to handle pulling older Sysmon versions for Sysmon64-installed versions.  
+# Such versions can fail to be removed/replaced by the newer Sysmon.exe installer.
+#
 echo "Removing Sysmon if present..."
 Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
 
-if ( $SkipSysmon -eq $false ) {
-echo "Installing Sysmon..."
-Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-i","c:\progra~2\ossec-agent\shared\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
-
-# Write the active-response script reload-sysmon.cmd to the Wazuh AR directory so that it can be run when new Sysmon configs arrive to import them.
-echo "Writing reload-sysmon.cmd..."
-$ScriptToWrite = @"
-@ECHO OFF
-FOR /F "TOKENS=1* DELIMS= " %%A IN ('DATE/T') DO SET DATE=%%B
-FOR /F "TOKENS=1* DELIMS= " %%A IN ('TIME/T') DO SET TIME=%%A
-ECHO %DATE% %TIME% %0 %1 %2 %3 %4 %5 %6 %7 %8 %9 >> C:\Progra~2\ossec-agent\active-response\active-responses.log
-c:\progra~2\sysmon-wazuh\Sysmon.exe -c c:\progra~2\ossec-agent\shared\sysmonconfig.xml
-"@
-$ScriptToWrite | Out-File -FilePath C:\Progra~2\ossec-agent\active-response\bin\reload-sysmon.cmd -Encoding ASCII
-}
-
 if ( $SkipSysmon -eq $true ) {
 	Remove-Item "C:\Program Files (x86)\sysmon-wazuh" -recurse -erroraction 'silentlycontinue'
+} else {
+	echo "Installing Sysmon..."
+	Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-i","c:\progra~2\ossec-agent\shared\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
 }
 
 #
