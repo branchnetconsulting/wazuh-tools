@@ -18,7 +18,6 @@
 #
 # Last updated by Kevin Branch 9/19/2020.
 #
-#
 # -WazuhVer			Full version of Wazuh agent to install, like "3.12.2"
 # -WazuhMgr			IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
 # -WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazuhMgr if not specified)
@@ -40,7 +39,7 @@ param ( $WazuhVer,
 	$WazuhRegMgr, 
 	$WazuhRegPass, 
 	$WazuhAgentName = $env:computername, 
-	$WazuhGroups, 
+	$WazuhGroups = "#NOGROUP#", 
 	$WazuhSrc, 
 	$SysmonSrc, 
 	$SysmonConfSrc = "https://raw.githubusercontent.com/branchnetconsulting/sysmon-config/master/sysmonconfig-export.xml", 
@@ -88,6 +87,13 @@ if ($OsquerySrc -eq $null) {
 if ( !($PSVersionTable.PSVersion.Major) -ge 5 ) {
 	write-host "PowerShell 5.0 or higher is required by this script."
 	exit 1
+}
+
+if ( $WazuhGroups -eq "#NOGROUP#" ) {
+	$SkippedGroups = $true
+	$WazuhGroups = ""
+} else {
+	$SkippedGroups = $false
 }
 
 # Blend standard/dynamic groups with custom groups
@@ -242,9 +248,13 @@ if ($ALREADY_CONNECTED -eq "yes") {
 }
 
 if  ($SKIP_REG -eq "no") {
-    # Register the agent with the manager
+    # Register the agent with the manager (keep existing groups if agent connected and -WazuhGroups not specified)
     echo "Registering Wazuh Agent with $WazuhRegMgr..."
-    C:\Progra~2\ossec-agent\agent-auth.exe -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$WazuhGroups" -A "$WazuhAgentName"
+	if ( ($SkippedGroups -eq $true) -and ( $ALREADY_CONNECTED -eq "yes" ) ) {
+		C:\Progra~2\ossec-agent\agent-auth.exe -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$CURR_GROUPS" -A "$WazuhAgentName"
+	} else {
+		C:\Progra~2\ossec-agent\agent-auth.exe -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$WazuhGroups" -A "$WazuhAgentName"
+	}
 } else {
 	Copy-Item "$env:TEMP\client.keys.bnc" -Destination 'C:\Program Files (x86)\ossec-agent\client.keys'
 }
