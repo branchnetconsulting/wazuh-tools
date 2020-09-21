@@ -3,7 +3,9 @@
 #
 # This script is to be used to determine if there is need to call the deploy-wazuh-windows-agent-suite.ps1 script.
 # If any of the follwing test families fail, a return code of 1 will be returned.  Otherwise it will return a 0.
-# If the script is unable to perform the test due to wrong parameters, it will exit with a 2.
+# If this script is unable to perform the test due to wrong parameters or the Wazuh manager does not respond to probes, it will exit with a 2, meaning "test not possible".
+# If any of the tests of the agent system fail to show compliance with target state, a 1 is returned, meaning "failed -- should (re)deploy".
+# Othersie a 0 will be returned, meaning "passed tests - no (re)deploy needed".
 # The Sysmon tests will be skipped if -SkipSysmon is selected and the Osquery tests will be skipped if -SkipOsquery is selected.
 #
 # 1 - Is the agent presently really connected to the Wazuh manager?
@@ -42,7 +44,7 @@ param ( $WazuhMgr,
 );
 
 # If false, there will be no output except a numeric return value.
-$DBG = $true
+$DBG = $false
 
 function tprobe {
 	$DBG = $true
