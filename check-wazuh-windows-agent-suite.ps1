@@ -348,7 +348,11 @@ if ( $Local -eq $false ) {
 	$success = $false;
 	do{
 		try{
-			Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
+			if ( $SysmonDLhash -eq $null ) {
+				Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
+			} else {
+				Invoke-WebRequest -Uri $SysmonSrc -Method Get -Headers $headers -OutFile "$env:TEMP\Sysmon.zip"
+			}
 			$success = $true
 		}
 		catch{
