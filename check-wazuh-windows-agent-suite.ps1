@@ -68,7 +68,7 @@ if ($WazuhVer -eq $null) {
 	write-host "Must use '-WazuhVer' to specify the target version of Wazuh agent, like 3.13.1."
 	exit 1
 }
-if ( ($OsqueryVer -eq $null) -and ( $SkipOsquery -eq $false ) -and ( $SysmonSrc -eq $null ) ) { 
+if ( ($OsqueryVer -eq $null) -and ( $SkipOsquery -eq $false ) -and ( $OsquerySrc -eq $null ) ) { 
 	write-host "Must use '-OsqueryVer' to specify the password to use for agent registration."
 	exit 1
 }
