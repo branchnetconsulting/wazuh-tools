@@ -16,7 +16,7 @@
 # They would need Sysmon64.exe run instead of Sysmon.exe.  A little logic to detect a 64 bit Windows system with no 32 bit subsystem would not
 # be that difficult to add.  
 #
-# Last updated by Kevin Branch 9/19/2020.
+# Last updated by Kevin Branch 9/21/2020.
 #
 #
 # -WazuhVer			Full version of Wazuh agent to install, like "3.12.2"
