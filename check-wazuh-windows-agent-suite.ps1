@@ -47,7 +47,6 @@ param ( $WazuhMgr,
 $DBG = $false
 
 function tprobe {
-	$DBG = $true
 	$tp_host = $args[0]
 	$tp_port = $args[1]
 	if ($DBG) { Write-Output "Probing $tp_host on port $tp_port..." }
