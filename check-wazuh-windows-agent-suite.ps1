@@ -21,8 +21,8 @@
 # -SysmonVer		Full version of Sysmon to validate, like "11.11" (Always N.N format, required unless -SkipSysmon specified)
 # -WazuhGroups		Comma separated list of custom Wazuh agent groups. No spaces. Put whole list in quotes. (Optional)
 #			If intentionally specifying an empty set of custom groups, then your must use the syntax -WazuhGroups '""'
-# -SkipSysmon		Set to "1" to not examine Sysmon. (Optional)
-# -SkipOsquery		Set to "1" to not examine Osquery. (Optional)
+# -SkipSysmon		Flag to not examine Sysmon. (Optional)
+# -SkipOsquery		Flag not to examine Osquery. (Optional)
 #
 # Sample way to fetch and use this script:
 #
@@ -36,8 +36,8 @@ param ( $WazuhMgr,
 		$WazuhVer, 
 		$OsqueryVer, 
 		$SysmonVer, 
-		$SkipSysmon = "0", 
-		$SkipOsquery = "0",
+		[switch]$SkipSysmon=$false, 
+		[switch]$SkipOsquery=$false,
 		$WazuhGroups = "#NOGROUP#"
 );
 
@@ -80,13 +80,19 @@ if ($WazuhVer -eq $null) {
 	if ($DBG) { Write-Output "Must use '-WazuhVer' to specify the version of Wazuh agent to check for." }
 	exit 2
 }
-if ( ($OsqueryVer -eq $null) -and ($SkipOsquery -eq "0") ) { 
+if ( ($OsqueryVer -eq $null) -and ($SkipOsquery -eq $false) ) { 
 	if ($DBG) { Write-Output "If '-SkipOsquery 1' is not specified, then -OsqueryVer must be provided." }
 	exit 2
 }
-if ( ($SysmonVer -eq $null) -and ($SkipSysmon -eq "0") ) { 
+if ( ($SysmonVer -eq $null) -and ($SkipSysmon -eq $false) ) { 
 	if ($DBG) { Write-Output "If '-SkipSysmon 1' is not specified, then -SysmonVer must be provided." }
 	exit 2
+}
+if ( $WazuhGroups -eq "#NOGROUP#" ) {
+	if ( ($SkipSysmon -eq $true) -or ($SkipOsquery -eq $true) ) {
+		write-host "-SkipSysmon and -SkipOsquery must always be accompanied with the use of -WazuhGroups."
+		exit 1
+	}
 }
 
 # Confirm the self registration and agent connection ports on the manager(s) are responsive.  
@@ -118,17 +124,17 @@ if ( -not ( $WazuhGroups -eq "#NOGROUP#" ) ) {
 
 	# Blend standard/dynamic groups with custom groups
 	$WazuhGroupsPrefix = "windows,"
-	if ( $SkipOsquery -eq "0" ) {
+	if ( $SkipOsquery -eq $false ) {
 		$WazuhGroupsPrefix = $WazuhGroupsPrefix+"osquery,"
 	}
-	if ( $SkipSysmon -eq "0" ) {
+	if ( $SkipSysmon -eq $false ) {
 		$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,"
 	}
 	$WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
 	$WazuhGroups = $WazuhGroups.TrimEnd(",")
 	if ($DBG) { Write-Output "Target agent group membership:  $WazuhGroups" }
-	if ( -not ( $CURR_GROUPS -eq $WazuhGroups ) ) {
 		if ($DBG) { Write-Output "Current and expected agent group membership differ." }
+	if ( -not ( $CURR_GROUPS -eq $WazuhGroups ) ) {
 		exit 1
 	}
 } else {
@@ -146,7 +152,7 @@ if ( -not ( $WazuhVer.Trim() -eq $version.Trim() ) ) {
 	exit 1
 }
 
-if ( -not ( $SkipSysmon -eq "1" ) ) {
+if ( -not ( $SkipSysmon -eq $true ) ) {
 	#
 	# 4 - Is the target version of Sysmon installed?
 	#
@@ -183,7 +189,7 @@ if ( -not ( $SkipSysmon -eq "1" ) ) {
 	}
 }
 
-if ( -not ( $SkipOsquery -eq "1" ) ) {
+if ( -not ( $SkipOsquery -eq $true ) ) {
 	#
 	# 5 - Is the target version of Osquery installed?
 	#
