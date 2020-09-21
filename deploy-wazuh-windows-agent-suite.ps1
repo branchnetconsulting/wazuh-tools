@@ -16,23 +16,26 @@
 # They would need Sysmon64.exe run instead of Sysmon.exe.  A little logic to detect a 64 bit Windows system with no 32 bit subsystem would not
 # be that difficult to add.  
 #
-# Last updated by Kevin Branch 9/19/2020.
+# Last updated by Kevin Branch 9/21/2020.
 #
-# -WazuhVer			Full version of Wazuh agent to install, like "3.12.2"
-# -WazuhMgr			IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
+# -WazuhVer		Full version of Wazuh agent to install, like "3.12.2"
+# -WazuhMgr		IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
 # -WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazuhMgr if not specified)
 # -WazuhRegPass		Password for registration with Wazuh manager (put in quotes).  Required.
 # -WazuhAgentName	Name under which to register this agent in place of locally detected Windows host name
 # -WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
-# -WazuhSrc			Static download path to fetch Wazuh agent installer.  Overrides $WazVer
+#			Cannot skip -WazuhGroups if using -SkipSysmon or -SkipOsquery
+# -WazuhSrc		Static download path to fetch Wazuh agent installer.  Overrides $WazVer
 # -SysmonSrc		Static download path to fetch Sysmon installer zip file.  
+# -SysmonDLuser     	Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLuser myusername"
+# -SysmonDLpass     	Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLpass mypassword".  Ignored if -SysmonDLuser skipped.
+# -SysmonDLhash     	SHA256 hash of the Sysmon download file for validation.  Required if -SysmonSrc is used.
 # -SysmonConfSrc	Static download path to fetch Sysmon configuration file.
-# -SysmonHash       SHA256 hash of the Sysmon download file for validation.  Required if -SysmonConfSrc is used.
 # -SkipSysmon		Do not install Sysmon.  Completely remove it if present.
 # -OsqueryVer		Full version of Osquery to install, like "4.2.0"
 # -OsquerySrc		Static download path to fetch Osquery agent installer.  Overrides $OsqVer
 # -SkipOsquery		Do not install Osquery.  Completely remove it if present.
-# -Local			Expect all download files already to be present in current directory.  Do not use any $...Src parameters with this.
+# -Local		Expect all download files already to be present in current directory.  Do not use any $...Src parameters with this.
 #
 param ( $WazuhVer, 
 	$WazuhMgr, 
@@ -42,8 +45,10 @@ param ( $WazuhVer,
 	$WazuhGroups = "#NOGROUP#", 
 	$WazuhSrc, 
 	$SysmonSrc, 
+	$SysmonDLuser,
+	$SysmonDLpass,
+	$SysmonDLhash,
 	$SysmonConfSrc = "https://raw.githubusercontent.com/branchnetconsulting/sysmon-config/master/sysmonconfig-export.xml", 
-	$SysmonHash,
 	[switch]$SkipSysmon=$false, 
 	$OsqueryVer, 
 	$OsquerySrc, 
@@ -61,19 +66,28 @@ if ($WazuhRegPass -eq $null) {
 }
 if ($WazuhVer -eq $null) { 
 	write-host "Must use '-WazuhVer' to specify the target version of Wazuh agent, like 3.13.1."
-	exit
+	exit 1
 }
-if ( ($OsqueryVer -eq $null) -and ( $SkipOsquery -eq $false ) -and ( $SysmonSrc -eq $null ) ) { 
+if ( ($OsqueryVer -eq $null) -and ( $SkipOsquery -eq $false ) -and ( $OsquerySrc -eq $null ) ) { 
 	write-host "Must use '-OsqueryVer' to specify the password to use for agent registration."
-	exit
+	exit 1
 }
 if ($SysmonSrc -eq $null) { 
     $SysmonSrc = "https://download.sysinternals.com/files/Sysmon.zip"
 } else {
-	if ( $SysmonHash -eq $null ) {
-		write-host "When specifying -SysmonSrc, the -SysmonHash option must also be used to specify the SHA256 hash to verify the Sysmon installer."
-		exit
+	if ( $SysmonDLhash -eq $null ) {
+		write-host "When specifying -SysmonSrc, the -SysmonDLhash option must also be used to specify the SHA256 hash to verify the Sysmon installer."
+		exit 1
 	}
+}
+if ( -not ($SysmonDLuser -eq $null) ) {
+	if ($SysmonDLpass -eq $null) {
+		write-host "When specifying -SysmonDLuser, you must also specify -SysmonDLpass."
+		exit 1
+	}
+	$pair = "$($SysmonDLuser):$($SysmonDLpass)"
+	$encodedCredentials = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($Pair))
+	$headers = @{ Authorization = "Basic $encodedCredentials" }
 }
 if ($WazuhRegMgr -eq $null) { 
     $WazuhRegMgr = $WazuhMgr
@@ -94,6 +108,13 @@ if ( $WazuhGroups -eq "#NOGROUP#" ) {
 	$WazuhGroups = ""
 } else {
 	$SkippedGroups = $false
+}
+
+if ( $SkippedGroups = $true ) {
+	if ( ($SkipSysmon -eq $true) -or ($SkipOsquery -eq $true) ) {
+		write-host "-SkipSysmon and -SkipOsquery must always be accompanied with the use of -WazuhGroups."
+		exit 1
+	}
 }
 
 # Blend standard/dynamic groups with custom groups
@@ -141,7 +162,7 @@ $file = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erro
 $file2 = Get-Content "C:\Program Files (x86)\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
 if ($file -match "'connected'" ) {
     echo "Agent currently connected, so saving client.keys to $env:TEMP\client.keys.bnc"
-    $ALREADY_CONNECTED="yes"
+    $ALREADY_CONNECTED=$true
     $OLDNAME=(type "C:\Program Files (x86)\ossec-agent\client.keys").Split(" ")[1]
     Remove-Item -Path "$env:TEMP\client.keys.bnc" -erroraction 'silentlycontinue' | out-null
     Copy-Item 'C:\Program Files (x86)\ossec-agent\client.keys' -Destination "$env:TEMP\client.keys.bnc"
@@ -151,7 +172,9 @@ if ($file -match "'connected'" ) {
         # If the agent is presently a member of only one agent group, then pull that group name into current group variable.
         $CURR_GROUPS=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
     }
-} 
+} else {
+    $ALREADY_CONNECTED=$false
+}
 
 # NuGet Dependency
 
@@ -230,24 +253,29 @@ if ( $Local -eq $false ) {
 
 # If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
 # This should keep us from burning through so many agent ID numbers.
-$SKIP_REG = "no"
+$SKIP_REG = $false
 if ($ALREADY_CONNECTED -eq "yes") { 
 	echo "Agent is presently connected..."
 	echo "Current registered agent name is: $OLDNAME and new target name is: $WazuhAgentName"
 	if ($WazuhAgentName -eq $OLDNAME) {
 		echo "Old and new agent registration names match." 
                 echo "Current group memberships are: $CURR_GROUPS and new target group memberships are: $WazuhGroups"
-		if ($CURR_GROUPS -eq $WazuhGroups) {
-			echo "Old and new agent group memberships match. Will skip self-registration and restore client.keys backup instead."
-			$SKIP_REG = "yes"
+		if ($SkippedGroups -eq $false) {
+			if ($CURR_GROUPS -eq $WazuhGroups) {
+				echo "Old and new agent group memberships match. Will skip self-registration and restore client.keys backup instead."
+				$SKIP_REG = $true
+			} else {
+ 			  	echo "Current groups and new target groups do not match."
+   				$SKIP_REG = $false
+			}
+		} else {
+			echo "Skipping group comparison."
+			$SKIP_REG = $true
 		}
 	}
-} else {
-   echo "Current groups and new target groups do not match."
-   $SKIP_REG = "no"
 }
 
-if  ($SKIP_REG -eq "no") {
+if  ($SKIP_REG -eq $false) {
     # Register the agent with the manager (keep existing groups if agent connected and -WazuhGroups not specified)
     echo "Registering Wazuh Agent with $WazuhRegMgr..."
 	if ( ($SkippedGroups -eq $true) -and ( $ALREADY_CONNECTED -eq "yes" ) ) {
@@ -332,7 +360,11 @@ if ( $Local -eq $false ) {
 	$success = $false;
 	do{
 		try{
-			Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
+			if ( $SysmonDLhash -eq $null ) {
+				Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
+			} else {
+				Invoke-WebRequest -Uri $SysmonSrc -Method Get -Headers $headers -OutFile "$env:TEMP\Sysmon.zip"
+			}
 			$success = $true
 		}
 		catch{
@@ -347,9 +379,9 @@ if ( $Local -eq $false ) {
 		$count++    
 	}until($count -eq 6 -or $success)
 	# If a hash was provided then calculate the hash of the downloaded Sysmon.zip and if the hashes don't match then fail.
-	if ( -not ( $SysmonHash -eq $null ) ) {
+	if ( -not ( $SysmonDLhash -eq $null ) ) {
 		$SysmonRealHash=(Get-FileHash "$env:TEMP\Sysmon.zip" -Algorithm SHA256).Hash
-		if ( -not ( $SysmonHash -eq $SysmonRealHash ) ) {
+		if ( -not ( $SysmonDLhash -eq $SysmonRealHash ) ) {
 			Write-Output "The Sysmon verification hash does not match the downloaded $SysmonSrc."
 			exit 1
 		}
@@ -386,11 +418,31 @@ if ( $SkipSysmon -eq $false ) {
 }
 
 #
-# Expand the Sysmon removal process to handle pulling older Sysmon versions for Sysmon64-installed versions.  
-# Such versions can fail to be removed/replaced by the newer Sysmon.exe installer.
+# If Sysmon is present, attempt to remove it with the Sysmon.exe or Sysmon64.exe that it was actually installed with, moving the original installer to old-Sysmon.exe or old-Sysmon64.exe in c:\progra~2\sysmon-wazuh\
 #
 echo "Removing Sysmon if present..."
-Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
+if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -and (Test-Path c:\windows\Sysmon.exe -PathType leaf) ) {
+	Move-Item -Path "c:\windows\Sysmon.exe" -Destination "c:\Sysmon.exe" -Force 
+	Start-Process -FilePath "C:\Sysmon.exe" -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
+	if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
+		Start-Process -FilePath "C:\Sysmon.exe" -ArgumentList "-u", "force" -Wait -WindowStyle 'Hidden'
+	}
+	Move-Item -Path "c:\Sysmon.exe" -Destination "c:\progra~2\sysmon-wazuh\old-Sysmon.exe" -Force
+}
+if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -and (Test-Path c:\windows\Sysmon64.exe -PathType leaf) ) {
+	Move-Item -Path "c:\windows\Sysmon64.exe" -Destination "c:\Sysmon64.exe" -Force
+	Start-Process -FilePath "C:\Sysmon64.exe" -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
+	if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
+		Start-Process -FilePath "C:\Sysmon64.exe" -ArgumentList "-u", "force" -Wait -WindowStyle 'Hidden'
+	}
+	Move-Item -Path "c:\Sysmon64.exe" -Destination "c:\progra~2\sysmon-wazuh\old-Sysmon64.exe" -Force
+}
+if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
+	Start-Process -FilePath "C:\Progra~2\sysmon-wazuh\Sysmon.exe" -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
+}
+if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
+	Start-Process -FilePath "C:\Progra~2\sysmon-wazuh\Sysmon.exe" -ArgumentList "-u", "force" -Wait -WindowStyle 'Hidden'
+}
 
 if ( $SkipSysmon -eq $true ) {
 	Remove-Item "C:\Program Files (x86)\sysmon-wazuh" -recurse -erroraction 'silentlycontinue'
