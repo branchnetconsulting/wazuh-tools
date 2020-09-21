@@ -253,14 +253,19 @@ if ($ALREADY_CONNECTED -eq "yes") {
 	if ($WazuhAgentName -eq $OLDNAME) {
 		echo "Old and new agent registration names match." 
                 echo "Current group memberships are: $CURR_GROUPS and new target group memberships are: $WazuhGroups"
-		if ($CURR_GROUPS -eq $WazuhGroups) {
-			echo "Old and new agent group memberships match. Will skip self-registration and restore client.keys backup instead."
+		if ($SkippedGroups -eq $false) {
+			if ($CURR_GROUPS -eq $WazuhGroups) {
+				echo "Old and new agent group memberships match. Will skip self-registration and restore client.keys backup instead."
+				$SKIP_REG = $true
+			} else {
+ 			  	echo "Current groups and new target groups do not match."
+   				$SKIP_REG = $false
+			}
+		} else {
+			echo "Skipping group comparison."
 			$SKIP_REG = $true
 		}
 	}
-} else {
-   echo "Current groups and new target groups do not match."
-   $SKIP_REG = $false
 }
 
 if  ($SKIP_REG -eq $false) {
