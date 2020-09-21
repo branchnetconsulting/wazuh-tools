@@ -24,7 +24,7 @@
 # -WazuhRegPass		Password for registration with Wazuh manager (put in quotes).  Required.
 # -WazuhAgentName	Name under which to register this agent in place of locally detected Windows host name
 # -WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
-			Cannot skip -WazuhGroups if using -SkipSysmon or -SkipOsquery
+#			Cannot skip -WazuhGroups if using -SkipSysmon or -SkipOsquery
 # -WazuhSrc		Static download path to fetch Wazuh agent installer.  Overrides $WazVer
 # -SysmonSrc		Static download path to fetch Sysmon installer zip file.  
 # -SysmonDLuser     	Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLuser myusername"
