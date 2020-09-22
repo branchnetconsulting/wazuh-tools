@@ -110,7 +110,7 @@ if ( $WazuhGroups -eq "#NOGROUP#" ) {
 	$SkippedGroups = $false
 }
 
-if ( $SkippedGroups = $true ) {
+if ( $SkippedGroups -eq $true ) {
 	if ( ($SkipSysmon -eq $true) -or ($SkipOsquery -eq $true) ) {
 		write-host "-SkipSysmon and -SkipOsquery must always be accompanied with the use of -WazuhGroups."
 		exit 1
