@@ -175,13 +175,17 @@ if ( -not ( $SkipSysmon -eq $true ) ) {
 		if ($DBG) { Write-Output "Current and expected Sysmon.exe version differ." }
 		exit 1
 	}
-	# SysmonDrv.sys at target version?
-	$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
-	if ($DBG) { Write-Output "Current SysmonDrv.sys version is: $SysmonDrvVer" }
-	if ( -not ( $SysmonDrvVer.Trim() -eq $SysmonVer.Trim() ) ) {
-		if ($DBG) { Write-Output "Current and expected SysmonDrv.sys version differ." }
-		exit 1
-	}
+	###
+	### SKIPPING VERSION CHECK OF SYSMON DRIVER BECAUSE 12.0 PUBLISHED IT WITH WRONG VERSION METADATA
+	### https://social.technet.microsoft.com/Forums/en-US/08b323e0-3b8e-4840-ad09-bbb08077c2b9/sysmon-120-appears-to-have-outdated-version-metadata-on-sysmondrvsys?forum=miscutils
+	###
+	## SysmonDrv.sys at target version?
+	#$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
+	#if ($DBG) { Write-Output "Current SysmonDrv.sys version is: $SysmonDrvVer" }
+	#if ( -not ( $SysmonDrvVer.Trim() -eq $SysmonVer.Trim() ) ) {
+	#	if ($DBG) { Write-Output "Current and expected SysmonDrv.sys version differ." }
+	#	exit 1
+	#}
 	# Sysmon driver loaded?
 	$fltOut = (fltMC.exe) | Out-String
 	if ( -not ( $fltOut -match 'SysmonDrv' ) ) {
