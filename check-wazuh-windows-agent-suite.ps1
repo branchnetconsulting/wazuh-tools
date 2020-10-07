@@ -220,4 +220,5 @@ if ( -not ( $SkipOsquery -eq $true ) ) {
 }
 
 # All relevant tests passed, so return a success code.
+if ($DBG) { Write-Output "No deployment/redeployment appears to be needed." }
 exit 0
