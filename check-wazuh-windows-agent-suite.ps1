@@ -134,8 +134,8 @@ if ( -not ( $WazuhGroups -eq "#NOGROUP#" ) ) {
 	$WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
 	$WazuhGroups = $WazuhGroups.TrimEnd(",")
 	if ($DBG) { Write-Output "Target agent group membership:  $WazuhGroups" }
-		if ($DBG) { Write-Output "Current and expected agent group membership differ." }
 	if ( -not ( $CURR_GROUPS -eq $WazuhGroups ) ) {
+		if ($DBG) { Write-Output "Current and expected agent group membership differ." }
 		exit 1
 	}
 } else {
