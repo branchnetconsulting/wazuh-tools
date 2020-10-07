@@ -204,7 +204,7 @@ if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAs
 		if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies" -PathType Container ) ) {
 			New-Item -ItemType "directory" -Path "C:\Program Files\PackageManagement\ProviderAssemblies"
 		}
-		Expand-Archive "nuget.zip" -DestinationPath "C:\Program Files\PackageManagement\ProviderAssemblies\"
+		Microsoft.PowerShell.Archive\Expand-Archive "nuget.zip" -DestinationPath "C:\Program Files\PackageManagement\ProviderAssemblies\"
 		Import-PackageProvider -Name NuGet
 	}
 }
@@ -386,10 +386,10 @@ if ( $Local -eq $false ) {
 			exit 1
 		}
 	}
-	Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh"
+	Microsoft.PowerShell.Archive\Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh"
 	Remove-Item "$env:TEMP\Sysmon.zip" -Force -erroraction 'silentlycontinue'
 } else {
-	Expand-Archive "Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh\"
+	Microsoft.PowerShell.Archive\Expand-Archive "Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh\"
 }
 
 if ( $SkipSysmon -eq $false ) {
