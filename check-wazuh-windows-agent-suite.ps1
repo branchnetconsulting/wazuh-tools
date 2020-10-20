@@ -25,6 +25,7 @@
 #			If intentionally specifying an empty set of custom groups, then your must use the syntax -WazuhGroups '""'
 # -SkipSysmon		Flag to not examine Sysmon. (Optional)
 # -SkipOsquery		Flag not to examine Osquery. (Optional)
+# -DBG			Flag to turn on debug output. (Optional)
 #
 # Sample way to fetch and use this script:
 #
@@ -40,11 +41,9 @@ param ( $WazuhMgr,
 		$SysmonVer, 
 		[switch]$SkipSysmon=$false, 
 		[switch]$SkipOsquery=$false,
-		$WazuhGroups = "#NOGROUP#"
+		$WazuhGroups = "#NOGROUP#",
+		[switch]$DBG=$false
 );
-
-# If false, there will be no output except a numeric return value.
-$DBG = $false
 
 function tprobe {
 	$tp_host = $args[0]
