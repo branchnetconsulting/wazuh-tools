@@ -82,11 +82,11 @@ if ($WazuhVer -eq $null) {
 	exit 2
 }
 if ( ($OsqueryVer -eq $null) -and ($SkipOsquery -eq $false) ) { 
-	if ($DBG) { Write-Output "If '-SkipOsquery 1' is not specified, then -OsqueryVer must be provided." }
+	if ($DBG) { Write-Output "If '-SkipOsquery' is not specified, then -OsqueryVer must be provided." }
 	exit 2
 }
 if ( ($SysmonVer -eq $null) -and ($SkipSysmon -eq $false) ) { 
-	if ($DBG) { Write-Output "If '-SkipSysmon 1' is not specified, then -SysmonVer must be provided." }
+	if ($DBG) { Write-Output "If '-SkipSysmon' is not specified, then -SysmonVer must be provided." }
 	exit 2
 }
 if ( $WazuhGroups -eq "#NOGROUP#" ) {
