@@ -161,7 +161,7 @@ if ( $Local -eq $true ) {
 $file = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
 $file2 = Get-Content "C:\Program Files (x86)\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
 if ($file -match "'connected'" ) {
-    echo "Agent currently connected, so saving client.keys to $env:TEMP\client.keys.bnc"
+    Write-Output "Agent currently connected, so saving client.keys to $env:TEMP\client.keys.bnc"
     $ALREADY_CONNECTED=$true
     $OLDNAME=(type "C:\Program Files (x86)\ossec-agent\client.keys").Split(" ")[1]
     Remove-Item -Path "$env:TEMP\client.keys.bnc" -erroraction 'silentlycontinue' | out-null
@@ -179,7 +179,7 @@ if ($file -match "'connected'" ) {
 # NuGet Dependency
 
 if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
-	echo "Installing dependency (NuGet) to be able to uninstall other packages..."
+	Write-Output "Installing dependency (NuGet) to be able to uninstall other packages..."
 	if ( $Local -eq $false ) {
 		cd c:\
 		$count = 0
@@ -216,7 +216,7 @@ if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAs
 # Download Wazuh Agent installer or confirm it is already locally present if "-Local" option specified.
 if ( $Local -eq $false ) {
 	# Download the correct version of the Wazuh installer MSI
-	echo "Downloading $WazuhSrc"
+	Write-Output "Downloading $WazuhSrc"
 	$count = 0
 	$success = $false;
 	do{
@@ -237,15 +237,19 @@ if ( $Local -eq $false ) {
 	}until($count -eq 6 -or $success)
 }
 
-
 # If Wazuh agent already installed, blow it away
-echo "Stopping old Wazuh Agent if present"
-net stop wazuh
-echo "Uninstalling old Wazuh Agent if present"
-Uninstall-Package -Name "Wazuh Agent" -erroraction 'silentlycontinue' | out-null
+
+if (Test-Path 'C:\Program Files (x86)\ossec-agent\ossec-agent.exe' -PathType leaf) {
+	Write-Output "Uninstalling existing Wazuh Agent..."
+	if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
+		Write-Output "Stopping current Wazuh Agent service..."
+		net stop wazuh
+	}
+	Uninstall-Package -Name "Wazuh Agent" -erroraction 'silentlycontinue' | out-null
+}
 
 # Install Wazuh Agent and then remove the installer file
-echo "Installing Wazuh Agent"
+Write-Output "Installing Wazuh Agent"
 Start-Process -FilePath wazuh-agent.msi -ArgumentList "/q" -Wait -WindowStyle 'Hidden'
 if ( $Local -eq $false ) {
 	rm .\wazuh-agent.msi
@@ -255,21 +259,21 @@ if ( $Local -eq $false ) {
 # This should keep us from burning through so many agent ID numbers.
 $SKIP_REG = $false
 if ($ALREADY_CONNECTED -eq "yes") { 
-	echo "Agent is presently connected..."
-	echo "Current registered agent name is: $OLDNAME and new target name is: $WazuhAgentName"
+	Write-Output "Agent is presently connected..."
+	Write-Output "Current registered agent name is: $OLDNAME and new target name is: $WazuhAgentName"
 	if ($WazuhAgentName -eq $OLDNAME) {
-		echo "Old and new agent registration names match." 
-                echo "Current group memberships are: $CURR_GROUPS and new target group memberships are: $WazuhGroups"
+		Write-Output "Old and new agent registration names match." 
+                Write-Output "Current group memberships are: $CURR_GROUPS and new target group memberships are: $WazuhGroups"
 		if ($SkippedGroups -eq $false) {
 			if ($CURR_GROUPS -eq $WazuhGroups) {
-				echo "Old and new agent group memberships match. Will skip self-registration and restore client.keys backup instead."
+				Write-Output "Old and new agent group memberships match. Will skip self-registration and restore client.keys backup instead."
 				$SKIP_REG = $true
 			} else {
- 			  	echo "Current groups and new target groups do not match."
+ 			  	Write-Output "Current groups and new target groups do not match."
    				$SKIP_REG = $false
 			}
 		} else {
-			echo "Skipping group comparison."
+			Write-Output "Skipping group comparison."
 			$SKIP_REG = $true
 		}
 	}
@@ -277,11 +281,17 @@ if ($ALREADY_CONNECTED -eq "yes") {
 
 if  ($SKIP_REG -eq $false) {
     # Register the agent with the manager (keep existing groups if agent connected and -WazuhGroups not specified)
-    echo "Registering Wazuh Agent with $WazuhRegMgr..."
+    Write-Output "Registering Wazuh Agent with $WazuhRegMgr..."
 	if ( ($SkippedGroups -eq $true) -and ( $ALREADY_CONNECTED -eq "yes" ) ) {
+		rm 'C:\Program Files (x86)\ossec-agent\client.keys'
 		C:\Progra~2\ossec-agent\agent-auth.exe -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$CURR_GROUPS" -A "$WazuhAgentName"
 	} else {
+		rm 'C:\Program Files (x86)\ossec-agent\client.keys'
 		C:\Progra~2\ossec-agent\agent-auth.exe -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$WazuhGroups" -A "$WazuhAgentName"
+	}
+	if ( -not (Test-Path 'C:\Program Files (x86)\ossec-agent\client.keys' -PathType leaf) ) {
+		Write-Output "Wazuh Agent self-registration failed."
+		exit 1
 	}
 } else {
 	Copy-Item "$env:TEMP\client.keys.bnc" -Destination 'C:\Program Files (x86)\ossec-agent\client.keys'
@@ -312,7 +322,7 @@ switch ((Get-CimInstance Win32_OperatingSystem).BuildNumber)
     default { $OS = "WindowsUnknown"}
 }
 
-echo "Writing ossec.conf"
+Write-Output "Writing ossec.conf"
 # Write the ossec.conf file
 $ConfigToWrite = @"
 <ossec_config>
@@ -335,7 +345,7 @@ $ConfigToWrite = @"
 $ConfigToWrite | Out-File -FilePath C:/Progra~2/ossec-agent/ossec.conf -Encoding ASCII
 
 # Write the local_internal_options.conf file
-echo "Writing local_internal_options.conf..."
+Write-Output "Writing local_internal_options.conf..."
 $ConfigToWrite = @"
 logcollector.remote_commands=1
 wazuh_command.remote_commands=1
@@ -350,12 +360,11 @@ $ConfigToWrite | Out-File -FilePath C:/Progra~2/ossec-agent/local_internal_optio
 # Create "C:\Program Files (x86)\sysmon-wazuh" directory if missing
 if ( -not (Test-Path -LiteralPath "C:\Program Files (x86)\sysmon-wazuh" -PathType Container) ) { New-Item -Path "C:\Program Files (x86)\" -Name "sysmon-wazuh" -ItemType "directory" | out-null }
 
-
 # Download and unzip Sysmon.zip, or unzip it from local directory if "-Local" option specified.
 # Sysmon must be acquired locally or via download even if "-SkipSysmon" was specified, so that we can use Sysmon.exe to uninstall Sysmon.
 Remove-Item "C:\Progra~2\sysmon-wazuh\*" -Force
 if ( $Local -eq $false ) {
-	echo "Downloading and unzipping Sysmon installer..."
+	Write-Output "Downloading and unpacking Sysmon installer..."
 	$count = 0
 	$success = $false;
 	do{
@@ -397,7 +406,7 @@ if ( $SkipSysmon -eq $false ) {
 	if ( $Local -eq $false ) {
 		# Download the latest SwiftOnSecurity config file for Sysmon and write it to Wazuh agent shared directory.
 		# This is only to seed it so that the install process works even if the official and perhaps localized file hasn't propagated down from Wazuh manager yet.
-		echo "Downloading $SysmonConfSrc as sysmonconfig.xml..."
+		Write-Output "Downloading $SysmonConfSrc as sysmonconfig.xml..."
 		$count = 0
 		$success = $false;
 		do{
@@ -420,35 +429,49 @@ if ( $SkipSysmon -eq $false ) {
 #
 # If Sysmon is present, attempt to remove it with the Sysmon.exe or Sysmon64.exe that it was actually installed with, moving the original installer to old-Sysmon.exe or old-Sysmon64.exe in c:\progra~2\sysmon-wazuh\
 #
-echo "Removing Sysmon if present..."
-if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -and (Test-Path c:\windows\Sysmon.exe -PathType leaf) ) {
-	Move-Item -Path "c:\windows\Sysmon.exe" -Destination "c:\Sysmon.exe" -Force 
-	Start-Process -FilePath "C:\Sysmon.exe" -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
-	if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
-		Start-Process -FilePath "C:\Sysmon.exe" -ArgumentList "-u", "force" -Wait -WindowStyle 'Hidden'
+if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -or (Test-Path c:\windows\Sysmon.exe -PathType leaf) -or (Test-Path c:\windows\Sysmon64.exe -PathType leaf) ) {
+	Write-Output "Removing presently installed Sysmon..."
+	if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -and (Test-Path c:\windows\Sysmon.exe -PathType leaf) ) {
+		Move-Item -Path "c:\windows\Sysmon.exe" -Destination "c:\Sysmon.exe" -Force 
+		Start-Process -FilePath "C:\Sysmon.exe" -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
+		if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
+			Start-Process -FilePath "C:\Sysmon.exe" -ArgumentList "-u", "force" -Wait -WindowStyle 'Hidden'
+		}
+		Move-Item -Path "c:\Sysmon.exe" -Destination "c:\progra~2\sysmon-wazuh\old-Sysmon.exe" -Force
 	}
-	Move-Item -Path "c:\Sysmon.exe" -Destination "c:\progra~2\sysmon-wazuh\old-Sysmon.exe" -Force
-}
-if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -and (Test-Path c:\windows\Sysmon64.exe -PathType leaf) ) {
-	Move-Item -Path "c:\windows\Sysmon64.exe" -Destination "c:\Sysmon64.exe" -Force
-	Start-Process -FilePath "C:\Sysmon64.exe" -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
-	if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
-		Start-Process -FilePath "C:\Sysmon64.exe" -ArgumentList "-u", "force" -Wait -WindowStyle 'Hidden'
+	if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -and (Test-Path c:\windows\Sysmon64.exe -PathType leaf) ) {
+		Move-Item -Path "c:\windows\Sysmon64.exe" -Destination "c:\Sysmon64.exe" -Force
+		Start-Process -FilePath "C:\Sysmon64.exe" -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
+		if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
+			Start-Process -FilePath "C:\Sysmon64.exe" -ArgumentList "-u", "force" -Wait -WindowStyle 'Hidden'
+		}
+		Move-Item -Path "c:\Sysmon64.exe" -Destination "c:\progra~2\sysmon-wazuh\old-Sysmon64.exe" -Force
 	}
-	Move-Item -Path "c:\Sysmon64.exe" -Destination "c:\progra~2\sysmon-wazuh\old-Sysmon64.exe" -Force
-}
-if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
-	Start-Process -FilePath "C:\Progra~2\sysmon-wazuh\Sysmon.exe" -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
-}
-if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
-	Start-Process -FilePath "C:\Progra~2\sysmon-wazuh\Sysmon.exe" -ArgumentList "-u", "force" -Wait -WindowStyle 'Hidden'
+	if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
+		Start-Process -FilePath "C:\Progra~2\sysmon-wazuh\Sysmon.exe" -ArgumentList "-u" -Wait -WindowStyle 'Hidden'
+	}
+	if (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) {
+		Start-Process -FilePath "C:\Progra~2\sysmon-wazuh\Sysmon.exe" -ArgumentList "-u", "force" -Wait -WindowStyle 'Hidden'
+	}
+	Write-Output "Waiting 10 more seconds to be sure Sysmon removal process is complete."
+	Start-Sleep -Seconds 10
+	if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -or (Test-Path c:\windows\Sysmon.exe -PathType leaf) -or (Test-Path c:\windows\Sysmon64.exe -PathType leaf) ) {
+		Write-Output "Removal of Sysmon failed."
+		exit 1
+	}
 }
 
 if ( $SkipSysmon -eq $true ) {
 	Remove-Item "C:\Program Files (x86)\sysmon-wazuh" -recurse -erroraction 'silentlycontinue'
 } else {
-	echo "Installing Sysmon..."
+	Write-Output "Installing Sysmon..."
 	Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-i","c:\progra~2\ossec-agent\shared\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
+}
+
+# Confirm Sysmon driver is actually loaded
+if (-not ( fltmc | findstr -i SysmonDrv )) {
+	Write-Output "Installation of Sysmon failed.  Driver not loaded."
+	exit 1
 }
 
 #
@@ -456,16 +479,24 @@ if ( $SkipSysmon -eq $true ) {
 #
 
 # Remove osquery if present (making sure wazuh agent is not running before blowing away osquery dir)
-echo "Removing Osquery if present..."
-net stop wazuh
-Uninstall-Package -Name "osquery" -erroraction 'silentlycontinue' | out-null
-Remove-Item "C:\Progra~1\osquery" -recurse -erroraction 'silentlycontinue'
+if (Test-Path "c:\Program Files\osquery\osqueryd\osqueryd.exe" -PathType leaf)  {
+	Write-Output "Removing Osquery..."
+	if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
+		net stop wazuh
+	}
+	Uninstall-Package -Name "osquery" -erroraction 'silentlycontinue' | out-null
+	Remove-Item "C:\Progra~1\osquery" -recurse -erroraction 'silentlycontinue'
+}
+if (Test-Path "c:\Program Files\osquery\osqueryd\osqueryd.exe" -PathType leaf)  {
+	Write-Output "Failed to remove Osquery."
+	exit 1
+}
 
 if ( $SkipOsquery -eq $false ) {
 	# Download Osquery installer or confirm it is already locally present if "-Local" option specified.
 	if ( $Local -eq $false ) {
 		# Download the osquery MSI
-		echo "Downloading $OsquerySrc..."
+		Write-Output "Downloading $OsquerySrc..."
 		$count = 0
 		$success = $false;
 		do{
@@ -487,12 +518,13 @@ if ( $SkipOsquery -eq $false ) {
 	} 	
 
 	# Install osquery
+	Write-Output "Installing Osquery..."
 	Start-Process -FilePath osquery.msi -ArgumentList "/q" -Wait -WindowStyle 'Hidden'
 	if ( $Local -eq $false ) {
 		rm .\osquery.msi
 	}
 	# Remove the Windows service that the MSI installed which we do not want
-	echo "Removing the osquery Windows service so Wazuh agent can manage it instead..."
+	Write-Output "Removing the osquery Windows service so Wazuh agent can manage it instead..."
 	Start-Process -FilePath C:\Progra~1\osquery\osqueryd\osqueryd.exe -ArgumentList "--uninstall" -Wait -WindowStyle 'Hidden'
 }
 
@@ -501,17 +533,17 @@ if ( $SkipOsquery -eq $false ) {
 #
 
 # Start up the Wazuh agent service
-echo "Starting up the Wazuh agent..."
+Write-Output "Starting up the Wazuh agent..."
 net start wazuh
 
 # After 15 seconds confirm agent connected to manager
-echo "Pausing for 15 seconds to allow agent to connect to manager..."
+Write-Output "Pausing for 15 seconds to allow agent to connect to manager..."
 Start-Sleep -s 15 
 $file = Get-Content "C:\Program Files (x86)\ossec-agent\ossec.log" -erroraction 'silentlycontinue'
 if ($file -match "Connected to the server " ) {
-	echo "This agent has successfully connected to the Wazuh manager!"
+	Write-Output "This agent has successfully connected to the Wazuh manager!"
 	exit 0
 } else {
-	echo "This agent FAILED to connect to the Wazuh manager."
+	Write-Output "This agent FAILED to connect to the Wazuh manager."
 	exit 1
 }
