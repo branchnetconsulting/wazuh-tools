@@ -465,7 +465,11 @@ if ( $SkipSysmon -eq $true ) {
 	Remove-Item "C:\Program Files (x86)\sysmon-wazuh" -recurse -erroraction 'silentlycontinue'
 } else {
 	Write-Output "Installing Sysmon..."
-	Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-i","c:\progra~2\ossec-agent\shared\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
+	If ([Environment]::Is64BitProcess){
+		Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon64.exe -ArgumentList "-i","c:\progra~2\ossec-agent\shared\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
+	}else{
+		Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-i","c:\progra~2\ossec-agent\shared\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
+	}
 }
 
 # Confirm Sysmon driver is actually loaded
