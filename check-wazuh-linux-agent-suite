@@ -22,6 +22,7 @@
 # -WazuhGroups          Comma separated list of optional extra Wazuh agent groups. No spaces. Put whole list in quotes. Use "" to expect zero extra groups.
 #                       If not specified, agent group membership will not be checked at all.
 # -SkipOsquery          Set this flag to skip the default examination of Osquery and assume Osquery is not installed on agent. (Optional)
+# -DBG			Show debug output
 # -help                 Show command syntax
 #
 # Sample way to fetch and use this script:
@@ -35,7 +36,7 @@
 function show_usage() {
    LBLU='\033[1;34m'
    NC='\033[0m'
-   printf "\nCommand syntax:\n   $0 -WazuhMgr ${LBLU}WAZUH_MANAGER${NC} [-WazuhRegMgr ${LBLU}WAZUH_REGISTRATION_MANAGER${NC}] -WazuhVer ${LBLU}WAZUH_VERSION${NC} [-WazuhGroups {${LBLU}LIST_OF_EXTRA_GROUPS${NC} | \"\"}] {-OsqueryVer ${LBLU}OSQUERY_VERSION${NC} | -SkipOsquery} [-help]\n\n"
+   printf "\nCommand syntax:\n   $0 -WazuhMgr ${LBLU}WAZUH_MANAGER${NC} [-WazuhRegMgr ${LBLU}WAZUH_REGISTRATION_MANAGER${NC}] -WazuhVer ${LBLU}WAZUH_VERSION${NC} [-WazuhGroups {${LBLU}LIST_OF_EXTRA_GROUPS${NC} | \"\"}] {-OsqueryVer ${LBLU}OSQUERY_VERSION${NC} | -SkipOsquery} [-DBG] [-help]\n\n"
    printf "Examples:\n   $0 -WazuhMgr ${LBLU}siem.company.org${NC} -WazuhVer ${LBLU}3.13.1${NC} -WazuhGroups ${LBLU}finance,denver${NC} -OsqueryVer ${LBLU}3.4.0${NC}\n"
    printf "   $0 -WazuhMgr ${LBLU}siem.company.org${NC} -WazuhRegMgr ${LBLU}siem-reg.company.org${NC} -WazuhVer ${LBLU}3.13.1${NC} -WazuhGroups ${LBLU}finance,denver${NC} -SkipOsquery\n"
    printf "   $0 -WazuhMgr ${LBLU}siem.company.org${NC} -WazuhVer ${LBLU}3.13.1${NC} -OsqueryVer ${LBLU}3.4.0${NC}\n\n"
