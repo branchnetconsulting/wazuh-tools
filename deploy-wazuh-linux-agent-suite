@@ -166,7 +166,7 @@ fi
 # Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.
 # Among other things, this affects the automatically assigned starting set of agent group names to include "ubuntu" or "centos".
 # This needs to be refined, but reflects the Linux flavors I actually work with.
-WazuhGroupsPrefix="linux,"
+WazuhGroupsPrefix="linux,linux-local,"
 if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
 	LinuxFamily="deb"
 	WazuhGroupsPrefix="${WazuhGroupsPrefix}ubuntu,"
@@ -175,8 +175,9 @@ else
 	WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
 fi
 if [ $SkipOsquery == 0 ]; then
-	WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,"
+	WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,osquery-local,"
 fi
+WazuhGroupsPrefix="${WazuhGroupsPrefix}org,"
 WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
 # If there were no additional groups, strip off the trailing comma in the list.
 WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
