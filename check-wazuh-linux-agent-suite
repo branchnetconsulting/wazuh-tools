@@ -172,7 +172,7 @@ fi
 # This needs to be refined, but reflects the Linux flavors I actually work with.
 # Do not perform agent group check if
 if [ "$WazuhGroups" != "#NOGROUP#" ]; then
-        WazuhGroupsPrefix="linux,"
+        WazuhGroupsPrefix="linux,linux-local,"
         if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
                 LinuxFamily="deb"
                 WazuhGroupsPrefix="${WazuhGroupsPrefix}ubuntu,"
@@ -181,9 +181,10 @@ if [ "$WazuhGroups" != "#NOGROUP#" ]; then
                 WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
         fi
         if [ $SkipOsquery == 0 ]; then
-                WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,"
+                WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,osquery-local,"
         fi
-        WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
+		WazuhGroupsPrefix="${WazuhGroupsPrefix}org,"
+		WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
         # If there were no additional groups, strip off the trailing comma in the list.
         WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
         CURR_GROUPS=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
