@@ -32,9 +32,6 @@
 # echo "Exit code: $?"
 #
 
-# Uncomment this line to enable debug output, otherwise there should be no output other than the exit code.
-#DBG=1
-
 function show_usage() {
    LBLU='\033[1;34m'
    NC='\033[0m'
@@ -117,12 +114,22 @@ while [ "$1" != "" ]; do
       -help )         show_usage
                       exit 2
                       ;;
+      -DBG )          DBG=1
+                      ;;
       * )             show_usage
                       exit 2
    esac
    shift
 done
 
+if [ -f /etc/nsm/securityonion.conf ]; then
+		if [ $DBG ]; then echo -e "\n*** This deploy script cannot be used on a system where Security Onion is installed."; fi
+		exit 2
+fi
+if [[ `grep server /etc/ossec-init.conf` ]]; then
+		if [ $DBG ]; then echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."; fi
+		exit 2
+fi
 if [ "$WazuhMgr" == "" ]; then
         echo -e "\n*** Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
         show_usage
