@@ -112,13 +112,14 @@ if ( $SkippedGroups -eq $true ) {
 }
 
 # Blend standard/dynamic groups with custom groups
-$WazuhGroupsPrefix = "windows,"
+$WazuhGroupsPrefix = "windows,windows-local,"
 if ( $SkipOsquery -eq $false ) {
-	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"osquery,"
+	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"osquery,osquery-local,"
 }
 if ( $SkipSysmon -eq $false ) {
-	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,"
+	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,sysmon-local,"
 }
+$WazuhGroupsPrefix = $WazuhGroupsPrefix+"org,"
 $WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
 $WazuhGroups = $WazuhGroups.TrimEnd(",")
 
