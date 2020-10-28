@@ -25,6 +25,7 @@
 #			If intentionally specifying an empty set of custom groups, then your must use the syntax -WazuhGroups '""'
 # -SkipSysmon		Flag to not examine Sysmon. (Optional)
 # -SkipOsquery		Flag not to examine Osquery. (Optional)
+# -DBG			Flag to turn on debug output. (Optional)
 #
 # Sample way to fetch and use this script:
 #
@@ -40,11 +41,9 @@ param ( $WazuhMgr,
 		$SysmonVer, 
 		[switch]$SkipSysmon=$false, 
 		[switch]$SkipOsquery=$false,
-		$WazuhGroups = "#NOGROUP#"
+		$WazuhGroups = "#NOGROUP#",
+		[switch]$DBG=$false
 );
-
-# If false, there will be no output except a numeric return value.
-$DBG = $false
 
 function tprobe {
 	$tp_host = $args[0]
@@ -82,11 +81,11 @@ if ($WazuhVer -eq $null) {
 	exit 2
 }
 if ( ($OsqueryVer -eq $null) -and ($SkipOsquery -eq $false) ) { 
-	if ($DBG) { Write-Output "If '-SkipOsquery 1' is not specified, then -OsqueryVer must be provided." }
+	if ($DBG) { Write-Output "If '-SkipOsquery' is not specified, then -OsqueryVer must be provided." }
 	exit 2
 }
 if ( ($SysmonVer -eq $null) -and ($SkipSysmon -eq $false) ) { 
-	if ($DBG) { Write-Output "If '-SkipSysmon 1' is not specified, then -SysmonVer must be provided." }
+	if ($DBG) { Write-Output "If '-SkipSysmon' is not specified, then -SysmonVer must be provided." }
 	exit 2
 }
 if ( $WazuhGroups -eq "#NOGROUP#" ) {
@@ -124,18 +123,19 @@ if ( -not ( $WazuhGroups -eq "#NOGROUP#" ) ) {
 	if ($DBG) { Write-Output "Current agent group membership: $CURR_GROUPS" }
 
 	# Blend standard/dynamic groups with custom groups
-	$WazuhGroupsPrefix = "windows,"
+	$WazuhGroupsPrefix = "windows,windows-local,"
 	if ( $SkipOsquery -eq $false ) {
-		$WazuhGroupsPrefix = $WazuhGroupsPrefix+"osquery,"
+		$WazuhGroupsPrefix = $WazuhGroupsPrefix+"osquery,osquery-local,"
 	}
 	if ( $SkipSysmon -eq $false ) {
-		$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,"
+		$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,sysmon-local,"
 	}
+	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"org,"
 	$WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
 	$WazuhGroups = $WazuhGroups.TrimEnd(",")
 	if ($DBG) { Write-Output "Target agent group membership:  $WazuhGroups" }
-		if ($DBG) { Write-Output "Current and expected agent group membership differ." }
 	if ( -not ( $CURR_GROUPS -eq $WazuhGroups ) ) {
+		if ($DBG) { Write-Output "Current and expected agent group membership differ." }
 		exit 1
 	}
 } else {
@@ -175,13 +175,17 @@ if ( -not ( $SkipSysmon -eq $true ) ) {
 		if ($DBG) { Write-Output "Current and expected Sysmon.exe version differ." }
 		exit 1
 	}
-	# SysmonDrv.sys at target version?
-	$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
-	if ($DBG) { Write-Output "Current SysmonDrv.sys version is: $SysmonDrvVer" }
-	if ( -not ( $SysmonDrvVer.Trim() -eq $SysmonVer.Trim() ) ) {
-		if ($DBG) { Write-Output "Current and expected SysmonDrv.sys version differ." }
-		exit 1
-	}
+	###
+	### SKIPPING VERSION CHECK OF SYSMON DRIVER BECAUSE 12.0 PUBLISHED IT WITH WRONG VERSION METADATA
+	### https://social.technet.microsoft.com/Forums/en-US/08b323e0-3b8e-4840-ad09-bbb08077c2b9/sysmon-120-appears-to-have-outdated-version-metadata-on-sysmondrvsys?forum=miscutils
+	###
+	## SysmonDrv.sys at target version?
+	#$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
+	#if ($DBG) { Write-Output "Current SysmonDrv.sys version is: $SysmonDrvVer" }
+	#if ( -not ( $SysmonDrvVer.Trim() -eq $SysmonVer.Trim() ) ) {
+	#	if ($DBG) { Write-Output "Current and expected SysmonDrv.sys version differ." }
+	#	exit 1
+	#}
 	# Sysmon driver loaded?
 	$fltOut = (fltMC.exe) | Out-String
 	if ( -not ( $fltOut -match 'SysmonDrv' ) ) {
@@ -216,4 +220,5 @@ if ( -not ( $SkipOsquery -eq $true ) ) {
 }
 
 # All relevant tests passed, so return a success code.
+if ($DBG) { Write-Output "No deployment/redeployment appears to be needed." }
 exit 0
