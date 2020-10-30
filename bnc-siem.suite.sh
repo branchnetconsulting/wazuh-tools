@@ -4,7 +4,8 @@
 # bnc-siem-suite.sh
 # by Kevin Branch (kevin@branchnetconsulting.com)
 #
-# This script is a dual-role script, both running through a series of checks to determine if there is need to install the SIEM packages and installing the SIEM packages if warranted.
+# This script is a dual-role script, both running through a series of checks to determine if there is need to install the SIEM packages and installing the SIEM packages 
+# if warranted.
 #
 # Deployment will install Wazuh agent and Wazuh-integrated Osquery on Ubuntu/Debian and CentOS/RedHat/Amazon Linux systems.
 # After preserving the working Wazuh agent registration key if present, Wazuh/OSSEC agent and/or Osquery are completely purged and then reinstalled,
@@ -31,14 +32,19 @@
 # -WazuhVer         Full version of Wazuh agent to confirm and/or install, like "3.13.2".
 # -WazuhSrc         Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
 # -WazuhAgentName   Name under which to register this agent in place of locally detected Linux host name
-# -WazuhGroups	    Comma separated list of optional extra Wazuh agent groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist. Use "" to expect zero extra groups.
+# -WazuhGroups	    Comma separated list of optional extra Wazuh agent groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist. 
+#                   Use "" to expect zero extra groups.
 #                   If not specified, agent group membership will not be checked at all.
-#                   Do not includes "linux", "ubuntu", or "centos" groups as these are autodetected and will dynamically be inserted as the first groups.
+#                   Do not include "linux", "ubuntu", or "centos" groups as these are autodetected and will dynamically be inserted as the first groups.
 #                   Also, do not include "osquery" as this will automatically be included unless SkipOsquery is set to "1"
 # -OsqueryVer       Full version of Osquery to validate and/or install, like "4.2.0" (always N.N.N format) (Required unless -SkipOsquery specified). 
 # -OsquerySrc       Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
-# -SkipOsquery      Set this flag to skip examination and/or installation of Osquery.  If the script determines that installation is warranted, this flag will result in Osquery being removed if present.  Osquery installed by default.
-# -Debug	    Show debug output
+# -SkipOsquery      Set this flag to skip examination and/or installation of Osquery.  If the script determines that installation is warranted, this flag will result in Osquery being removed if present.  
+#                   Osquery is installed by default.
+# -Install			Skip all checks and force installation
+# -Uninstall		Uninstall Wazuh agent and sub-agents
+# -CheckOnly		Only run checks to see if installation is current or in need of deployment
+# -Debug	        Show debug output
 # -help             Show command syntax
 #
 # Sample way to fetch and use this script:
@@ -81,10 +87,9 @@ OsqueryVer=
 OsquerySrc=
 SkipOsquery=0
 #Local=0
-#CheckOnly=0
-#StrictGroups=0
-#Install=0
-#Uninstall=0
+CheckOnly=0
+Install=0
+Uninstall=0
 Debug=0
 
 while [ "$1" != "" ]; do
@@ -134,22 +139,22 @@ while [ "$1" != "" ]; do
       -SkipOsquery )  # no shift
                       SkipOsquery=1
                       ;;
-      -Local )  # no shift
-                      Local=1
-                      ;;
-      -CheckOnly )  # no shift
+#      -Local )        # no shift
+#                      Local=1
+#                      ;;
+      -CheckOnly )    # no shift
                       CheckOnly=1
                       ;;
-      -StrictGroups )  # no shift
+      -StrictGroups ) # no shift
                       StrictGroups=1
                       ;;
-      -Install )  # no shift
+      -Install )      # no shift
                       Install=1
                       ;;
       -Uninstall )  # no shift
                       Uninstall=1
                       ;;
-      -Debug )  # no shift
+      -Debug )        # no shift
                       Debug=1
                       ;;
       -help )         show_usage
@@ -184,12 +189,41 @@ function tprobe() {
         if [ $Debug ]; then echo "Success!"; fi
 }
 
-# Uninstall
-
+# Uninstallion function
 function uninstall() {
+# Shut down and clean out any previous Wazuh or OSSEC agent
+systemctl stop wazuh-agent 2> /dev/null
+systemctl stop ossec-hids-agent 2> /dev/null
+systemctl stop ossec-agent 2> /dev/null
+service wazuh-agent stop 2> /dev/null
+service ossec-hids-agent stop 2> /dev/null
+service stop ossec-agent stop 2> /dev/null
+yum -y erase wazuh-agent 2> /dev/null
+yum -y erase ossec-hids-agent 2> /dev/null
+yum -y erase ossec-agent 2> /dev/null
+apt-get -y purge wazuh-agent 2> /dev/null
+apt-get -y purge ossec-hids-agent 2> /dev/null
+apt-get -y purge ossec-agent 2> /dev/null
+kill -kill `ps auxw | grep "/var/ossec/bin" | grep -v grep | awk '{print $2}'` 2> /dev/null
+rm -rf /var/ossec /etc/ossec-init.conf 2> /dev/null
+# Clean out any previous Osquery
+dpkg --purge osquery 2> /dev/null
+yum -y erase osquery 2> /dev/null
+rm -rf /var/osquery /var/log/osquery /usr/share/osquery
+if [ $Uninstall == 1 ]; then 
+        # Ensure all files were successfully removed directory 
+        if [[ -d /var/ossec && -d /var/osquery && -d /var/log/osquery && -d /usr/share/osquery ]]; then 
+		        echo -e "\n*** All Osquery files were not removed successfully.  Additional removal steps may be required.";
+                exit 1
+		else
+                echo -e "\n*** Wazuh Agent suite successfully uninstalled"; 
+                exit 0		
+		fi 
+fi		
 }
 
-# Checks
+# Checks function
+function checks() {
 
 
 if [ -f /etc/nsm/securityonion.conf ]; then
@@ -229,7 +263,11 @@ tprobe $WazuhRegMgr 1515
 #
 if [[ ! `grep "'connected'" /var/ossec/var/run/ossec-agentd.state 2> /dev/null` ]]; then
         if [ $Debug ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager."; fi
-        exit 1
+		     if [ $CheckOnly == 1 ]; then
+                 exit 1
+             else
+			     deploy
+			 fi	 
 else
         if [ $Debug ]; then echo "The Wazuh agent is connected to the Wazuh manager."; fi
 fi
@@ -262,7 +300,11 @@ if [ "$WazuhGroups" != "#NOGROUP#" ]; then
         if [ $Debug ]; then echo "Target agent groups:  $WazuhGroups"; fi
         if [ "$CURR_GROUPS" != "$WazuhGroups" ]; then
                 if [ $Debug ]; then echo "*** Current and target groups to not match."; fi
-                exit 1
+		     if [ $CheckOnly == 1 ]; then
+                 exit 1
+             else
+			     deploy
+			 fi	 
         else
                 if [ $Debug ]; then echo "Current and target groups match."; fi
         fi
@@ -275,7 +317,11 @@ fi
 #
 if [[ ! `grep "\"v$WazuhVer\"" /etc/ossec-init.conf` ]]; then
         if [ $Debug ]; then echo "*** The running Wazuh agent does not appear to be at the desired version ($WazuhVer)."; fi
-        exit 1
+		     if [ $CheckOnly == 1 ]; then
+                 exit 1
+             else
+			     deploy
+			 fi	 
 else
         if [ $Debug ]; then echo "The running Wazuh agent appears to be at the desired version ($WazuhVer)."; fi
 fi
@@ -286,14 +332,22 @@ fi
 if [ $SkipOsquery == 0 ]; then
         if [[ ! `pstree | egrep "wazuh-modulesd.*osqueryd"` ]]; then
                 if [ $Debug ]; then echo "*** No osqueryd child process was found under the wazuh-modulesd process."; fi
-                exit 1
+		             if [ $CheckOnly == 1 ]; then
+                         exit 1
+                     else
+			             deploy
+			         fi	 
         else
                 if [ $Debug ]; then echo "Osqueryd was found running under the wazuh-modulesd process."; fi
         fi
         CURR_OSQ_VER=`/usr/bin/osqueryi --csv "select version from osquery_info;" | tail -n1`
         if [ ! "$CURR_OSQ_VER" == "$OsqueryVer" ]; then
                 if [ $Debug ]; then echo "*** The version of Osquery running on this system ($CURR_OSQ_VER) is not the target version ($OsqueryVer)."; fi
-                exit 1
+		             if [ $CheckOnly == 1 ]; then
+                         exit 1
+                     else
+			             deploy
+			         fi	 
         else
                 if [ $Debug ]; then echo "The target version of Osquery is running on this system."; fi
         fi
@@ -306,9 +360,10 @@ fi
 #
 if [ $Debug ]; then echo "All appears current on this system with respect to the Wazuh Linux agent suite."; fi
 exit 0
+}
 
-########Deploy########
-
+# Deploy function
+function deploy() {
 if [ "$WazuhGroups" == "#NOGROUP#" ]; then
 	GROUPS_SKIPPED=1
 	WazuhGroups=""
@@ -437,21 +492,7 @@ if [ $Debug ]; then
 	echo -e "GROUPS_SKIPPED: $GROUPS_SKIPPED\n"
 fi
 
-# Shut down and clean out any previous Wazuh or OSSEC agent
-systemctl stop wazuh-agent 2> /dev/null
-systemctl stop ossec-hids-agent 2> /dev/null
-systemctl stop ossec-agent 2> /dev/null
-service wazuh-agent stop 2> /dev/null
-service ossec-hids-agent stop 2> /dev/null
-service stop ossec-agent stop 2> /dev/null
-yum -y erase wazuh-agent 2> /dev/null
-yum -y erase ossec-hids-agent 2> /dev/null
-yum -y erase ossec-agent 2> /dev/null
-apt-get -y purge wazuh-agent 2> /dev/null
-apt-get -y purge ossec-hids-agent 2> /dev/null
-apt-get -y purge ossec-agent 2> /dev/null
-kill -kill `ps auxw | grep "/var/ossec/bin" | grep -v grep | awk '{print $2}'` 2> /dev/null
-rm -rf /var/ossec /etc/ossec-init.conf 2> /dev/null
+Uninstall
 
 # Dynamically generate a Wazuh config profile name for the major and minor version of a given Linux distro, like ubuntu14, ubuntu 14.04.
 # No plain distro name like "ubuntu" alone is included because we use agent groups at that level, not config profiles.
@@ -505,11 +546,9 @@ else
 fi
 
 #
-# Remove Osquery if present.  If not set to be skipped, then next download and install it.
+# If not set to be skipped, download and install osquery.
 #
 if [ "$LinuxFamily" == "deb" ]; then
-	dpkg --purge osquery 2> /dev/null
-	rm -rf /var/osquery /var/log/osquery /usr/share/osquery
 	rm -f osquery.deb 2> /dev/null
 	if [ $SkipOsquery == 0 ]; then
 		wget -O osquery.deb $OsquerySrc
@@ -517,8 +556,6 @@ if [ "$LinuxFamily" == "deb" ]; then
 		rm -f osquery.deb 2> /dev/null
 	fi
 else
-	yum -y erase osquery 2> /dev/null
-	rm -rf /var/osquery /var/log/osquery /usr/share/osquery
 	rm -f osquery.rpm 2> /dev/null
 	if [ $SkipOsquery == 0 ]; then
 		wget -O osquery.rpm $OsquerySrc
@@ -580,4 +617,13 @@ if [[ `cat /var/ossec/logs/ossec.log | grep "Connected to the server "` ]]; then
 else
 	echo "Something appears to have gone wrong.  Agent is not connected to the manager."
 	exit 1
+fi
+}
+
+if [ $Install == 1 ]; then
+        deploy
+elif [ $Uninstall == 1 ]; then
+        uninstall
+else
+        checks
 fi
