@@ -25,7 +25,7 @@
 #			If intentionally specifying an empty set of custom groups, then your must use the syntax -WazuhGroups '""'
 # -SkipSysmon		Flag to not examine Sysmon. (Optional)
 # -SkipOsquery		Flag not to examine Osquery. (Optional)
-# -DBG			Flag to turn on debug output. (Optional)
+# -Debug		Flag to turn on debug output. (Optional)
 #
 # Sample way to fetch and use this script:
 #
@@ -42,34 +42,35 @@ param ( $WazuhMgr,
 		[switch]$SkipSysmon=$false, 
 		[switch]$SkipOsquery=$false,
 		$WazuhGroups = "#NOGROUP#",
-		[switch]$DBG=$false
+		[switch]$Debug=$false
 );
 
 function tprobe {
 	$tp_host = $args[0]
 	$tp_port = $args[1]
-	if ($DBG) { Write-Output "Probing $tp_host on port $tp_port..." }
+	if ($Debug) { Write-Output "Probing $tp_host on port $tp_port..." }
 	if ( -not ( $tp_host -as [IPAddress] -as [Bool] ) ) {
-		$IPBIG = (Resolve-DnsName -Name $tp_host -ErrorAction SilentlyContinue).IP4Address
+		#$IPBIG = (Resolve-DnsName -Name $tp_host -ErrorAction SilentlyContinue).IP4Address
+		$IPBIG=([System.Net.Dns]::GetHostEntry($tp_host)).AddressList.IPAddressToString
 		if ( $IPBIG -eq $null) {	
-			if ($DBG) { Write-Output "Failed to resolve IP for $tp_host" }
+			if ($Debug) { Write-Output "Failed to resolve IP for $tp_host" }
 			exit 2
 		}
 	}
 	$tcpClient = New-Object System.Net.Sockets.TcpClient
 	$connection = $tcpClient.ConnectAsync($tp_host, $tp_port).Wait(1000)
 	if ($connection) {
-		if ($DBG) { Write-Output "Success!" }
+		if ($Debug) { Write-Output "Success!" }
 	}
 	else {
-		if ($DBG) { Write-Output "Probe failed!" }
+		if ($Debug) { Write-Output "Probe failed!" }
 		exit 2
 	}
 }
 
 
 if ($WazuhMgr -eq $null) { 
-	if ($DBG) { Write-Output "Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection." }
+	if ($Debug) { Write-Output "Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection." }
 	exit 2
 }
 # If WazuhRegMgr not listed, assume it is the same as WazuhMgr.
@@ -77,15 +78,15 @@ if ($WazuhRegMgr -eq $null) {
     $WazuhRegMgr = $WazuhMgr
 }
 if ($WazuhVer -eq $null) { 
-	if ($DBG) { Write-Output "Must use '-WazuhVer' to specify the version of Wazuh agent to check for." }
+	if ($Debug) { Write-Output "Must use '-WazuhVer' to specify the version of Wazuh agent to check for." }
 	exit 2
 }
 if ( ($OsqueryVer -eq $null) -and ($SkipOsquery -eq $false) ) { 
-	if ($DBG) { Write-Output "If '-SkipOsquery' is not specified, then -OsqueryVer must be provided." }
+	if ($Debug) { Write-Output "If '-SkipOsquery' is not specified, then -OsqueryVer must be provided." }
 	exit 2
 }
 if ( ($SysmonVer -eq $null) -and ($SkipSysmon -eq $false) ) { 
-	if ($DBG) { Write-Output "If '-SkipSysmon' is not specified, then -SysmonVer must be provided." }
+	if ($Debug) { Write-Output "If '-SkipSysmon' is not specified, then -SysmonVer must be provided." }
 	exit 2
 }
 if ( $WazuhGroups -eq "#NOGROUP#" ) {
@@ -105,7 +106,7 @@ tprobe $WazuhRegMgr 1515
 #
 $file = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
 if ( -not ($file -match "'connected'" ) ) {
-	if ($DBG) { Write-Output "The Wazuh agent is not connected to the Wazuh manager." }
+	if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager." }
 	exit 1
 }
 
@@ -120,7 +121,7 @@ if ( -not ( $WazuhGroups -eq "#NOGROUP#" ) ) {
 		# If the agent is presently a member of only one agent group, then pull that group name into current group variable.
 		$CURR_GROUPS=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
 	}
-	if ($DBG) { Write-Output "Current agent group membership: $CURR_GROUPS" }
+	if ($Debug) { Write-Output "Current agent group membership: $CURR_GROUPS" }
 
 	# Blend standard/dynamic groups with custom groups
 	$WazuhGroupsPrefix = "windows,windows-local,"
@@ -133,23 +134,23 @@ if ( -not ( $WazuhGroups -eq "#NOGROUP#" ) ) {
 	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"org,"
 	$WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
 	$WazuhGroups = $WazuhGroups.TrimEnd(",")
-	if ($DBG) { Write-Output "Target agent group membership:  $WazuhGroups" }
+	if ($Debug) { Write-Output "Target agent group membership:  $WazuhGroups" }
 	if ( -not ( $CURR_GROUPS -eq $WazuhGroups ) ) {
-		if ($DBG) { Write-Output "Current and expected agent group membership differ." }
+		if ($Debug) { Write-Output "Current and expected agent group membership differ." }
 		exit 1
 	}
 } else {
-	if ($DBG) { Write-Output "Ignoring agent group membership since -WazuhGroups not specified." }
+	if ($Debug) { Write-Output "Ignoring agent group membership since -WazuhGroups not specified." }
 }
 
 #
 # 3 - Is the target version of Wazuh agent installed?
 #
 $version = [IO.File]::ReadAllText("C:\Program Files (x86)\ossec-agent\VERSION").split("`n")[0].split("v")[1]
-if ($DBG) { Write-Output "Current Wazuh agent version is: $version" }
-if ($DBG) { Write-Output "Target Wazuh agent version is:  $WazuhVer" }
+if ($Debug) { Write-Output "Current Wazuh agent version is: $version" }
+if ($Debug) { Write-Output "Target Wazuh agent version is:  $WazuhVer" }
 if ( -not ( $WazuhVer.Trim() -eq $version.Trim() ) ) {
-	if ($DBG) { Write-Output "Current and expected Wazuh agent version differ." }
+	if ($Debug) { Write-Output "Current and expected Wazuh agent version differ." }
 	exit 1
 }
 
@@ -159,20 +160,20 @@ if ( -not ( $SkipSysmon -eq $true ) ) {
 	#
 	# Local Sysmon.exe file exists?
 	if ( -not (Test-Path -LiteralPath "C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe") ) {
-		if ($DBG) { Write-Output "Sysmon.exe is missing." }
+		if ($Debug) { Write-Output "Sysmon.exe is missing." }
 		exit 1
 	}
 	# Local SysmonDrv.sys file exists?
 	if ( -not (Test-Path -LiteralPath "c:\windows\SysmonDrv.sys") ) {
-		if ($DBG) { Write-Output "SysmonDrv.sys is missing." }
+		if ($Debug) { Write-Output "SysmonDrv.sys is missing." }
 		exit 1
 	}
 	# Local Sysmon.exe file at target version?
 	$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe").FileVersion
-	if ($DBG) { Write-Output "Current Sysmon version is: $smver" }
-	if ($DBG) { Write-Output "Target Sysmon version is:  $SysmonVer" }
+	if ($Debug) { Write-Output "Current Sysmon version is: $smver" }
+	if ($Debug) { Write-Output "Target Sysmon version is:  $SysmonVer" }
 	if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
-		if ($DBG) { Write-Output "Current and expected Sysmon.exe version differ." }
+		if ($Debug) { Write-Output "Current and expected Sysmon.exe version differ." }
 		exit 1
 	}
 	###
@@ -181,15 +182,15 @@ if ( -not ( $SkipSysmon -eq $true ) ) {
 	###
 	## SysmonDrv.sys at target version?
 	#$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
-	#if ($DBG) { Write-Output "Current SysmonDrv.sys version is: $SysmonDrvVer" }
+	#if ($Debug) { Write-Output "Current SysmonDrv.sys version is: $SysmonDrvVer" }
 	#if ( -not ( $SysmonDrvVer.Trim() -eq $SysmonVer.Trim() ) ) {
-	#	if ($DBG) { Write-Output "Current and expected SysmonDrv.sys version differ." }
+	#	if ($Debug) { Write-Output "Current and expected SysmonDrv.sys version differ." }
 	#	exit 1
 	#}
 	# Sysmon driver loaded?
 	$fltOut = (fltMC.exe) | Out-String
 	if ( -not ( $fltOut -match 'SysmonDrv' ) ) {
-		if ($DBG) { Write-Output "Sysmon driver is not loaded." }
+		if ($Debug) { Write-Output "Sysmon driver is not loaded." }
 		exit 1
 	}
 }
@@ -200,25 +201,25 @@ if ( -not ( $SkipOsquery -eq $true ) ) {
 	#
 	# Local osqueryd.exe present?
 	if ( -not (Test-Path -LiteralPath "C:\Program Files\osquery\osqueryd\osqueryd.exe") ) {
-		if ($DBG) { Write-Output "Osquery executable appears to be missing." }
+		if ($Debug) { Write-Output "Osquery executable appears to be missing." }
 		exit 1
 	}
 	# Correct version?
 	$osqver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files\osquery\osqueryd\osqueryd.exe").FileVersion
 	$osqver = $osqver -replace '\.\d+$',''
-	if ($DBG) { Write-Output "Current Osquery version is: $osqver" }
-	if ($DBG) { Write-Output "Target Osquery version is:  $OsqueryVer" }
+	if ($Debug) { Write-Output "Current Osquery version is: $osqver" }
+	if ($Debug) { Write-Output "Target Osquery version is:  $OsqueryVer" }
 	if ( -not ( $osqver.Trim() -eq $OsqueryVer.Trim() ) ) {
-		if ($DBG) { Write-Output "Current and expected Osquery version differ." }
+		if ($Debug) { Write-Output "Current and expected Osquery version differ." }
 		exit 1
 	}
 	# Actually running?
 	if ( -not ( Get-Process -Name "osqueryd" -erroraction 'silentlycontinue' ) ) {
-		if ($DBG) { Write-Output "Osquery does not appear to be running." }
+		if ($Debug) { Write-Output "Osquery does not appear to be running." }
 		exit 1
 	}
 }
 
 # All relevant tests passed, so return a success code.
-if ($DBG) { Write-Output "No deployment/redeployment appears to be needed." }
+if ($Debug) { Write-Output "No deployment/redeployment appears to be needed." }
 exit 0
