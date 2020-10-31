@@ -71,7 +71,7 @@ function show_usage() {
 
 function check_value() {
    if [[ "$1" == "" || "$1" == "-"* ]]; then
-      show_usage
+   	show_usage
    fi
 }
 
@@ -190,7 +190,7 @@ function tprobe() {
 }
 
 # Uninstallion function
-function uninstall() {
+function uninstallsuite() {
 # Shut down and clean out any previous Wazuh or OSSEC agent
 systemctl stop wazuh-agent 2> /dev/null
 systemctl stop ossec-hids-agent 2> /dev/null
@@ -211,20 +211,20 @@ dpkg --purge osquery 2> /dev/null
 yum -y erase osquery 2> /dev/null
 rm -rf /var/osquery /var/log/osquery /usr/share/osquery
 if [ $Uninstall == 1 ]; then
-                echo -e "\n*** Wazuh Agent suite successfully uninstalled";
-                exit 0
+        echo -e "\n*** Wazuh Agent suite successfully uninstalled";
+        exit 0
 fi
 }
 
 # Checks function
-function checks() {
+function checksuite() {
 if [ -f /etc/nsm/securityonion.conf ]; then
-                if [ $Debug == 1 ]; then echo -e "\n*** This deploy script cannot be used on a system where Security Onion is installed."; fi
-                exit 2
+		if [ $Debug == 1 ]; then echo -e "\n*** This deploy script cannot be used on a system where Security Onion is installed."; fi
+        exit 2
 fi
 if [[ `grep server /etc/ossec-init.conf` ]]; then
-                if [ $Debug == 1 ]; then echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."; fi
-                exit 2
+        if [ $Debug == 1 ]; then echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."; fi
+        exit 2
 fi
 if [ "$WazuhMgr" == "" ]; then
         echo -e "\n*** Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
@@ -255,11 +255,11 @@ tprobe $WazuhRegMgr 1515
 #
 if [[ ! `grep "'connected'" /var/ossec/var/run/ossec-agentd.state 2> /dev/null` ]]; then
         if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager."; fi
-                     if [ $CheckOnly == 1 ]; then
-                 exit 1
-             else
-                             deploy
-                         fi
+                if [ $CheckOnly == 1 ]; then
+                        exit 1
+                else
+                        deploysuite
+                fi
 else
         if [ $Debug == 1 ]; then echo "The Wazuh agent is connected to the Wazuh manager."; fi
 fi
@@ -292,11 +292,11 @@ if [ "$WazuhGroups" != "#NOGROUP#" ]; then
         if [ $Debug == 1 ]; then echo "Target agent groups:  $WazuhGroups"; fi
         if [ "$CURR_GROUPS" != "$WazuhGroups" ]; then
                 if [ $Debug == 1 ]; then echo "*** Current and target groups to not match."; fi
-                     if [ $CheckOnly == 1 ]; then
-                 exit 1
-             else
-                             deploy
-                         fi
+				if [ $CheckOnly == 1 ]; then
+						exit 1
+				else
+						deploysuite
+                        	fi
         else
                 if [ $Debug == 1 ]; then echo "Current and target groups match."; fi
         fi
@@ -309,11 +309,11 @@ fi
 #
 if [[ ! `grep "\"v$WazuhVer\"" /etc/ossec-init.conf` ]]; then
         if [ $Debug == 1 ]; then echo "*** The running Wazuh agent does not appear to be at the desired version ($WazuhVer)."; fi
-                     if [ $CheckOnly == 1 ]; then
-                 exit 1
-             else
-                             deploy
-                         fi
+        		if [ $CheckOnly == 1 ]; then
+				exit 1
+			else
+				deploysuite
+                    	fi
 else
         if [ $Debug == 1 ]; then echo "The running Wazuh agent appears to be at the desired version ($WazuhVer)."; fi
 fi
@@ -324,22 +324,22 @@ fi
 if [ $SkipOsquery == 0 ]; then
        if [[ ! `ps auxw | grep -v grep | egrep "osqueryd.*osquery-linux.conf"` ]]; then
                 if [ $Debug == 1 ]; then echo "*** No osqueryd child process was found under the wazuh-modulesd process."; fi
-                             if [ $CheckOnly == 1 ]; then
-                         exit 1
-                     else
-                                     deploy
-                                 fi
+                        if [ $CheckOnly == 1 ]; then
+					exit 1
+			else
+                        		deploysuite
+                        fi
         else
                 if [ $Debug == 1 ]; then echo "Osqueryd was found running under the wazuh-modulesd process."; fi
         fi
         CURR_OSQ_VER=`/usr/bin/osqueryi --csv "select version from osquery_info;" | tail -n1`
         if [ ! "$CURR_OSQ_VER" == "$OsqueryVer" ]; then
                 if [ $Debug == 1 ]; then echo "*** The version of Osquery running on this system ($CURR_OSQ_VER) is not the target version ($OsqueryVer)."; fi
-                             if [ $CheckOnly == 1 ]; then
-                         exit 1
-                     else
-                                     deploy
-                                 fi
+                        if [ $CheckOnly == 1 ]; then
+					exit 1
+			else
+                        		deploysuite
+                        fi
         else
                 if [ $Debug == 1 ]; then echo "The target version of Osquery is running on this system."; fi
         fi
@@ -355,7 +355,7 @@ exit 0
 }
 
 # Deploy function
-function deploy() {
+function deploysuite() {
 if [ "$WazuhGroups" == "#NOGROUP#" ]; then
         GROUPS_SKIPPED=1
         WazuhGroups=""
@@ -376,7 +376,7 @@ fi
 
 if [ "$WazuhMgr" == "" ]; then
         echo -e "\n*** WazuhMgr variable must be used to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
-    show_usage
+	show_usage
         exit 2
 fi
 
@@ -485,7 +485,7 @@ if [ $Debug == 1 ]; then
         echo -e "GROUPS_SKIPPED: $GROUPS_SKIPPED\n"
 fi
 
-uninstall
+uninstallsuite
 
 # Dynamically generate a Wazuh config profile name for the major and minor version of a given Linux distro, like ubuntu14, ubuntu 14.04.
 # No plain distro name like "ubuntu" alone is included because we use agent groups at that level, not config profiles.
@@ -610,9 +610,9 @@ fi
 }
 
 if [ $Install == 1 ]; then
-        deploy
+        deploysuite
 elif [ $Uninstall == 1 ]; then
-        uninstall
+        uninstallsuite
 else
-        checks
+        checksuite
 fi
