@@ -188,7 +188,7 @@ function checkSuite {
 			if ($Debug) { Write-Output "SysmonDrv.sys is missing." }
 			return
 		}
-		# Local Sysmon.exe file at target version?
+		# Local Sysmon.exe file at target version?  Both Sysmon.exe and Sysmon64.exe will exist in this directory at the same version, so checking the first one should always be fine.
 		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe").FileVersion
 		if ($Debug) { Write-Output "Current Sysmon version is: $smver" }
 		if ($Debug) { Write-Output "Target Sysmon version is:  $SysmonVer" }
@@ -199,6 +199,7 @@ function checkSuite {
 		###
 		### SKIPPING VERSION CHECK OF SYSMON DRIVER BECAUSE 12.0 PUBLISHED IT WITH WRONG VERSION METADATA
 		### https://social.technet.microsoft.com/Forums/en-US/08b323e0-3b8e-4840-ad09-bbb08077c2b9/sysmon-120-appears-to-have-outdated-version-metadata-on-sysmondrvsys?forum=miscutils
+		### It appears this was cleared up with 12.1 but I am not sure I want to trust that file's version to stay aligned in the future with the real product version.
 		###
 		## SysmonDrv.sys at target version?
 		#$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
@@ -367,7 +368,8 @@ function installSuite {
 	# -WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
 	#					Cannot skip -WazuhGroups if using -SkipSysmon or -SkipOsquery
 	# -WazuhSrc			Static download path to fetch Wazuh agent installer.  Overrides $WazVer
-	# -SysmonSrc		Static download path to fetch Sysmon installer zip file.  
+    # -SysmonVer		Full version of Sysmon to validate, like "11.11" (optional value to double check version of Sysmon after downloaded)	
+    # -SysmonSrc		Static download path to fetch Sysmon installer zip file.  
 	# -SysmonDLuser     Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLuser myusername"
 	# -SysmonDLpass     Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLpass mypassword".  Ignored if -SysmonDLuser skipped.
 	# -SysmonDLhash     SHA256 hash of the Sysmon download file for validation.  Required if -SysmonSrc is used.
@@ -689,6 +691,15 @@ sca.remote_commands=1
 			Copy-Item "sysmonconfig.xml" -Destination "C:\Program Files (x86)\ossec-agent\shared\"
 		}
 	}
+
+    # If -SysmonVer was specified but the version downloaded or previously provided (-Local) to install does not match it, then fail and bail
+    If ( -not ($SysmonVer -eq $null ) )  {
+		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe").FileVersion
+		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
+			if ($Debug) { Write-Output "Current version of Sysmon to be installed ($smver) differs from what was specified ($SysmonVer)." }
+			exit 1
+		}
+    }
 
 	if ( $SkipSysmon -eq $false ) {
 		if ($Debug) {  Write-Output "Installing Sysmon..." }
