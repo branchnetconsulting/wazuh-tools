@@ -199,7 +199,7 @@ function checkSuite {
 		###
 		### SKIPPING VERSION CHECK OF SYSMON DRIVER BECAUSE 12.0 PUBLISHED IT WITH WRONG VERSION METADATA
 		### https://social.technet.microsoft.com/Forums/en-US/08b323e0-3b8e-4840-ad09-bbb08077c2b9/sysmon-120-appears-to-have-outdated-version-metadata-on-sysmondrvsys?forum=miscutils
-		### It appears this was cleared up with 12.1 but I am not sure I want to trust that file's version to stay aligned in the future with the real product version.
+		### It appears this was cleared up with 12.01 but I am not sure I want to trust that file's version to stay aligned in the future with the real product version.
 		###
 		## SysmonDrv.sys at target version?
 		#$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
