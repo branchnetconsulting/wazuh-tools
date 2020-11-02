@@ -145,9 +145,6 @@ while [ "$1" != "" ]; do
       -CheckOnly )    # no shift
                       CheckOnly=1
                       ;;
-      -StrictGroups ) # no shift
-                      StrictGroups=1
-                      ;;
       -Install )      # no shift
                       Install=1
                       ;;
@@ -239,7 +236,7 @@ if [ "$WazuhVer" == "" ]; then
         show_usage
         exit 2
 fi
-if [ "$OsqueryVer" == "" && $SkipOsquery == 0 ]; then
+if [[ "$OsqueryVer" == "" && "$SkipOsquery" == "0" ]]; then
         echo -e "\nIf -SkipOsquery is not specified, then -OsqueryVer must be provided."
         show_usage
         exit 2
@@ -251,7 +248,7 @@ tprobe $WazuhMgr 1514
 tprobe $WazuhRegMgr 1515
 
 #
-# 1 - Is the agent presently really connected to the Wazuh manager?
+# Is the agent presently really connected to the Wazuh manager?
 #
 if [[ ! `grep "'connected'" /var/ossec/var/run/ossec-agentd.state 2> /dev/null` ]]; then
         if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager."; fi
@@ -265,7 +262,22 @@ else
 fi
 
 #
-# 2 - Is the agent currently a member of all intended Wazuh agent groups, and no others?
+# Connected to the right manager?
+#
+CURR_MGR=`grep address /var/ossec/etc/ossec.conf | sed 's/.*>\([^<]\+\).*/\1/'`
+if  [[ "$CURR_MGR" != "$WazuhMgr" ]]; then
+        if [ $Debug == 1 ]; then echo "The Wazuh agent is not connected to the right manager."; fi 
+                if [ $CheckOnly == 1 ]; then
+                        exit 1
+                else
+                        deploysuite
+                fi
+else
+        if [ $Debug == 1 ]; then echo "The Wazuh agent is connected to the right manager."; fi
+fi        
+
+#
+# Is the agent currently a member of all intended Wazuh agent groups, and no others?
 #
 # Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.
 # Among other things, this affects the automatically assigned starting set of agent group names to include "ubuntu" or "centos".
@@ -305,7 +317,7 @@ else
 fi
 
 #
-# 3 - Is the target version of Wazuh agent installed?
+# Is the target version of Wazuh agent installed?
 #
 if [[ ! `grep "\"v$WazuhVer\"" /etc/ossec-init.conf` ]]; then
         if [ $Debug == 1 ]; then echo "*** The running Wazuh agent does not appear to be at the desired version ($WazuhVer)."; fi
@@ -319,7 +331,7 @@ else
 fi
 
 #
-# 4 - If not ignoring Osquery, is the target version of Osquery installed and running?
+# If not ignoring Osquery, is the target version of Osquery installed and running?
 #
 if [ $SkipOsquery == 0 ]; then
        if [[ ! `ps auxw | grep -v grep | egrep "osqueryd.*osquery-linux.conf"` ]]; then
@@ -463,7 +475,7 @@ if [[ `cat /var/ossec/var/run/ossec-agentd.state 2> /dev/null | grep "'connected
         ALREADY_CONNECTED=1
         OLDNAME=`cut -d" " -f2 /var/ossec/etc/client.keys 2> /dev/null`
         CURR_GROUPS=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
-		CURR_MGR=`grep address /var/ossec/etc/ossec.conf | sed 's/.*>\([^<]\+\).*/\1/'`
+	CURR_MGR=`grep address /var/ossec/etc/ossec.conf | sed 's/.*>\([^<]\+\).*/\1/'`
         rm -f /tmp/client.keys 2> /dev/null
         cp -p /var/ossec/etc/client.keys /tmp/
 fi
