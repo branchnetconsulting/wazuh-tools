@@ -398,19 +398,19 @@ if [ "$WazuhRegPass" == "" ]; then
         exit 2
 fi
 
-if [ "$WazuhVer" == "" && "$WazuhSrc" == "" ]; then
+if [[ "$WazuhVer" == "" && "$WazuhSrc" == "" ]]; then
         echo -e "\n*** Must use '-WazuhVer' or '-WazuhSrc' to specify which Wazuh agent to (re)install (and possibly download first)."
         show_usage
         exit 2
 fi
 
-if [ "$WazuhVer" != "" && "$WazuhSrc" != "" ]; then
+if [[ "$WazuhVer" != "" && "$WazuhSrc" != "" ]]; then
         echo -e "\n*** Must use either '-WazuhVer' or '-WazuhSrc' (not both) to specify which Wazuh agent to (re)install (and possibly download first)."
         show_usage
         exit 2
 fi
 
-if [ "$WazuhRegMgr" == "" ]; then
+if [[ "$WazuhRegMgr" == "" ]]; then
         WazuhRegMgr="$WazuhMgr"
 fi
 
@@ -441,13 +441,13 @@ if [ "$WazuhSrc" == "" ]; then
         fi
 fi
 
-if [ "$OsqueryVer" == "" && $SkipOsquery == 0 && "$OsquerySrc" == "" ]; then
+if [[ "$OsqueryVer" == "" && $SkipOsquery == 0 && "$OsquerySrc" == "" ]]; then
         echo -e "\n*** Must use '-OsqueryVer' or '-OsquerySrc' or '-SkipOsquery' to indicate if/how to handle Osquery (re)installation/removal."
         show_usage
         exit 2
 fi
 
-if [ "$OsqueryVer" != "" && "$OsquerySrc" != "" ]; then
+if [[ "$OsqueryVer" != "" && "$OsquerySrc" != "" ]]; then
         echo -e "\n*** Cannot specify both '-OsqueryVer' and '-OsquerySrc'."
         show_usage
         exit 2
