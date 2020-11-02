@@ -18,10 +18,8 @@
 
 rm -rf sigWah
 git clone  https://github.com/SanWieb/sigWah.git
-cd sigWah
-echo '<group name="sigma,">' > /var/ossec/etc/rules/sigwah.xml
-( find ./ossec-rules -name "*.xml" -exec cat {} \; ; )  >> /var/ossec/etc/rules/sigwah.xml
-echo '</group>' >> /var/ossec/etc/rules/sigwah.xml
+cp ~/sigWah/ossec-rules/local_rules.xml /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<group name="/<group name="sigma, /g' /var/ossec/etc/rules/sigwah.xml
 
 # Transform the sysmon-specific sigWah files to be children of specific parent rules.
 sed -i 's/<if_group>sysmon_event1<\/if_group>/<if_sid>61603<\/if_sid>/' /var/ossec/etc/rules/sigwah.xml
