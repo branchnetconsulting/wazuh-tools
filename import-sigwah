@@ -9,7 +9,7 @@
 #
 # Build a single local Wazuh rule file called sigwah.xml derived from the translated/curated Sigma rules from SanWieb.
 # Transform the sysmon related rules to use <if_sid> instead of <if_group> to prevent rule tree explosion.
-# 
+#
 # Thanks to the Sigma (https://neo23x0.github.io/sigma/) and sigWah projects (https://github.com/SanWieb/sigWah) for the great work!
 #
 # Non-sysmon sigWah rules are presently disabled by this script because they need to be made children of specific parent rules
@@ -41,4 +41,7 @@ sed -i 's/<if_group>sysmon_event_15<\/if_group>/<if_sid>61617<\/if_sid>/' /var/o
 # This intentionally breaks all of the non-sysmon Sigma rules.  They need to be hung off of specific parents.
 # To leave the "<if_group>windows</if_group>" intact on the sigma rules results in analysisd being bogged down
 # with an extra 200000+ rules are reported by "Total rules enabled" in ossec.log
-sed -i 's/<if_group>windows<\/if_group>/<decoded_as>windows_eventchannel<\/decoded_as>/g' /var/ossec/etc/rules/sigwah.xml
+sed -i 's/<if_group>windows<\/if_group>/<if_sid>60000<\/if_sid>/g' /var/ossec/etc/rules/sigwah.xml
+chown -R ossec:ossec /var/ossec/etc/rules/
+chmod 660 /var/ossec/etc/rules/*
+exit
