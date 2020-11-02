@@ -64,7 +64,7 @@
 function show_usage() {
    LBLU='\033[1;34m'
    NC='\033[0m'
-   printf "\nCommand syntax:\n   $0 \n      -WazuhMgr ${LBLU}WAZUH_MANAGER${NC}\n      [-WazuhRegMgr ${LBLU}WAZUH_REGISTRATION_MANAGER${NC}]\n      -WazuhRegPass \"${LBLU}WAZUH_REGISTRATION_PASSWORD${NC}\"\n      {-WazuhVer ${LBLU}WAZUH_VERSION${NC} | -WazuhSrc ${LBLU}WAZUH_AGENT_DOWNLOAD_URL${NC}}\n      [-WazuhAgentName ${LBLU}WAZUH_AGENT_NAME_OVERRIDE${NC}]\n      [-WazuhGroups {${LBLU}LIST_OF_EXTRA_GROUPS${NC} | \"\"}]\n      {-OsqueryVer ${LBLU}OSQUERY_VERSION${NC} | -OsquerySrc ${LBLU}OSQUERY_DOWNLOAD_URL${NC} | -SkipOsquery}\n      [-help]\n\n"
+   printf "\nCommand syntax:\n   $0 \n      -WazuhMgr ${LBLU}WAZUH_MANAGER${NC}\n      [-WazuhRegMgr ${LBLU}WAZUH_REGISTRATION_MANAGER${NC}]\n      -WazuhRegPass \"${LBLU}WAZUH_REGISTRATION_PASSWORD${NC}\"\n      {-WazuhVer ${LBLU}WAZUH_VERSION${NC} | -WazuhSrc ${LBLU}WAZUH_AGENT_DOWNLOAD_URL${NC}}\n      [-WazuhAgentName ${LBLU}WAZUH_AGENT_NAME_OVERRIDE${NC}]\n      [-WazuhGroups {${LBLU}LIST_OF_EXTRA_GROUPS${NC} | \"\"}]\n      {-OsqueryVer ${LBLU}OSQUERY_VERSION${NC} | -OsquerySrc ${LBLU}OSQUERY_DOWNLOAD_URL${NC} | -SkipOsquery}\n | [-Install]\n | [-Uninstall]\n | [-CheckOnly]\n | [-Debug]\n    [-help]\n\n"
    printf "Example:\n   $0 -WazuhMgr ${LBLU}siem.company.org${NC} -WazuhRegPass ${LBLU}\"h58fg3FS###12\"${NC} -WazuhVer ${LBLU}3.13.1${NC} -OsqueryVer ${LBLU}4.4.0${NC} -WazuhGroups ${LBLU}finance,denver${NC}\n\n"
    exit 2
 }
