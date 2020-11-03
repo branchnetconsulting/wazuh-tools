@@ -419,7 +419,8 @@ WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
 WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
 
 if [ "$WazuhSrc" == "" ]; then
-        WazuhSrc="https://packages.wazuh.com/3.x/osx/wazuh-agent-$WazuhVer-1.pkg"
+	WazuhMajorVer=`echo $WazuhVer | cut -c1`
+	WazuhSrc="https://packages.wazuh.com/$WazuhMajorVer.x/osx/wazuh-agent-$WazuhVer-1.pkg"
 fi
 
 if [[ "$OsqueryVer" == "" && "$SkipOsquery" == 0 && "$OsquerySrc" == "" ]]; then
