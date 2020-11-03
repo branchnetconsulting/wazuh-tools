@@ -19,10 +19,11 @@
 #
 # The default exit code is 0.
 #
-# 1 - Is the agent presently really connected to the Wazuh manager?
-# 2 - Is the agent currently a member of all intended Wazuh agent groups?
-# 3 - Is the target version of Wazuh agent installed?
-# 4 - Is the target version of Osquery installed and running?
+# Is the agent presently really connected to the Wazuh manager?
+# Is the agent connected to the right manager?
+# Is the agent currently a member of all intended Wazuh agent groups?
+# Is the target version of Wazuh agent installed?
+# Is the target version of Osquery installed and running?
 #
 # Parameters:
 #
@@ -292,7 +293,7 @@ if [ "$WazuhGroups" != "#NOGROUP#" ]; then
                 LinuxFamily="rpm"
                 WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
         fi
-        if [ $SkipOsquery == 0 ]; then
+        if [ "$SkipOsquery" == "0" ]; then
                 WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,osquery-local,"
         fi
                 WazuhGroupsPrefix="${WazuhGroupsPrefix}org,"
@@ -333,7 +334,7 @@ fi
 #
 # If not ignoring Osquery, is the target version of Osquery installed and running?
 #
-if [ $SkipOsquery == 0 ]; then
+if [ "$SkipOsquery" == "0" ]; then
        if [[ ! `ps auxw | grep -v grep | egrep "osqueryd.*osquery-linux.conf"` ]]; then
                 if [ $Debug == 1 ]; then echo "*** No osqueryd child process was found under the wazuh-modulesd process."; fi
                         if [ $CheckOnly == 1 ]; then
@@ -425,7 +426,7 @@ else
         LinuxFamily="rpm"
         WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
 fi
-if [ $SkipOsquery == 0 ]; then
+if [ "$SkipOsquery" == "0" ]; then
         WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,osquery-local,"
 fi
 WazuhGroupsPrefix="${WazuhGroupsPrefix}org,"
@@ -434,14 +435,15 @@ WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
 WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
 
 if [ "$WazuhSrc" == "" ]; then
+        WazuhMajorVer=`echo $WazuhVer | cut -c1`
         if [ "$LinuxFamily" == "deb" ]; then
-                WazuhSrc="https://packages.wazuh.com/3.x/apt/pool/main/w/wazuh-agent/wazuh-agent_$WazuhVer-1_amd64.deb"
-        else
-                WazuhSrc="https://packages.wazuh.com/3.x/yum/wazuh-agent-$WazuhVer-1.x86_64.rpm"
+                WazuhSrc="https://packages.wazuh.com/$WazuhMajorVer.x/apt/pool/main/w/wazuh-agent/wazuh-agent_$WazuhVer-1_amd64.deb"
+	else
+		WazuhSrc="https://packages.wazuh.com/$WazuhMajorVer.x/yum/wazuh-agent-$WazuhVer-1.x86_64.rpm"
         fi
 fi
 
-if [[ "$OsqueryVer" == "" && $SkipOsquery == 0 && "$OsquerySrc" == "" ]]; then
+if [[ "$OsqueryVer" == "" && "$SkipOsquery" == 0 && "$OsquerySrc" == "" ]]; then
         echo -e "\n*** Must use '-OsqueryVer' or '-OsquerySrc' or '-SkipOsquery' to indicate if/how to handle Osquery (re)installation/removal."
         show_usage
         exit 2
@@ -551,14 +553,14 @@ fi
 #
 if [ "$LinuxFamily" == "deb" ]; then
         rm -f osquery.deb 2> /dev/null
-        if [ $SkipOsquery == 0 ]; then
+        if [ "$SkipOsquery" == "0" ]; then
                 wget -O osquery.deb $OsquerySrc
                 dpkg -i osquery.deb
                 rm -f osquery.deb 2> /dev/null
         fi
 else
         rm -f osquery.rpm 2> /dev/null
-        if [ $SkipOsquery == 0 ]; then
+        if [ "$SkipOsquery" == "0" ]; then
                 wget -O osquery.rpm $OsquerySrc
                 yum -y install osquery.rpm
                 rm -f osquery.rpm 2> /dev/null
