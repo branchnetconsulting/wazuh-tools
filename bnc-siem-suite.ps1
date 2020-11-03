@@ -417,7 +417,8 @@ function installSuite {
 		$WazuhRegMgr = $WazuhMgr
 	}
 	if ($WazuhSrc -eq $null) { 
-		$WazuhSrc = "https://packages.wazuh.com/3.x/windows/wazuh-agent-$WazuhVer-1.msi"
+		$WazuhMajorVer = $WazuhVer.ToCharArray()[0]
+		$WazuhSrc = "https://packages.wazuh.com/$WazuhMajorVer.x/windows/wazuh-agent-$WazuhVer-1.msi"
 	}
 	if ($OsquerySrc -eq $null) { 
 		$OsquerySrc = "https://pkg.osquery.io/windows/osquery-$OsqueryVer.msi"
