@@ -12,12 +12,6 @@
 #
 # This script should work on Windows systems as old as Windows Server 2012 provided PowerShell 5.1 is present.  Likely Powershell 5.0 would be OK.
 #
-# No provision has been made for Sysmon to work on Windows systems that have no 32-bit subsystem present (like Windows Nano and possibly Core).  
-# They would need Sysmon64.exe run instead of Sysmon.exe.  A little logic to detect a 64 bit Windows system with no 32 bit subsystem would not
-# be that difficult to add.  
-#
-# Last updated by Kevin Branch 9/21/2020.
-#
 # -WazuhVer		Full version of Wazuh agent to install, like "3.12.2"
 # -WazuhMgr		IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
 # -WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazuhMgr if not specified)
@@ -118,13 +112,14 @@ if ( $SkippedGroups -eq $true ) {
 }
 
 # Blend standard/dynamic groups with custom groups
-$WazuhGroupsPrefix = "windows,"
+$WazuhGroupsPrefix = "windows,windows-local,"
 if ( $SkipOsquery -eq $false ) {
-	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"osquery,"
+	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"osquery,osquery-local,"
 }
 if ( $SkipSysmon -eq $false ) {
-	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,"
+	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,sysmon-local,"
 }
+$WazuhGroupsPrefix = $WazuhGroupsPrefix+"org,"
 $WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
 $WazuhGroups = $WazuhGroups.TrimEnd(",")
 
