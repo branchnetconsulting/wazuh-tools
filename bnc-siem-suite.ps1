@@ -478,6 +478,9 @@ function installSuite {
 		}
 	}
 
+	# Set https protocol defaults to try stronger TLS first and allow all three forms of TLS
+	[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
 	# NuGet Dependency
 	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
 		if ($Debug) { Write-Output "Installing dependency (NuGet) to be able to uninstall other packages..." }
