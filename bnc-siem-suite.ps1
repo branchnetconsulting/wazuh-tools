@@ -456,11 +456,11 @@ function installSuite {
 
 	# If "-Local" option selected, confirm the bnc-deploy.zip is present, unzip it, and confirm all required files were extracted from it.
 	if ($Local) {
-        if ( -not (Test-Path -LiteralPath "bnc-deploy.zip") ) {
-            if ($Debug) { Write-Output "Option '-Local' specified but no 'bnc-deploy.zip' file was found in current directory.  Giving up and aborting the installation..." }
+		if ( -not (Test-Path -LiteralPath "bnc-deploy.zip") ) {
+		    if ($Debug) { Write-Output "Option '-Local' specified but no 'bnc-deploy.zip' file was found in current directory.  Giving up and aborting the installation..." }
 			exit 1
-        }
-        Microsoft.PowerShell.Archive\Expand-Archive "bnc-deploy.zip" -Force
+		}
+		Microsoft.PowerShell.Archive\Expand-Archive "bnc-deploy.zip" -Force
 		if ( -not (Test-Path -LiteralPath "nuget.zip") ) {
 			if ($Debug) { Write-Output "Option '-Local' specified but no 'nuget.zip' file was found in current directory.  Giving up and aborting the installation..." }
 			exit 1
