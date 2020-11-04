@@ -9,7 +9,7 @@
 # All possible parameters that may be specified for check-only, conditional install, forced install or forced uninstall purposes.
 param ( $WazuhVer, 
 	$WazuhSrc, 
-    $SysmonVer,
+	$SysmonVer,
 	$SysmonSrc, 
 	$SysmonDLuser,
 	$SysmonDLpass,
@@ -28,8 +28,8 @@ function DownloadFiles {
 	#		
 	# -WazuhVer			Full version of Wazuh agent to install, like "3.12.2"
 	# -WazuhSrc			Static download path to fetch Wazuh agent installer.  Overrides $WazVer
-    # -SysmonVer		Full version of Sysmon to validate, like "11.11" (optional value to double check version of Sysmon after downloaded)	
-    # -SysmonSrc		Static download path to fetch Sysmon installer zip file.  
+	# -SysmonVer		Full version of Sysmon to validate, like "11.11" (optional value to double check version of Sysmon after downloaded)	
+	# -SysmonSrc		Static download path to fetch Sysmon installer zip file.  
 	# -SysmonDLuser     Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLuser myusername"
 	# -SysmonDLpass     Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLpass mypassword".  Ignored if -SysmonDLuser skipped.
 	# -SysmonDLhash     SHA256 hash of the Sysmon download file for validation.  Required if -SysmonSrc is used.
@@ -77,8 +77,8 @@ function DownloadFiles {
 	[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
 	
 	Remove-Item "bnc-deploy.zip" -recurse -force -erroraction 'silentlycontinue'
-    Remove-Item "$env:TEMP\generatebncdeploy" -recurse -force -erroraction 'silentlycontinue'
-    New-Item -ItemType "directory" -Path "$env:TEMP\generatebncdeploy" | out-null
+	Remove-Item "$env:TEMP\generatebncdeploy" -recurse -force -erroraction 'silentlycontinue'
+	New-Item -ItemType "directory" -Path "$env:TEMP\generatebncdeploy" | out-null
 
 	# NuGet Dependency
 	if ($Debug) { Write-Output "Fetching dependency (NuGet) to be able to uninstall other packages..." }
@@ -99,7 +99,7 @@ function DownloadFiles {
 			Start-sleep -Seconds 10
 		}  
 		$count++    
-	}until($count -eq 6 -or $success)
+	} until($count -eq 6 -or $success)
 	
 	Compress-Archive -Path "C:\Program Files\PackageManagement\ProviderAssemblies\*" -DestinationPath "$env:TEMP\generatebncdeploy\nuget.zip"
 
@@ -177,16 +177,16 @@ function DownloadFiles {
 	} until($count -eq 6 -or $success)
 	if(-not($success)){exit 1}
 
-    # If -SysmonVer was specified but the version downloaded to install does not match it, then fail and bail
+	# If -SysmonVer was specified but the version downloaded to install does not match it, then fail and bail
 	New-Item -ItemType "directory" -Path "$env:TEMP\generatebncdeploy\bncsysmon" | out-null
-    Microsoft.PowerShell.Archive\Expand-Archive "$env:TEMP\generatebncdeploy\Sysmon.zip" -Force -DestinationPath "$env:TEMP\generatebncdeploy\bncsysmon\"
-    If ( -not ($SysmonVer -eq $null ) )  {
+	Microsoft.PowerShell.Archive\Expand-Archive "$env:TEMP\generatebncdeploy\Sysmon.zip" -Force -DestinationPath "$env:TEMP\generatebncdeploy\bncsysmon\"
+	If ( -not ($SysmonVer -eq $null ) )  {
 		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("$env:TEMP\generatebncdeploy\bncsysmon\Sysmon.exe").FileVersion
 		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
 			if ($Debug) { Write-Output "Current version of Sysmon that was downloaded ($smver) differs from what was specified ($SysmonVer)." }
 			exit 1
 		}
-    }
+	}
 
 	# Download the osquery MSI
 	if ($Debug) { Write-Output "Downloading $OsquerySrc..." }
@@ -207,7 +207,7 @@ function DownloadFiles {
 			Start-sleep -Seconds 10
 		}  
 		$count++    
-	}until($count -eq 6 -or $success)
+	} until($count -eq 6 -or $success)
 }
 
 function CreateZip {
@@ -234,7 +234,7 @@ function CreateZip {
 		exit 1
 	}
 
-    Remove-Item "$env:TEMP\generatebncdeploy\bncsysmon\" -recurse -force 
+	Remove-Item "$env:TEMP\generatebncdeploy\bncsysmon\" -recurse -force 
 
 	# Create bnc-deploy.zip file in current working directory.
 	Compress-Archive -Path "$env:TEMP\generatebncdeploy\*" -DestinationPath "bnc-deploy.zip"
