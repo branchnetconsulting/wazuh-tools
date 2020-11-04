@@ -454,8 +454,13 @@ function installSuite {
 	$WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
 	$WazuhGroups = $WazuhGroups.TrimEnd(",")
 
-	# If "-Local" option selected, confirm all required local files are present.
-	if ( $Local -eq $true ) {
+	# If "-Local" option selected, confirm the bnc-deploy.zip is present, unzip it, and confirm all required files were extracted from it.
+	if ($Local) {
+        if ( -not (Test-Path -LiteralPath "bnc-deploy.zip") ) {
+            if ($Debug) { Write-Output "Option '-Local' specified but no 'bnc-deploy.zip' file was found in current directory.  Giving up and aborting the installation..." }
+			exit 1
+        }
+        Microsoft.PowerShell.Archive\Expand-Archive "bnc-deploy.zip" -Force
 		if ( -not (Test-Path -LiteralPath "nuget.zip") ) {
 			if ($Debug) { Write-Output "Option '-Local' specified but no 'nuget.zip' file was found in current directory.  Giving up and aborting the installation..." }
 			exit 1
@@ -480,6 +485,19 @@ function installSuite {
 
 	# Set https protocol defaults to try stronger TLS first and allow all three forms of TLS
 	[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
+    # If -Local not specified, then confirm that web requests to the Internet are allowed for this host before proceeding
+    if ( -not ($Local) ) {
+	    $ErrorActionPreference= 'silentlycontinue'
+	    $connection = $false
+	    $tcpClient = New-Object System.Net.Sockets.TcpClient
+	    $connection = $tcpClient.ConnectAsync("www.google.com", 443).Wait(1000)
+	    Remove-Variable tcpClient
+	    if ( -not $connection ) {
+		    if ($Debug) { Write-Output "Unable to open web connections to the Internet according to test against https://www.google.com`nYou may need to use the -Local option." }
+		    exit 2
+	    }
+    }
 
 	# NuGet Dependency
 	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
