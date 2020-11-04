@@ -5,6 +5,10 @@
 # creating a file called bnc-deploy.zip that can be placed, along with the bnc-siem-suite.ps1 script, into the working directory of the target Windows system. The -local option on the will unzip the bnc-deploy.zip file and use these unzipped files to deploy
 # the BNC SIEM suite.
 #
+# examples:
+#    .\gen-bnc-deploy-local.ps1 -WazuhVer "3.13.2" -OsqueryVer "4.5.1" -SysmonVer "12.02"
+#    .\gen-bnc-deploy-local.ps1 -WazuhVer "3.13.2" -OsqueryVer "4.5.1" -SysmonVer "12.02" -SysmonSrc "http(s)://PATH-HERE/Sysmon_12.02.zip" -SysmonDLuser "USERNAME-HERE" -SysmonDLpass "PASSWOROD-HERE" -SysmonDLhash "SHA-256-HASH-HERE"
+#
 
 # All possible parameters that may be specified for check-only, conditional install, forced install or forced uninstall purposes.
 param ( $WazuhVer, 
