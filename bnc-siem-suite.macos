@@ -420,7 +420,12 @@ WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
 
 if [ "$WazuhSrc" == "" ]; then
 	WazuhMajorVer=`echo $WazuhVer | cut -c1`
-	WazuhSrc="https://packages.wazuh.com/$WazuhMajorVer.x/osx/wazuh-agent-$WazuhVer-1.pkg"
+	if [ "$WazuhMajorVer" == "3" ]; then
+		mDirName="osx"
+	else
+		mDirName="macos"
+	fi
+	WazuhSrc="https://packages.wazuh.com/$WazuhMajorVer.x/$mDirName/wazuh-agent-$WazuhVer-1.pkg"
 fi
 
 if [[ "$OsqueryVer" == "" && "$SkipOsquery" == 0 && "$OsquerySrc" == "" ]]; then
