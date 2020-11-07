@@ -571,14 +571,26 @@ sca.remote_commands=1
 
 echo "Waiting 15 seconds before checking connection status to manager..."
 sleep 15
+
+# Restart the Wazuh agent a second time so that now-acquired macosToWazuh.py starts this time around
+/Library/Ossec/bin/ossec-control stop
+/Library/Ossec/bin/ossec-control start
+
+sleep 5
+
 if [[ `cat /Library/Ossec/logs/ossec.log | grep "Connected to the server "` ]]; then
         echo "Agent has successfully reported into the manager."
-        exit 0
 else
         echo "Something appears to have gone wrong.  Agent is not connected to the manager."
         exit 2
 fi
 }
+
+if [[ ! `ps auxw | grep -v grep | grep macosToWazuh.py` ]]; then
+	echo "However, the macosToWazuh.py log collector is not actually running as it should be at this point."
+	exit 2
+fi
+
 
 if [ $Install == 1 ]; then
         deploysuite
