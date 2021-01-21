@@ -1,10 +1,15 @@
 {
 
-  "description": "Wazuh events pipeline",
+  "description": "Extended Wazuh events pipeline",
 
   "processors": [
 
-    { "json" : { "field" : "message", "add_to_root": true } },
+    {
+      "json" : {
+        "field" : "message",
+        "add_to_root": true
+      }
+    },
 
     {
       "set": {
@@ -42,7 +47,13 @@
       }
     },
 
-
+    {
+      "set": {
+        "field": "destination.ip",
+        "value": "{{data.dstip}}",
+        "ignore_empty_value": true
+      }
+    },
     {
       "rename": {
         "field": "data.dest_ip",
@@ -50,7 +61,6 @@
         "ignore_failure": true
       }
     },
-
 
     {
       "geoip": {
@@ -83,7 +93,6 @@
       }
     },
 
-
     {
       "geoip": {
         "database_file": "GeoLite2-ASN.mmdb",
@@ -108,8 +117,6 @@
         "ignore_failure": true
       }
     },
-
-
 
     {
       "geoip": {
@@ -141,7 +148,6 @@
         "ignore_failure": true
       }
     },
-
 
     {
       "geoip": {
@@ -217,7 +223,6 @@
       }
     },
 
-
     { "remove": { "field": "message", "ignore_missing": true, "ignore_failure": true } },
     { "remove": { "field": "beat", "ignore_missing": true, "ignore_failure": true } },
     { "remove": { "field": "input_type", "ignore_missing": true, "ignore_failure": true } },
@@ -233,7 +238,9 @@
     { "remove": { "field": "fileset", "ignore_missing": true, "ignore_failure": true } },
     { "remove": { "field": "service", "ignore_missing": true, "ignore_failure": true } }
   ],
+
   "on_failure" : [{
     "drop" : { }
   }]
+
 }
