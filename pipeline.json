@@ -1,27 +1,14 @@
 {
+
   "description": "Wazuh events pipeline",
+
   "processors": [
-    { "json" : { "field" : "message", "add_to_root": true } },
 
     {
-      "set": {
-        "field": "fields.index_prefix",
-        "value": "wazuh-alerts-4.x-"
-      }
-    },  
-    {
-      "set": {
-        "field": "fields.index_prefix",
-        "value": "wazuh-alerts-4.x-ids-",
-        "if" : "ctx.rule?.id == '86601'"
-      }
-    },
-    {
-      "set": {
-        "field": "fields.index_prefix",
-        "value": "wazuh-archives-4.x-",
-        "if" : "ctx.rule?.description == null"
-      }
+      "json" : { 
+        "field" : "message", 
+        "add_to_root": true 
+      } 
     },
 
     {
@@ -60,7 +47,6 @@
       }
     },
 
-
     {
       "rename": {
         "field": "data.dest_ip",
@@ -68,7 +54,6 @@
         "ignore_failure": true
       }
     },
-
 
     {
       "geoip": {
@@ -101,7 +86,6 @@
       }
     },
 
-
     {
       "geoip": {
         "database_file": "GeoLite2-ASN.mmdb",
@@ -126,8 +110,6 @@
         "ignore_failure": true
       }
     },
-
-
 
     {
       "geoip": {
@@ -160,7 +142,6 @@
       }
     },
 
-
     {
       "geoip": {
         "database_file": "GeoLite2-ASN.mmdb",
@@ -186,8 +167,6 @@
       }
     },
 
-
-
     {
       "date": {
         "field": "timestamp",
@@ -196,15 +175,38 @@
         "ignore_failure": false
       }
     },
+
     {
       "date_index_name": {
         "field": "timestamp",
         "date_rounding": "d",
-        "index_name_prefix": "{{fields.index_prefix}}",
+        "index_name_prefix": "wazuh-archives-4.x-",
         "index_name_format": "yyyy.MM.dd",
-        "ignore_failure": false
+        "ignore_failure": false,
+        "if" : "ctx.rule?.description == null"
       }
     },
+    {
+      "date_index_name": {
+        "field": "timestamp",
+        "date_rounding": "d",
+        "index_name_prefix": "wazuh-alerts-4.x-",
+        "index_name_format": "yyyy.MM.dd",
+        "ignore_failure": false,
+        "if" : "ctx.rule?.description != null"
+      }
+    },
+    {
+      "date_index_name": {
+        "field": "timestamp",
+        "date_rounding": "M",
+        "index_name_prefix": "wazuh-alerts-4.x-ids-",
+        "index_name_format": "yyyy.MM",
+        "ignore_failure": false,
+        "if" : "ctx.rule?.id == '86601'"
+      }
+    },
+
     { "remove": { "field": "message", "ignore_missing": true, "ignore_failure": true } },
     { "remove": { "field": "beat", "ignore_missing": true, "ignore_failure": true } },
     { "remove": { "field": "input_type", "ignore_missing": true, "ignore_failure": true } },
@@ -219,8 +221,11 @@
     { "remove": { "field": "event", "ignore_missing": true, "ignore_failure": true } },
     { "remove": { "field": "fileset", "ignore_missing": true, "ignore_failure": true } },
     { "remove": { "field": "service", "ignore_missing": true, "ignore_failure": true } }
+    
   ],
+  
   "on_failure" : [{
     "drop" : { }
   }]
+  
 }
