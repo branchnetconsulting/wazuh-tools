@@ -579,8 +579,8 @@ echo "
       <protocol>tcp</protocol>
     </server>
     <config-profile>$CFG_PROFILE</config-profile>
-    <notify_time>30</notify_time>
-    <time-reconnect>180</time-reconnect>
+    <notify_time>10</notify_time>
+    <time-reconnect>60</time-reconnect>
     <auto_restart>yes</auto_restart>
     <crypto_method>aes</crypto_method>
   </client>
