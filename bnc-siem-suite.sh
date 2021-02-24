@@ -421,10 +421,10 @@ fi
 WazuhGroupsPrefix="linux,linux-local,"
 if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
         LinuxFamily="deb"
-        WazuhGroupsPrefix="${WazuhGroupsPrefix}ubuntu,"
+        WazuhGroupsPrefix="${WazuhGroupsPrefix}"
 else
         LinuxFamily="rpm"
-        WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
+        WazuhGroupsPrefix="${WazuhGroupsPrefix}"
 fi
 if [ "$SkipOsquery" == "0" ]; then
         WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,osquery-local,"
