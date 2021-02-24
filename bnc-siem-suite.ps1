@@ -621,8 +621,8 @@ $ConfigToWrite = @"
 		 <protocol>tcp</protocol>
 	  </server>
 	  <config-profile>$OS</config-profile>
-	  <notify_time>60</notify_time>
-	  <time-reconnect>300</time-reconnect>
+	  <notify_time>10</notify_time>
+	  <time-reconnect>60</time-reconnect>
 	  <auto_restart>yes</auto_restart>
    </client>
    <logging>
