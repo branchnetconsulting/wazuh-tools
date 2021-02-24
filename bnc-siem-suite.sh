@@ -59,7 +59,7 @@
 #
 # The above would (re)install the latest stable Wazuh agent and Osquery, if the checks determine it is warranted.
 # It would also self-register with the specified Wazuh manager using the specified password, unless an existing working registration can be kept.
-# The agent would be registered with agent groups "linux,linux-local,ubuntu,osquery,osquery-local" or "linux,linux-local,centos,osquery,osquery-local" depending on if this is an rpm or deb system.
+# The agent would be registered with agent groups "linux,linux-local,osquery,osquery-local" or "linux,linux-local,osquery,osquery-local" depending on if this is an rpm or deb system.
 #
 
 function show_usage() {
@@ -288,10 +288,10 @@ if [ "$WazuhGroups" != "#NOGROUP#" ]; then
         WazuhGroupsPrefix="linux,linux-local,"
         if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
                 LinuxFamily="deb"
-                WazuhGroupsPrefix="${WazuhGroupsPrefix}ubuntu,"
+                WazuhGroupsPrefix="${WazuhGroupsPrefix}"
         else
                 LinuxFamily="rpm"
-                WazuhGroupsPrefix="${WazuhGroupsPrefix}centos,"
+                WazuhGroupsPrefix="${WazuhGroupsPrefix}"
         fi
         if [ "$SkipOsquery" == "0" ]; then
                 WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,osquery-local,"
