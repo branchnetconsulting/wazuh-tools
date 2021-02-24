@@ -7,7 +7,7 @@
 # This script is a dual-role script, both running through a series of checks to determine if there is need to install the SIEM packages and installing the SIEM packages
 # if warranted.
 #
-# Deployment will install Wazuh agent and Wazuh-integrated Osquery on Ubuntu/Debian and CentOS/RedHat/Amazon Linux systems.
+# Deployment will install Wazuh agent and Wazuh-integrated Osquery on Ubuntu, CentOS, and Amazon Linux systems.
 # After preserving the working Wazuh agent registration key if present, Wazuh/OSSEC agent and/or Osquery are completely purged and then reinstalled,
 # with an option to skip Osquery.
 # The Wazuh agent self registration process is included, but will be skipped if an existing working registration can be recycled.
@@ -36,7 +36,7 @@
 # -WazuhGroups      Comma separated list of optional extra Wazuh agent groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
 #                   Use "" to expect zero extra groups.
 #                   If not specified, agent group membership will not be checked at all.
-#                   Do not include "linux", "ubuntu", or "centos" groups as these are autodetected and will dynamically be inserted as the first groups.
+#                   Do not include "linux", "linux-local", or "org" group as these are autodetected and will dynamically be inserted as groups.
 #                   Also, do not include "osquery" as this will automatically be included unless SkipOsquery is set to "1"
 # -OsqueryVer       Full version of Osquery to validate and/or install, like "4.2.0" (always N.N.N format) (Required unless -SkipOsquery specified).
 # -OsquerySrc       Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
@@ -281,23 +281,20 @@ fi
 # Is the agent currently a member of all intended Wazuh agent groups, and no others?
 #
 # Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.
-# Among other things, this affects the automatically assigned starting set of agent group names to include "ubuntu" or "centos".
 # This needs to be refined, but reflects the Linux flavors I actually work with.
 # Do not perform agent group check if
 if [ "$WazuhGroups" != "#NOGROUP#" ]; then
         WazuhGroupsPrefix="linux,linux-local,"
         if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
                 LinuxFamily="deb"
-                WazuhGroupsPrefix="${WazuhGroupsPrefix}"
         else
                 LinuxFamily="rpm"
-                WazuhGroupsPrefix="${WazuhGroupsPrefix}"
         fi
         if [ "$SkipOsquery" == "0" ]; then
                 WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,osquery-local,"
         fi
-                WazuhGroupsPrefix="${WazuhGroupsPrefix}org,"
-                WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
+        WazuhGroupsPrefix="${WazuhGroupsPrefix}org,"
+        WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
         # If there were no additional groups, strip off the trailing comma in the list.
         WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
         CURR_GROUPS=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
@@ -416,15 +413,12 @@ if [[ "$WazuhRegMgr" == "" ]]; then
 fi
 
 # Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.
-# Among other things, this affects the automatically assigned starting set of agent group names to include "ubuntu" or "centos".
 # This needs to be refined, but reflects the Linux flavors I actually work with.
 WazuhGroupsPrefix="linux,linux-local,"
 if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
         LinuxFamily="deb"
-        WazuhGroupsPrefix="${WazuhGroupsPrefix}"
 else
         LinuxFamily="rpm"
-        WazuhGroupsPrefix="${WazuhGroupsPrefix}"
 fi
 if [ "$SkipOsquery" == "0" ]; then
         WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,osquery-local,"
@@ -501,12 +495,11 @@ fi
 
 uninstallsuite
 
-# Dynamically generate a Wazuh config profile name for the major and minor version of a given Linux distro, like ubuntu14, ubuntu 14.04.
-# No plain distro name like "ubuntu" alone is included because we use agent groups at that level, not config profiles.
-CFG_PROFILE=`. /etc/os-release; echo $ID\`echo $VERSION_ID | cut -d. -f1\`, $ID\`echo $VERSION_ID\``
+
 
 #
 # Branch between Ubuntu and CentOS for Wazuh agent installation steps
+# Dynamically generate a Wazuh config profile name for the linux flavor, version, and if applicable subversion, like ubuntu, ubuntu20, ubuntu 20.04 or centos, centos8
 #
 if [ "$LinuxFamily" == "deb" ]; then
         # Wazuh Agent remove/download/install
@@ -514,12 +507,14 @@ if [ "$LinuxFamily" == "deb" ]; then
         wget -O /tmp/wazuh-agent_$WazuhVer-1_amd64.deb $WazuhSrc
         dpkg -i /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
         rm -f /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
+        CFG_PROFILE=`. /etc/os-release; echo $ID, $ID\`echo $VERSION_ID | cut -d. -f1\`, $ID\`echo $VERSION_ID\``
 else
         # Wazuh Agent remove/download/install
         rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm 2> /dev/null
         wget -O /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm $WazuhSrc
         yum -y install /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
         rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
+	CFG_PROFILE=`. /etc/os-release; echo $ID, $ID\`echo $VERSION_ID\``
 fi
 
 #
