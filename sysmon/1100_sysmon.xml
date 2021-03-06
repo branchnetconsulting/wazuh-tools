@@ -1,11 +1,5 @@
 <group name="windows,sysmon,">
 
-  <rule id="110000" level="2">
-    <if_sid>550</if_sid>
-    <match>sysmonconfig.xml</match>
-    <description>New sysmonconfig.xml received.  Reload it now.</description>
-  </rule>
-
   <rule id="61600" level="3" overwrite="yes">
     <if_sid>60004</if_sid>
     <field name="win.system.severityValue">^INFORMATION$</field>
