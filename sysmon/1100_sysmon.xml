@@ -135,7 +135,15 @@
     <group>sysmon_event_15,</group>
   </rule>
 
-  <rule id="110010" level="3">
+  <rule id="110016" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^16$</field>
+    <description>Sysmon - Event 16: Sysmon config state changed</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_16,</group>
+  </rule>
+  
+  <rule id="110017" level="3">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^17$</field>
     <description>Sysmon - Event 17: PipeEvent (Pipe Created) by $(win.eventdata.image)</description>
@@ -143,7 +151,7 @@
     <group>sysmon_event_17,</group>
   </rule>
 
-  <rule id="110011" level="3">
+  <rule id="110018" level="3">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^18$</field>
     <description>Sysmon - Event 18: PipeEvent (Pipe Connected) by $(win.eventdata.image)</description>
@@ -151,7 +159,7 @@
     <group>sysmon_event_18,</group>
   </rule>
 
-  <rule id="110012" level="3">
+  <rule id="110019" level="3">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^19$</field>
     <description>Sysmon - Event 19: WmiEvent (WmiEventFilter activity detected) by $(win.eventdata.image)</description>
@@ -159,7 +167,7 @@
     <group>sysmon_event_19,</group>
   </rule>
 
-  <rule id="110013" level="3">
+  <rule id="110020" level="3">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^20$</field>
     <description>Sysmon - Event 20: WmiEvent (WmiEventConsumer activity detected) by $(win.eventdata.image)</description>
@@ -167,7 +175,7 @@
     <group>sysmon_event_20,</group>
   </rule>
 
-  <rule id="110014" level="3">
+  <rule id="110021" level="3">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^21$</field>
     <description>Sysmon - Event ID 21: WmiEvent (WmiEventConsumerToFilter activity detected) by $(win.eventdata.image)</description>
@@ -175,7 +183,7 @@
     <group>sysmon_event_21,</group>
   </rule>
 
-  <rule id="110015" level="3">
+  <rule id="110022" level="3">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^22$</field>
     <description>Sysmon - Event ID 22: DNSEvent (DNS query) by $(win.eventdata.image)</description>
@@ -183,4 +191,28 @@
     <group>sysmon_event_22,</group>
   </rule>
 
+  <rule id="110023" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^23$</field>
+    <description>Sysmon - Event ID 23: FileDelete by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_23,</group>
+  </rule>
+  
+  <rule id="110024" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^24$</field>
+    <description>Sysmon - Event ID 24: ClipboardChange by $(win.eventdata.image)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_24,</group>
+  </rule>
+  
+  <rule id="110099" level="3">
+    <if_sid>61600,61601</if_sid>
+    <field name="win.system.eventID">^255$</field>
+    <description>Sysmon - Event ID 255: Sysmon error</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_255,</group>
+  </rule>
+  
 </group>
