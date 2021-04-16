@@ -36,7 +36,7 @@
 # -WazuhGroups      Comma separated list of optional extra Wazuh agent groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
 #                   Use "" to expect zero extra groups.
 #                   If not specified, agent group membership will not be checked at all.
-#                   Do not include "linux", "linux-local", or "org" group as these are autodetected and will dynamically be inserted as groups.
+#                   Do not include "linux" or "linux-local" group as these are autodetected and will dynamically be inserted as groups.
 #                   Also, do not include "osquery" as this will automatically be included unless SkipOsquery is set to "1"
 # -OsqueryVer       Full version of Osquery to validate and/or install, like "4.2.0" (always N.N.N format) (Required unless -SkipOsquery specified).
 # -OsquerySrc       Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
@@ -293,7 +293,6 @@ if [ "$WazuhGroups" != "#NOGROUP#" ]; then
         if [ "$SkipOsquery" == "0" ]; then
                 WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,osquery-local,"
         fi
-        WazuhGroupsPrefix="${WazuhGroupsPrefix}org,"
         WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
         # If there were no additional groups, strip off the trailing comma in the list.
         WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
@@ -423,7 +422,6 @@ fi
 if [ "$SkipOsquery" == "0" ]; then
         WazuhGroupsPrefix="${WazuhGroupsPrefix}osquery,osquery-local,"
 fi
-WazuhGroupsPrefix="${WazuhGroupsPrefix}org,"
 WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
 # If there were no additional groups, strip off the trailing comma in the list.
 WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
