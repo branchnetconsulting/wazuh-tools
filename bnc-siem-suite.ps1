@@ -225,7 +225,7 @@ function checkSuite {
 	#
 	# Is the target version of Wazuh agent installed?
 	#
-	$version = [IO.File]::ReadAllText("C:\Program Files (x86)\ossec-agent\VERSION").split("`n")[0].split("v")[1]
+        $version = [IO.File]::ReadAllText("C:\Program Files (x86)\ossec-agent\VERSION").trim().split("v")[1]
 	if ($Debug) { Write-Output "Current Wazuh agent version is: $version" }
 	if ($Debug) { Write-Output "Target Wazuh agent version is:  $WazuhVer" }
 	if ( -not ( $WazuhVer.Trim() -eq $version.Trim() ) ) {
