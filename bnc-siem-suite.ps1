@@ -9,7 +9,7 @@
 # conditionally call this script a second time to explicitly install/reinstall the suite.
 #
 # Deployment will install Wazuh agent and Wazuh-integrated Osquery on Ubuntu, CentOS, and Amazon Linux systems.
-# After preserving the working Wazuh agent registration key if present, Wazuh/OSSEC agent and/or Osquery are completely purged and then reinstalled,
+# After preserving the working Wazuh agent registration key if present,  Wazuh/OSSEC agent and/or Osquery are completely purged and then reinstalled,
 # with an option to skip Osquery.
 #
 # The Wazuh agent self registration process is included, but will be skipped if an existing working registration can be recycled.
