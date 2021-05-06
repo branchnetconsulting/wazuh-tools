@@ -8,6 +8,66 @@
 # Alternatively, a higher level configuration management system like Puppet could first call this script just to check if installation/reinstallation is called for, and based on the exit code it receives, 
 # conditionally call this script a second time to explicitly install/reinstall the suite.
 #
+# Deployment will install Wazuh agent and Wazuh-integrated Osquery on Ubuntu, CentOS, and Amazon Linux systems.
+# After preserving the working Wazuh agent registration key if present, Wazuh/OSSEC agent and/or Osquery are completely purged and then reinstalled,
+# with an option to skip Osquery.
+#
+# The Wazuh agent self registration process is included, but will be skipped if an existing working registration can be recycled.
+# Agent name and group names must match exactly for registration to be recycled.  This will keep the same agent id associated with the agent.
+#
+# If any of the listed test families fail, the SIEM packages will be (re)installed.
+#
+# If the call to this script is deemed broken, or either the Wazuh Manager connect port or registration port are unresponsive to a probe, an exit code of 2 will be returned.
+#
+# The default exit code is 0.
+#
+# Is the agent presently really connected to the Wazuh manager?
+# Is the agent connected to the right manager?
+# Is the agent currently a member of all intended Wazuh agent groups?
+# Is the target version of Wazuh agent installed?
+# Is the target version of Osquery installed and running?
+#
+# Required Parameters:
+#
+# -WazuhVer         Full version of Wazuh agent to confirm and/or install, like "4.1.4". 
+# -WazuhMgr         IP or FQDN of the Wazuh manager for ongoing agent connections. 
+# -WazuhRegPass     Password for registration with Wazuh manager (put in quotes).
+# -OsqueryVer       Full version of Osquery to validate and/or install, like "4.6.0" (always N.N.N format, required unless -SkipOsquery specified).
+# -SysmonVer		Full version of Sysmon to validate, like "11.11" (Always N.N format, required unless -SkipSysmon specified)    
+#
+# Optional Parameters:
+#
+# -WazuhRegMgr      IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazuhMgr if not specified)
+# -WazuhAgentName   Name under which to register this agent in place of locally detected Windows host name.
+# -WazuhGroups      Comma separated list of optional extra Wazuh agent groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
+#                   Use "" to expect zero extra groups.
+#                   If not specified, agent group membership will not be checked at all.
+#                   Do not include "windows" or "windows-local"group as these are autodetected and will dynamically be inserted as groups.
+#                   Also, do not include "osquery" as this will automatically be included unless SkipOsquery is set to "1"
+# -WazuhSrc         Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
+# -SysmonSrc        Static download path to fetch Sysmon installer for if you host your own Sysmon. 
+# -SysmonDLuser     Download username for Sysmon, if authentication is required where you have the installer stored.
+# -SysmonDLpass     Download password for Sysmon, if authentication is required where you have the installer stored.
+# -SysmonDLhash     MD5 hash of the Sysmon installer you have at your download source. 
+# -SysmonConfSrc    Location of your Sysmon config file. 
+# -OsquerySrc       Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
+# -SkipSysmon		Flag to not examine Sysmon. (Optional)
+# -SkipOsquery      Set this flag to skip examination and/or installation of Osquery.  If the script determines that installation is warranted, this flag will result in Osquery being removed if present.
+#                   Osquery is installed by default.
+# -Install          Skip all checks and force installation
+# -Uninstall        Uninstall Wazuh agent and sub-agents
+# -CheckOnly        Only run checks to see if installation is current or in need of deployment
+# -Debug            Show debug output
+# -help             Show command syntax
+#
+# Sample command line:
+#
+# PowerShell.exe -ExecutionPolicy Bypass -File .\bnc-siem-suite.ps1 -WazuhVer "4.1.4" -OsqueryVer "4.6.0" -WazuhMgr "{Manager DNS or IP}" -WazuhRegPass "{Your_Password}" -WazuhGroups "{Your_comma_separated_group_list}" -Debug
+#
+# Please note that the following groups are built into the script and should be added to the Wazuh Manager PRIOR to any use of this script.
+#
+# "windows,windows-local,sysmon,sysmon-local,osquery,osquery-local".
+#
 
 # All possible parameters that may be specified for check-only, conditional install, forced install or forced uninstall purposes.
 param ( $WazuhVer, 
@@ -151,7 +211,6 @@ function checkSuite {
 		if ( $SkipSysmon -eq $false ) {
 			$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,sysmon-local,"
 		}
-		$WazuhGroupsPrefix = $WazuhGroupsPrefix+"org,"
 		$WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
 		$WazuhGroups = $WazuhGroups.TrimEnd(",")
 		if ($Debug) { Write-Output "Target agent group membership:  $WazuhGroups" }
@@ -166,7 +225,7 @@ function checkSuite {
 	#
 	# Is the target version of Wazuh agent installed?
 	#
-	$version = [IO.File]::ReadAllText("C:\Program Files (x86)\ossec-agent\VERSION").split("`n")[0].split("v")[1]
+        $version = [IO.File]::ReadAllText("C:\Program Files (x86)\ossec-agent\VERSION").trim().split("v")[1]
 	if ($Debug) { Write-Output "Current Wazuh agent version is: $version" }
 	if ($Debug) { Write-Output "Target Wazuh agent version is:  $WazuhVer" }
 	if ( -not ( $WazuhVer.Trim() -eq $version.Trim() ) ) {
@@ -188,7 +247,7 @@ function checkSuite {
 			if ($Debug) { Write-Output "SysmonDrv.sys is missing." }
 			return
 		}
-		# Local Sysmon.exe file at target version?
+		# Local Sysmon.exe file at target version?  Both Sysmon.exe and Sysmon64.exe will exist in this directory at the same version, so checking the first one should always be fine.
 		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe").FileVersion
 		if ($Debug) { Write-Output "Current Sysmon version is: $smver" }
 		if ($Debug) { Write-Output "Target Sysmon version is:  $SysmonVer" }
@@ -199,6 +258,7 @@ function checkSuite {
 		###
 		### SKIPPING VERSION CHECK OF SYSMON DRIVER BECAUSE 12.0 PUBLISHED IT WITH WRONG VERSION METADATA
 		### https://social.technet.microsoft.com/Forums/en-US/08b323e0-3b8e-4840-ad09-bbb08077c2b9/sysmon-120-appears-to-have-outdated-version-metadata-on-sysmondrvsys?forum=miscutils
+		### It appears this was cleared up with 12.01 but I am not sure I want to trust that file's version to stay aligned in the future with the real product version.
 		###
 		## SysmonDrv.sys at target version?
 		#$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
@@ -359,24 +419,25 @@ function installSuite {
 
 	# Relevant script parameters
 	#		
-	# -WazuhVer			Full version of Wazuh agent to install, like "3.12.2"
-	# -WazuhMgr			IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
+	# -WazuhVer		Full version of Wazuh agent to install, like "3.12.2"
+	# -WazuhMgr		IP or FQDN of the Wazuh manager for ongoing agent connections.  Required.
 	# -WazuhRegMgr		IP or FQDN of the Wazuh manager for agent registration connection (defaults to $WazuhMgr if not specified)
 	# -WazuhRegPass		Password for registration with Wazuh manager (put in quotes).  Required.
 	# -WazuhAgentName	Name under which to register this agent in place of locally detected Windows host name
 	# -WazuhGroups		Comma separated list of Wazuh groups to member this agent.  No spaces.  Put whole list in quotes.  Groups must already exist.
-	#					Cannot skip -WazuhGroups if using -SkipSysmon or -SkipOsquery
-	# -WazuhSrc			Static download path to fetch Wazuh agent installer.  Overrides $WazVer
-	# -SysmonSrc		Static download path to fetch Sysmon installer zip file.  
-	# -SysmonDLuser     Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLuser myusername"
-	# -SysmonDLpass     Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLpass mypassword".  Ignored if -SysmonDLuser skipped.
-	# -SysmonDLhash     SHA256 hash of the Sysmon download file for validation.  Required if -SysmonSrc is used.
+	#			Cannot skip -WazuhGroups if using -SkipSysmon or -SkipOsquery
+	# -WazuhSrc		Static download path to fetch Wazuh agent installer.  Overrides $WazVer
+        # -SysmonVer		Full version of Sysmon to validate, like "11.11" (optional value to double check version of Sysmon after downloaded)	
+        # -SysmonSrc		Static download path to fetch Sysmon installer zip file.  
+	# -SysmonDLuser         Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLuser myusername"
+	# -SysmonDLpass         Optional web credentials for downloading Sysmon from -SysmonSrc alternate source, used like "-SysmonDLpass mypassword".  Ignored if -SysmonDLuser skipped.
+	# -SysmonDLhash         SHA256 hash of the Sysmon download file for validation.  Required if -SysmonSrc is used.
 	# -SysmonConfSrc	Static download path to fetch Sysmon configuration file.
 	# -SkipSysmon		Do not install Sysmon.  Completely remove it if present.
 	# -OsqueryVer		Full version of Osquery to install, like "4.2.0"
 	# -OsquerySrc		Static download path to fetch Osquery agent installer.  Overrides $OsqVer
 	# -SkipOsquery		Do not install Osquery.  Completely remove it if present.
-	# -Local			Expect all download files already to be present in current directory.  Do not use any $...Src parameters with this.
+	# -Local		Expect all download files already to be present in current directory.  Do not use any $...Src parameters with this.
 	
 	if ($WazuhMgr -eq $null) { 
 		write-host "Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
@@ -415,7 +476,8 @@ function installSuite {
 		$WazuhRegMgr = $WazuhMgr
 	}
 	if ($WazuhSrc -eq $null) { 
-		$WazuhSrc = "https://packages.wazuh.com/3.x/windows/wazuh-agent-$WazuhVer-1.msi"
+		$WazuhMajorVer = $WazuhVer.ToCharArray()[0]
+		$WazuhSrc = "https://packages.wazuh.com/$WazuhMajorVer.x/windows/wazuh-agent-$WazuhVer-1.msi"
 	}
 	if ($OsquerySrc -eq $null) { 
 		$OsquerySrc = "https://pkg.osquery.io/windows/osquery-$OsqueryVer.msi"
@@ -447,12 +509,16 @@ function installSuite {
 	if ( $SkipSysmon -eq $false ) {
 		$WazuhGroupsPrefix = $WazuhGroupsPrefix+"sysmon,sysmon-local,"
 	}
-	$WazuhGroupsPrefix = $WazuhGroupsPrefix+"org,"
 	$WazuhGroups = $WazuhGroupsPrefix+$WazuhGroups
 	$WazuhGroups = $WazuhGroups.TrimEnd(",")
 
-	# If "-Local" option selected, confirm all required local files are present.
-	if ( $Local -eq $true ) {
+	# If "-Local" option selected, confirm the bnc-deploy.zip is present, unzip it, and confirm all required files were extracted from it.
+	if ($Local) {
+		if ( -not (Test-Path -LiteralPath "bnc-deploy.zip") ) {
+		    if ($Debug) { Write-Output "Option '-Local' specified but no 'bnc-deploy.zip' file was found in current directory.  Giving up and aborting the installation..." }
+			exit 1
+		}
+		Microsoft.PowerShell.Archive\Expand-Archive "bnc-deploy.zip" -Force -DestinationPath .
 		if ( -not (Test-Path -LiteralPath "nuget.zip") ) {
 			if ($Debug) { Write-Output "Option '-Local' specified but no 'nuget.zip' file was found in current directory.  Giving up and aborting the installation..." }
 			exit 1
@@ -474,6 +540,22 @@ function installSuite {
 			exit 1
 		}
 	}
+
+	# Set https protocol defaults to try stronger TLS first and allow all three forms of TLS
+	[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
+    # If -Local not specified, then confirm that web requests to the Internet are allowed for this host before proceeding
+    if ( -not ($Local) ) {
+	    $ErrorActionPreference= 'silentlycontinue'
+	    $connection = $false
+	    $tcpClient = New-Object System.Net.Sockets.TcpClient
+	    $connection = $tcpClient.ConnectAsync("www.google.com", 443).Wait(1000)
+	    Remove-Variable tcpClient
+	    if ( -not $connection ) {
+		    if ($Debug) { Write-Output "Unable to open web connections to the Internet according to test against https://www.google.com`nYou may need to use the -Local option." }
+		    exit 2
+	    }
+    }
 
 	# NuGet Dependency
 	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
@@ -597,8 +679,8 @@ $ConfigToWrite = @"
 		 <protocol>tcp</protocol>
 	  </server>
 	  <config-profile>$OS</config-profile>
-	  <notify_time>60</notify_time>
-	  <time-reconnect>300</time-reconnect>
+	  <notify_time>10</notify_time>
+	  <time-reconnect>60</time-reconnect>
 	  <auto_restart>yes</auto_restart>
    </client>
    <logging>
@@ -689,6 +771,15 @@ sca.remote_commands=1
 			Copy-Item "sysmonconfig.xml" -Destination "C:\Program Files (x86)\ossec-agent\shared\"
 		}
 	}
+
+    # If -SysmonVer was specified but the version downloaded or previously provided (-Local) to install does not match it, then fail and bail
+    If ( -not ($SysmonVer -eq $null ) )  {
+		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe").FileVersion
+		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
+			if ($Debug) { Write-Output "Current version of Sysmon to be installed ($smver) differs from what was specified ($SysmonVer)." }
+			exit 1
+		}
+    }
 
 	if ( $SkipSysmon -eq $false ) {
 		if ($Debug) {  Write-Output "Installing Sysmon..." }

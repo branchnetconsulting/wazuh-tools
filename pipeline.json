@@ -1,0 +1,246 @@
+{
+
+  "description": "Extended Wazuh events pipeline",
+
+  "processors": [
+
+    {
+      "json" : {
+        "field" : "message",
+        "add_to_root": true
+      }
+    },
+
+    {
+      "set": {
+        "field": "source.ip",
+        "value": "{{data.src_ip}}",
+        "ignore_empty_value": true
+      }
+    },
+    {
+      "set": {
+        "field": "source.ip",
+        "value": "{{data.srcip}}",
+        "ignore_empty_value": true
+      }
+    },
+    {
+      "set": {
+        "field": "source.ip",
+        "value": "{{data.win.eventdata.ipAddress}}",
+        "ignore_empty_value": true
+      }
+    },
+    {
+      "set": {
+        "field": "source.ip",
+        "value": "{{data.aws.sourceIPAddress}}",
+        "ignore_empty_value": true
+      }
+    },
+    {
+      "set": {
+        "field": "source.ip",
+        "value": "{{data.gcp.jsonPayload.sourceIP}}",
+        "ignore_empty_value": true
+      }
+    },
+    
+    {
+      "rename": {
+        "field": "data.dstip",
+        "target_field": "destination.ip",
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "data.dest_ip",
+        "target_field": "destination.ip",
+        "ignore_failure": true
+      }
+    },
+
+    {
+      "geoip": {
+        "field": "source.ip",
+        "target_field": "geoip",
+        "properties": ["city_name", "country_name", "region_name"],
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "geoip.city_name",
+        "target_field": "source.geo.city_name",
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "geoip.country_name",
+        "target_field": "source.geo.country_name",
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "geoip.region_name",
+        "target_field": "source.geo.region_name",
+        "ignore_failure": true
+      }
+    },
+
+    {
+      "geoip": {
+        "database_file": "GeoLite2-ASN.mmdb",
+        "field": "source.ip",
+        "target_field": "geoip",
+        "properties": ["ASN", "ORGANIZATION_NAME"],
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "geoip.asn",
+        "target_field": "source.as.number",
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "geoip.organization_name",
+        "target_field": "source.as.organization.name",
+        "ignore_failure": true
+      }
+    },
+
+    {
+      "geoip": {
+        "field": "destination.ip",
+        "target_field": "geoip",
+        "properties": ["city_name", "country_name", "region_name"],
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "geoip.city_name",
+        "target_field": "destination.geo.city_name",
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "geoip.country_name",
+        "target_field": "destination.geo.country_name",
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "geoip.region_name",
+        "target_field": "destination.geo.region_name",
+        "ignore_failure": true
+      }
+    },
+
+    {
+      "geoip": {
+        "database_file": "GeoLite2-ASN.mmdb",
+        "field": "destination.ip",
+        "target_field": "geoip",
+        "properties": ["ASN", "ORGANIZATION_NAME"],
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "geoip.asn",
+        "target_field": "destination.as.number",
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "geoip.organization_name",
+        "target_field": "destination.as.organization.name",
+        "ignore_failure": true
+      }
+    },
+
+    {
+      "gsub": {
+        "field": "rule.description",
+        "pattern": " group [0-9]+$",
+        "replacement": "",
+        "if" : "ctx.rule?.id == '86601'"
+      }
+    },
+
+    {
+      "date": {
+        "field": "timestamp",
+        "target_field": "@timestamp",
+        "formats": ["ISO8601"],
+        "ignore_failure": false
+      }
+    },
+
+    {
+      "date_index_name": {
+        "field": "timestamp",
+        "date_rounding": "d",
+        "index_name_prefix": "wazuh-archives-4.x-",
+        "index_name_format": "yyyy.MM.dd",
+        "ignore_failure": false,
+        "if" : "ctx.rule?.description == null"
+      }
+    },
+    {
+      "date_index_name": {
+        "field": "timestamp",
+        "date_rounding": "d",
+        "index_name_prefix": "wazuh-alerts-4.x-",
+        "index_name_format": "yyyy.MM.dd",
+        "ignore_failure": false,
+        "if" : "ctx.rule?.description != null"
+      }
+    },
+    {
+      "date_index_name": {
+        "field": "timestamp",
+        "date_rounding": "M",
+        "index_name_prefix": "wazuh-alerts-4.x-ids-",
+        "index_name_format": "yyyy.MM",
+        "ignore_failure": false,
+        "if" : "ctx.rule?.id == '86601'"
+      }
+    },
+
+    { "remove": { "field": "message", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "beat", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "input_type", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "tags", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "count", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "@version", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "log", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "offset", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "type", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "host", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "fields", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "event", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "fileset", "ignore_missing": true, "ignore_failure": true } },
+    { "remove": { "field": "service", "ignore_missing": true, "ignore_failure": true } }
+  ],
+
+  "on_failure" : [{
+    "drop" : { }
+  }]
+
+}
