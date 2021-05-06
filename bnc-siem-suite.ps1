@@ -13,7 +13,7 @@
 # with an option to skip Osquery.
 #
 # The Wazuh agent self registration process is included, but will be skipped if an existing working registration can be recycled.
-# Agent name and group names must match exactly for registration to be recycled.  This will keep the same agent id associated with the agent.
+# Agent name and group names must match exactly for registration to be recycled. This will keep the same agent id associated with the agent.
 #
 # If any of the listed test families fail, the SIEM packages will be (re)installed.
 #
