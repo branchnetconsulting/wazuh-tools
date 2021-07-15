@@ -451,6 +451,7 @@ fi
 if [ "$OsquerySrc" == "" ]; then
         if [ "$LinuxFamily" == "deb" ]; then
                 OsquerySrc="https://pkg.osquery.io/deb/osquery_${OsqueryVer}_1.linux.amd64.deb"
+		OsquerySrc2="https://pkg.osquery.io/deb/osquery_${OsqueryVer}-1.linux_amd64.deb"
         else
                 OsquerySrc="https://pkg.osquery.io/rpm/osquery-${OsqueryVer}-1.linux.x86_64.rpm"
         fi
@@ -548,7 +549,10 @@ if [ "$LinuxFamily" == "deb" ]; then
         rm -f osquery.deb 2> /dev/null
         if [ "$SkipOsquery" == "0" ]; then
                 wget -O osquery.deb $OsquerySrc
-                dpkg -i osquery.deb
+		if [ ! -f osquery.deb ]; then
+			wget -O osquery.deb $OsquerySrc2 
+		fi
+		dpkg -i osquery.deb
                 rm -f osquery.deb 2> /dev/null
         fi
 else
