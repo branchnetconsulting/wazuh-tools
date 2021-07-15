@@ -549,7 +549,7 @@ if [ "$LinuxFamily" == "deb" ]; then
         rm -f osquery.deb 2> /dev/null
         if [ "$SkipOsquery" == "0" ]; then
                 wget -O osquery.deb $OsquerySrc
-		if [ ! -f osquery.deb ]; then
+		if [[ ! `file osquery.deb | grep "binary package"` ]]; then
 			wget -O osquery.deb $OsquerySrc2 
 		fi
 		dpkg -i osquery.deb
