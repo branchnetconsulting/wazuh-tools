@@ -329,7 +329,11 @@ function uninstallSuite {
 		#	- the current and target manager are the same
 		#	- the current and target agent name are the same
 		#	- the agent group list is exactly the same (unless ignored by ommittance of -WazuhGroups)
-		$StateFile = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
+		if (Test-Path "C:\Program Files (x86)\ossec-agent\wazuh-agent.state" -PathType leaf) {
+			$StateFile = Get-Content "C:\Program Files (x86)\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
+		} else {
+			$StateFile = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
+		}
 		$MergedFile = Get-Content "C:\Program Files (x86)\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
 		$MergedFileName = "C:\Program Files (x86)\ossec-agent\shared\merged.mg"
 		$CurrentAgentName=(Get-Content "C:\Program Files (x86)\ossec-agent\client.keys").Split(" ")[1]
