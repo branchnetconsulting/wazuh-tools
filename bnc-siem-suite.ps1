@@ -176,9 +176,12 @@ function checkSuite {
 	#
 	# Is the agent presently really connected to the Wazuh manager?
 	#
-	$file1 = Get-Content "C:\Program Files (x86)\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
-	$file2 = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
-	if ( ( -not ($file1 -match "'connected'" ) ) -and ( -not ($file2 -match "'connected'" ) ) ) {
+	if (Test-Path "C:\Program Files (x86)\ossec-agent\wazuh-agent.state" -PathType leaf) {
+		$StateFile = Get-Content "C:\Program Files (x86)\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
+	} else {
+		$StateFile = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
+	}	
+	if ( -not ($StateFile -match "'connected'" ) ) {
 		if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager." }
 		return
 	}
