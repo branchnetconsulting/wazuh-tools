@@ -355,7 +355,15 @@ function uninstallSuite {
 		if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
 			if ($Debug) { Write-Output "Stopping current Wazuh Agent service..." }
 			net stop wazuh | out-null
+			sleep 10
 		}
+		if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
+			sleep 10
+		}
+		if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
+			if ($Debug) { Write-Output "Stopping of Wazuh service failed." }
+			exit 1	
+		}	
 		Uninstall-Package -Name "Wazuh Agent" -erroraction 'silentlycontinue' | out-null
 		Remove-Item "C:\Program Files (x86)\ossec-agent" -recurse
 	}
