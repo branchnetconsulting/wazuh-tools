@@ -176,8 +176,9 @@ function checkSuite {
 	#
 	# Is the agent presently really connected to the Wazuh manager?
 	#
-	$file = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
-	if ( -not ($file -match "'connected'" ) ) {
+	$file1 = Get-Content "C:\Program Files (x86)\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
+	$file2 = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
+	if ( ( -not ($file1 -match "'connected'" ) ) -and ( -not ($file2 -match "'connected'" ) ) ) {
 		if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager." }
 		return
 	}
@@ -317,7 +318,7 @@ function uninstallSuite {
 	# -WazuhAgentName	Name under which to register this agent in place of locally detected Windows host name
 	# -Uninstall		Uninstall without checking and without installing thereafter
 
-    if ($Debug) { Write-Output "Uninstalling the SIEM suite." }
+	if ($Debug) { Write-Output "Uninstalling the SIEM suite." }
 	
 	# If Wazuh agent is already installed and registered, and this is not an explicit uninstallation call, then note if registration may be recyclable,
 	# and if so, preserve client.keys and the agent groups list to accomodate that, plus set the $MightRecycleRegistration flag.
@@ -349,27 +350,21 @@ function uninstallSuite {
 		}
 	}
 
+	# If Wazuh agent service is running, stop it.  Otherwise uninstall will fail.
+	if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
+		if ($Debug) { Write-Output "Stopping current Wazuh Agent service..." }
+		net stop wazuh | out-null
+	}
+
 	# If Wazuh agent already installed, blow it away
-	if (Test-Path 'C:\Program Files (x86)\ossec-agent\ossec-agent.exe' -PathType leaf) {
+	if ( (Test-Path 'C:\Program Files (x86)\ossec-agent\wazuh-agent.exe' -PathType leaf) -or (Test-Path 'C:\Program Files (x86)\ossec-agent\ossec-agent.exe' -PathType leaf) ) {
 		if ($Debug) { Write-Output "Uninstalling existing Wazuh Agent..." }
-		if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
-			if ($Debug) { Write-Output "Stopping current Wazuh Agent service..." }
-			net stop wazuh | out-null
-			sleep 10
-		}
-		if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
-			sleep 10
-		}
-		if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
-			if ($Debug) { Write-Output "Stopping of Wazuh service failed." }
-			exit 1	
-		}	
 		Uninstall-Package -Name "Wazuh Agent" -erroraction 'silentlycontinue' | out-null
 		Remove-Item "C:\Program Files (x86)\ossec-agent" -recurse
+	}   
+	if (Test-Path 'C:\Program Files (x86)\ossec-agent' -PathType Container) {
+		Remove-Item "C:\Program Files (x86)\ossec-agent" -recurse -force
 	}
-    if (Test-Path 'C:\Program Files (x86)\ossec-agent' -PathType Container) {
-        Remove-Item "C:\Program Files (x86)\ossec-agent" -recurse -force
-    }
 	
 	# If Sysmon present (and no -SkipSysmon specified), then wipe it all out
 	if ( -not ($SkipSysmon) ) {
