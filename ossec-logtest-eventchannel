@@ -2,6 +2,8 @@
 
 #
 # ossec-logtest-eventchannel
+# This this on Wazuh manager 4.1.5 or older.
+# For Wazuh manager 4.2.x, use wazuh-logtest-eventchannel instead.
 # by Kevin Branch
 #
 # Use this wrapper of the standard ossec-logtest tool for testing Wazuh decoders and rules involving Windows EventChannel events.  
