@@ -604,7 +604,10 @@ sca.remote_commands=1
 
 # Restart the Wazuh agent (and Osquery subagent)
 if [[ `which systemctl 2> /dev/null` ]]; then
-        systemctl restart wazuh-agent
+        systemctl stop wazuh-agent
+	systemctl daemon-reload
+	systemctl enable wazuh-agent
+	systemctl start wazuh-agent
 else
         service wazuh-agent restart
 fi
