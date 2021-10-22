@@ -207,7 +207,9 @@ rm -rf /var/ossec /etc/ossec-init.conf 2> /dev/null
 # Clean out any previous Osquery
 dpkg --purge osquery 2> /dev/null
 yum -y erase osquery 2> /dev/null
-rm -rf /var/osquery /var/log/osquery /usr/share/osquery
+rm -f /usr/bin/osqueryd 2> /dev/null  # pre-5.x binary or symlink to it 
+rm -f /usr/bin/osqueryi 2> /dev/null  # pre-5.x binary or symlink to it 
+rm -rf /var/osquery /var/log/osquery /usr/share/osquery /opt/osquery
 if [ $Uninstall == 1 ]; then
         echo -e "\n*** Wazuh Agent suite successfully uninstalled";
         exit 0
@@ -545,23 +547,24 @@ fi
 #
 # If not set to be skipped, download and install osquery.
 #
-if [ "$LinuxFamily" == "deb" ]; then
-        rm -f osquery.deb 2> /dev/null
-        if [ "$SkipOsquery" == "0" ]; then
+if [ "$SkipOsquery" == "0" ]; then
+	if [ "$LinuxFamily" == "deb" ]; then
+	        rm -f osquery.deb 2> /dev/null
                 wget -O osquery.deb $OsquerySrc
 		if [[ ! `file osquery.deb | grep "binary package"` ]]; then
 			wget -O osquery.deb $OsquerySrc2 
 		fi
 		dpkg -i osquery.deb
-                rm -f osquery.deb 2> /dev/null
-        fi
-else
-        rm -f osquery.rpm 2> /dev/null
-        if [ "$SkipOsquery" == "0" ]; then
-                wget -O osquery.rpm $OsquerySrc
-                yum -y install osquery.rpm
-                rm -f osquery.rpm 2> /dev/null
-        fi
+                rm -f osquery.deb
+	else
+		rm -f osquery.rpm 2> /dev/null
+		wget -O osquery.rpm $OsquerySrc
+		yum -y install osquery.rpm
+		rm -f osquery.rpm
+	fi
+	# Add symlinks from pre 5.x osqueryd and osqueryi executables to 5.x locations for compatibility
+	ln -s /opt/osquery/bin/osqueryd /usr/bin/osqueryd 2> /dev/null
+	ln -s /usr/local/bin/osqueryi /usr/bin/osqueryi 2> /dev/null
 fi
 
 #
