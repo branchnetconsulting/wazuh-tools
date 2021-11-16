@@ -318,28 +318,27 @@ fi
 #
 # Is the target version of Wazuh agent installed?
 #
-if [[ ! `grep "\"v$WazuhVer\"" /etc/ossec-init.conf` ]]; then
-        if [ $Debug == 1 ]; then echo "*** The running Wazuh agent does not appear to be at the desired version ($WazuhVer)."; fi
-        		if [ $CheckOnly == 1 ]; then
-				exit 1
-			else
-				deploysuite
-                    	fi
-else
+if [ -f /var/ossec/bin/wazuh-control ] && [[ `/var/ossec/bin/wazuh-control info | grep "\"v$WazuhVer\""` ]] || [[ `grep "\"v$WazuhVer\"" /etc/ossec-init.conf` ]]; then
         if [ $Debug == 1 ]; then echo "The running Wazuh agent appears to be at the desired version ($WazuhVer)."; fi
+else
+        if [ $Debug == 1 ]; then echo "*** The running Wazuh agent does not appear to be at the desired version ($WazuhVer)."; fi
+        if [ $CheckOnly == 1 ]; then
+                exit 1
+        else
+                deploysuite
+        fi
 fi
-
 #
 # If not ignoring Osquery, is the target version of Osquery installed and running?
 #
 if [ "$SkipOsquery" == "0" ]; then
        if [[ ! `ps auxw | grep -v grep | egrep "osqueryd.*osquery-linux.conf"` ]]; then
                 if [ $Debug == 1 ]; then echo "*** No osqueryd child process was found under the wazuh-modulesd process."; fi
-                        if [ $CheckOnly == 1 ]; then
-					exit 1
-			else
-                        		deploysuite
-                        fi
+		if [ $CheckOnly == 1 ]; then
+				exit 1
+		else
+                       		deploysuite
+                fi
         else
                 if [ $Debug == 1 ]; then echo "Osqueryd was found running under the wazuh-modulesd process."; fi
         fi
