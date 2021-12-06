@@ -582,6 +582,9 @@ echo "
     <time-reconnect>60</time-reconnect>
     <auto_restart>yes</auto_restart>
     <crypto_method>aes</crypto_method>
+    <enrollment>
+        <enabled>no</enabled>
+    </enrollment>
   </client>
   <logging>
     <log_format>plain, json</log_format>
