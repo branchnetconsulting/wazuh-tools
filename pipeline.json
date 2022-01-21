@@ -46,6 +46,13 @@
         "ignore_empty_value": true
       }
     },
+    {
+      "set": {
+        "field": "source.ip",
+        "value": "{{data.parameters.alert.data.srcip}}",
+        "ignore_empty_value": true
+      }
+    },
     
     {
       "rename": {
