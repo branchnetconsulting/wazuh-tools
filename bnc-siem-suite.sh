@@ -561,6 +561,8 @@ if [ "$SkipOsquery" == "0" ]; then
 		yum -y install osquery.rpm
 		rm -f osquery.rpm
 	fi
+	systemctl stop osquery
+	systemctl disable osquery
 	# Add symlinks from pre 5.x osqueryd and osqueryi executables to 5.x locations for compatibility
 	ln -s /opt/osquery/bin/osqueryd /usr/bin/osqueryd 2> /dev/null
 	ln -s /usr/local/bin/osqueryi /usr/bin/osqueryi 2> /dev/null
