@@ -517,6 +517,8 @@ else
 	CFG_PROFILE=`. /etc/os-release; echo $ID, $ID\`echo $VERSION_ID\``
 fi
 
+systemctl enable wazuh-agent
+
 #
 # If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
 # This should keep us from burning through so many agent ID numbers.
