@@ -253,7 +253,7 @@ tprobe $WazuhRegMgr 1515
 #
 # Is the agent presently really connected to the Wazuh manager?
 #
-if [[ ! `grep "'connected'" /var/ossec/var/run/ossec-agentd.state 2> /dev/null` ]]; then
+if [[ ! `grep "'connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
         if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager."; fi
                 if [ $CheckOnly == 1 ]; then
                         exit 1
@@ -467,7 +467,7 @@ cd ~
 
 # Take note if agent is already connected to a Wazuh manager and collect relevant data
 ALREADY_CONNECTED=0
-if [[ `cat /var/ossec/var/run/ossec-agentd.state 2> /dev/null | grep "'connected'"` ]]; then
+if [[ `cat /var/ossec/var/run/wazuh-agentd.state 2> /dev/null | grep "'connected'"` ]]; then
         ALREADY_CONNECTED=1
         OLDNAME=`cut -d" " -f2 /var/ossec/etc/client.keys 2> /dev/null`
         CURR_GROUPS=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
