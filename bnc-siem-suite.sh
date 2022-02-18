@@ -503,6 +503,9 @@ uninstallsuite
 #
 if [ "$LinuxFamily" == "deb" ]; then
         # Wazuh Agent remove/download/install
+	if [[ ! `which wget 2> /dev/null` ]]; then 
+		apt -y install wget
+	fi
         rm -f /tmp/wazuh-agent_$WazuhVer-1_amd64.deb 2> /dev/null
         wget -O /tmp/wazuh-agent_$WazuhVer-1_amd64.deb $WazuhSrc
         dpkg -i /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
@@ -510,7 +513,10 @@ if [ "$LinuxFamily" == "deb" ]; then
         CFG_PROFILE=`. /etc/os-release; echo $ID, $ID\`echo $VERSION_ID | cut -d. -f1\`, $ID\`echo $VERSION_ID\``
 else
         # Wazuh Agent remove/download/install
-        rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm 2> /dev/null
+	if [[ ! `which wget 2> /dev/null` ]]; then 
+		yum -y install wget
+	fi
+	rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm 2> /dev/null
         wget -O /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm $WazuhSrc
         yum -y install /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
         rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
