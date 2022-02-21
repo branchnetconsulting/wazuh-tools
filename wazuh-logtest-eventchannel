@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #
-# ossec-logtest-eventchannel
-# Use this on Wazuh manager 4.1.5 or older.
-# For Wazuh manager 4.2.x, use wazuh-logtest-eventchannel instead.
+# wazuh-logtest-eventchannel
+# Use this on Wazuh manager 4.2.x.
+# For Wazuh manager older than 4.2, use ossec-logtest-eventchannel instead.
 # by Kevin Branch
 #
 # Use this wrapper of the standard ossec-logtest tool for testing Wazuh decoders and rules involving Windows EventChannel events.  
@@ -25,4 +25,4 @@ rsync -pog /var/ossec/ruleset/rules/* /var/ossec/ruleset/rules-logtest/
 sed -i '/<rule id="60000" level="0">/,+7 d' /var/ossec/ruleset/rules-logtest/0575-win-base_rules.xml
 sed -i 's/<group name="windows,">/<group name="windows,">\n\n  <rule id="60000" level="0">\n    <decoded_as>json<\/decoded_as>\n    <field name="win.system.providerName">\\.+<\/field>\n    <description>Group of windows rules<\/description>\n  <\/rule>/
 ' /var/ossec/ruleset/rules-logtest/0575-win-base_rules.xml
-/var/ossec/bin/ossec-logtest -c /var/ossec/etc/ossec-logtest.conf $1 $2 $3
+/var/ossec/bin/wazuh-logtest-legacy -c /var/ossec/etc/ossec-logtest.conf $1 $2 $3

@@ -419,7 +419,13 @@ WazuhGroups="${WazuhGroupsPrefix}$WazuhGroups"
 WazuhGroups=`echo $WazuhGroups | sed 's/,$//'`
 
 if [ "$WazuhSrc" == "" ]; then
-        WazuhSrc="https://packages.wazuh.com/3.x/osx/wazuh-agent-$WazuhVer-1.pkg"
+	WazuhMajorVer=`echo $WazuhVer | cut -c1`
+	if [ "$WazuhMajorVer" == "3" ]; then
+		mDirName="osx"
+	else
+		mDirName="macos"
+	fi
+	WazuhSrc="https://packages.wazuh.com/$WazuhMajorVer.x/$mDirName/wazuh-agent-$WazuhVer-1.pkg"
 fi
 
 if [[ "$OsqueryVer" == "" && "$SkipOsquery" == 0 && "$OsquerySrc" == "" ]]; then
@@ -533,10 +539,13 @@ echo "
       <protocol>tcp</protocol>
     </server>
     <config-profile>$CFG_PROFILE</config-profile>
-    <notify_time>30</notify_time>
-    <time-reconnect>180</time-reconnect>
+    <notify_time>10</notify_time>
+    <time-reconnect>60</time-reconnect>
     <auto_restart>yes</auto_restart>
-    <crypto_method>aes</crypto_method>
+    <crypto_method>aes</crypto_method>    
+    <enrollment>
+        <enabled>no</enabled>
+    </enrollment>
   </client>
   <logging>
     <log_format>plain, json</log_format>
@@ -565,14 +574,26 @@ sca.remote_commands=1
 
 echo "Waiting 15 seconds before checking connection status to manager..."
 sleep 15
+
+# Restart the Wazuh agent a second time so that now-acquired macosToWazuh.py starts this time around
+/Library/Ossec/bin/ossec-control stop
+/Library/Ossec/bin/ossec-control start
+
+sleep 5
+
 if [[ `cat /Library/Ossec/logs/ossec.log | grep "Connected to the server "` ]]; then
         echo "Agent has successfully reported into the manager."
-        exit 0
 else
         echo "Something appears to have gone wrong.  Agent is not connected to the manager."
         exit 2
 fi
 }
+
+if [[ ! `ps auxw | grep -v grep | grep macosToWazuh.py` ]]; then
+	echo "However, the macosToWazuh.py log collector is not actually running as it should be at this point."
+	exit 2
+fi
+
 
 if [ $Install == 1 ]; then
         deploysuite

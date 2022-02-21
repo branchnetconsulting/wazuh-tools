@@ -1,0 +1,140 @@
+<!--
+bnc_unifi_decoders.xml
+by Kevin Branch and Ken Fredericksen
+
+This file decodes multiple variations of Unifi AP and Switch device logs.
+
+IMPORTANT NOTE:
+In order for some of these decoders to work it is necessary to exclude the following rule and decoders files
+in the <ruleset> section of /var/ossec/etc/ossec.conf on the Wazuh-Manager(s) by adding the following lines.   
+    <decoder_exclude>0330-symantec_decoders.xml</decoder_exclude>
+    <rule_exclude>0120-symantec-av_rules.xml</rule_exclude>
+    <rule_exclude>0125-symantec-ws_rules.xml</rule_exclude> 
+This is necessary because the Unifi logs that begin with a MAC address will match the overly generic stock 
+Symantec decoder over-riding this custom decoder file.  
+
+You can see an issue we openned on this here >> https://github.com/wazuh/wazuh-ruleset/issues/840 
+
+Feel free to add your comments to this issue.  More comments will make it more likely that this issue received attention.  
+
+Please also note that if you have Symantec events that you want to analyze in your SIEM, you will need to create a custom 
+Symantec decoder file by copying the stock one referenced below to /var/ossec/etc/decoders and modifying the decoder with
+one of the suggested lines from the above Github issue.
+-->
+
+<!--
+Aug 19 09:26:45 WAP-AP-SS U7PG2,80daa889aa69,v4.3.24.11355: hostapd: WPA: 46:9a:d9:5c:b0:27 WPA_PTK entering state PTKINITDONE
+Aug 19 09:28:31 wap-AP BZ2LR,0027d2f0ba63,v4.3.21.11325: hostapd: FT: Failed to decrypt UBNT request from 12:9f:c2:31:64:4d
+ -->
+<decoder name="unifi-ap">
+    <prematch type="pcre2">^[UB]\w+,\w+,v.+: |[0-9a-f]{12},UAP-</prematch>
+</decoder>
+
+<decoder name="unifi-ap">
+   <parent>unifi-ap</parent>
+   <regex type="pcre2">^([UB]\w+),(\w+),v(\S+): </regex>
+   <order>ap.model,ap.mac,ap.fwver</order>
+</decoder>
+
+<!--
+Aug 17 22:33:53 10.21.10.153 e063dad0e7ec,UAP-AC-Pro-Gen2-5.43.35+12698: /usr/sbin/lbd[8802]: 22.33.53.920736 LBDR wlanif   debug: wlanifBSteerEventsHandleActivityChange: CC:F7:D5:70:C5:4C activity status changes to ACTIVE APId 255 ChanId 149 ESSId 2
+Aug 17 22:33:53 10.21.10.153 e063dad0e7ec,UAP-AC-Pro-5.43.35+12698: /usr/sbin/lbd[8802]: 22.33.53.920736 LBDR wlanif   debug: wlanifBSteerEventsHandleActivityChange: CC:D7:35:70:C5:4C activity status changes to ACTIVE APId 255 ChanId 149 ESSId 2
+Aug 17 22:33:51 10.22.10.16 74d3c27bb8ff,UAP-HD-5.43.35+12698: kernel: [71628.452031] [UNSPECIFIED] vap-5(vwire11):ieee80211_beacon_update: ubnt_ie update, len 27
+-->
+<decoder name="unifi-ap">
+   <parent>unifi-ap</parent>
+   <regex type="pcre2">^([0-9a-f]{12}),(UAP-\S+)-(\d\S+): (\S+):?\[?</regex>
+   <order>ap.mac,ap.model,ap.fwver</order>
+</decoder>
+
+<!--
+Dec  5 23:52:20 ("U7LT,f09fc23d6d51,v3.9.3.7537") syslog: wevent.ubnt_custom_event(): EVENT_STA_IP ath0: 84:d0:0d:d9:82:06 / 192.168.10.100
+-->
+<decoder name="unifi-ap">
+   <parent>unifi-ap</parent>
+   <regex type="pcre2"> EVENT_STA_IP \w+: (\S+) \/ (.+)$</regex>
+   <order>station.mac,station.ip</order>
+</decoder>
+
+<decoder name="unifi-ap">
+   <parent>unifi-ap</parent>
+   <regex type="pcre2">(\w+): (\w+): STA (\S+) ?\S+ \S+: (.+)</regex>
+   <order>program_name,iface,station.mac,status</order>
+</decoder>
+
+<decoder name="unifi-ap">
+   <parent>unifi-ap</parent>
+   <regex type="pcre2">: (\w+)\[\w+\]: \S+ \S+ (\w{4}): (\S+)</regex>
+   <order>program_name,iface,station.mac</order>
+</decoder>
+
+<decoder name="unifi-ap">
+   <parent>unifi-ap</parent>
+   <regex type="pcre2">: (\w+): \S+ \S+ (\S+)$</regex>
+   <order>program_name,station.mac</order>
+</decoder>
+
+<decoder name="unifi-ap">
+   <parent>unifi-ap</parent>
+   <regex type="pcre2">"mac":"(\w+:\w+:\w+:\w+:\w+:\w+)",</regex>
+   <order>station.mac</order>
+</decoder>
+
+<decoder name="unifi-ap">
+   <parent>unifi-ap</parent>
+   <regex type="pcre2"> mac (\S+) </regex>
+   <order>station.mac</order>
+</decoder>
+
+
+<!--
+Aug 17 13:09:55 SW-switch3-01 748dc26f1fdd,US-48-500W-5.43.18+12487: switch: TRAPMGR: Link Down: 0/19
+Aug 17 22:15:59 SW-WAREHOUSE 18e829221dc2,US-16-XG-5.64.8+13083: switch: switchdrvr[3834]: libubnt.dec_payload(): hdr=1421370886, crc32=2110905413
+-->
+<decoder name="unifi-switch">
+   <prematch type="pcre2">^[0-9a-f]{12},US\w?-</prematch>
+</decoder>
+<!--
+Aug 17 22:05:41 SW10-P 245a4d7f1dbf,USW-Pro-48-5.64.8+13083: switch: DOT1S: Port (16) inst(0) role changing from ROLE_DISABLED to ROLE_DESIGNATED
+Aug 18 13:05:31 SW-Park-D12 f492dfa91260,USW-Flex-5.43.36+12724: : mcad[1362]: ace_reporter_trsp_curl.check_multi_info(): inform failed with curl code 7
+-->
+<decoder name="unifi-switch">
+   <parent>unifi-switch</parent>
+   <regex type="pcre2">^([0-9a-f]{12}),(USW?\S+)-(\d\S+): (\w+)?: (\w+):?\[?</regex>
+   <order>switch.mac,switch.model,switch.fwver,switch.program,switch.program_type</order>
+</decoder>
+<!--
+Aug 17 11:51:48 SW-switch-02 74acd93e78c6,US-48-500W-5.43.18+12487: switch: DOT1S: Port (9) inst(0) role changing from ROLE_DISABLED to ROLE_DESIGNATED
+-->
+<decoder name="unifi-switch">
+   <parent>unifi-switch</parent>
+   <regex type="pcre2" offset="after_regex">Port \((\d+)\) inst\(\d+\) role changing from (\w+) to (\w+)$</regex>
+   <order>port_id,from_state,to_state</order>
+</decoder>
+
+<!--
+Aug 17 13:09:55 SW-switch3-01 7483c26d1fdd,US-48-500W-5.43.18+12487: switch: TRAPMGR: Link Down: 0/19
+-->
+<decoder name="unifi-switch">
+   <parent>unifi-switch</parent>
+   <regex type="pcre2" offset="after_regex">Link Down: 0/(\d+)$</regex>
+   <order>port_id</order>
+</decoder>
+
+<!--
+Aug 17 13:09:54 SW-switch3-01 7483d26f1fdd,US-48-500W-5.43.18+12487: switch: TRAPMGR: Link Up: 0/19
+-->
+<decoder name="unifi-switch">
+   <parent>unifi-switch</parent>
+   <regex type="pcre2" offset="after_regex">Link Up: 0/(\d+)$</regex>
+   <order>port_id</order>
+</decoder>
+
+<!--
+Aug 17 16:57:07 SW-house-01 switch: TRAPMGR: Link Up: 0/3
+-->
+<decoder name="unifi-switch">
+   <program_name>^syslog$|^switch$|^dropbear$</program_name>
+   <regex type="pcre2">^(\.*):</regex>
+   <order>switch.program</order>
+</decoder>

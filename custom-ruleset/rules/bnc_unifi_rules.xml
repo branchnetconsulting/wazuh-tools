@@ -1,0 +1,158 @@
+<!--
+bnc_unifi_rules.xml
+by Kevin Branch and Ken Fredericksen
+
+This file contains rules to highlight Unifi logs that may be of interest.  It is recommended that you adjust these for
+your specific use case. 
+
+IMPORTANT NOTE:
+In order for these rules to work it is necessary to exclude the following rule and decoders files in the <ruleset> section 
+of /var/ossec/etc/ossec.conf on the Wazuh-Manager(s) by adding the following lines.   
+    <decoder_exclude>0330-symantec_decoders.xml</decoder_exclude>
+    <rule_exclude>0120-symantec-av_rules.xml</rule_exclude>
+    <rule_exclude>0125-symantec-ws_rules.xml</rule_exclude> 
+This is necessary because the Unifi logs that begin with a MAC address will match the overly generic stock 
+Symantec decoder over-riding this custom decoder file.  
+
+You can see an issue we openned on this here >> https://github.com/wazuh/wazuh-ruleset/issues/840 
+
+Feel free to add your comments to this issue.  More comments will make it more likely that this issue received attention.  
+
+Please also note that if you have Symantec events that you want to analyze in your SIEM, you will need to create a custom 
+Symantec decoder file by copying the stock one referenced below to /var/ossec/etc/decoders and modifying the decoder with
+one of the suggested lines from the above Github issue.
+-->
+
+<group name="local,syslog,unifi">
+
+<rule id="106000" level="0">
+   <decoded_as>unifi-ap</decoded_as>
+   <description>unifi ap event</description>
+</rule>
+
+<!-- 
+Aug 20 08:35:50 breakroom.yoursite.local 18e82d502808,UAP-AC-Lite-5.43.36+12724: hostapd: ath3: STA fa:07:d7:b6:17:33 IEEE 802.11: associated
+-->
+<rule id="106002" level="3">
+   <if_sid>106000</if_sid>
+   <status>^associated$</status>
+   <description>Unifi AP Associate Event</description>
+</rule>
+
+<!-- If you want or need to watch for a certain device MAC
+Aug 20 08:35:50 breakroom.yoursite.local 18e82d502808,UAP-AC-Lite-5.43.36+12724: hostapd: ath3: STA fa:07:d7:b6:17:33 IEEE 802.11: associated
+-->
+<rule id="106004" level="12">
+   <if_sid>106002</if_sid>
+   <field name="station.mac">fa:07:d7:b6:17:33</field>
+   <description>EVIL STATION SEEN</description>
+</rule>
+
+<!-- To exclude logs from certain devices 
+Aug 20 08:35:50 breakroom.yoursite.local 18e82d502808,UAP-AC-Lite-5.43.36+12724: hostapd: ath3: STA aa:bb:bb:10:0d:d9 IEEE 802.11: associated
+-->
+<rule id="106006" level="0">
+   <if_sid>106002</if_sid>
+   <field name="station.mac">aa:bb:bb:10:0d:d9</field>
+   <description>IGNORE BORING STATION</description>
+</rule>
+
+<!--
+Aug 20 07:45:42 WAP-yourap U7IW,788a2d53abad,v4.3.24.11355: hostapd: ath1: STA ca:d9:e9:0a:ae:84 IEEE 802.11: disassociated
+-->
+<rule id="106008" level="3">
+   <if_sid>106000</if_sid>
+   <status>disassociated</status>
+   <description>Unifi AP Disassociate Event</description>
+</rule>
+
+<!--
+Aug 20 07:47:48 192.168.130.41 U7LT,18e8a916ed9b,v4.3.24.11355: libubnt[30467]: wevent[30467]: wevent.ubnt_custom_event(): EVENT_STA_JOIN ath0: dc:5f:6a:79:74:85 / 1
+-->
+<rule id="106010" level="3">
+   <if_sid>106000</if_sid>
+   <match>EVENT_STA_JOIN</match>
+   <description>Unifi Station Join Event</description>
+</rule>
+  
+<!--
+Aug 20 07:48:30 WAP-yourap U7IW,7483c2b0d95a,v4.3.24.11355: kernel: [19081093.869579] ieee80211_sta_leave: dc:30:5b:ad:a9:00
+-->
+<rule id="106012" level="3">
+   <if_sid>106000</if_sid>
+   <match>EVENT_STA_LEAVE|ieee80211_sta_leave</match>
+   <description>Unifi Station Leave Event</description>
+</rule>
+
+<!--
+Aug 20 07:49:44 WAP-yourap U2HSR,4dd9e7aca99b,v4.3.21.11325: kernel: [501486.027593] ieee80211_ioctl_set_ratelimit: 
+node with aid 5 and mac b4:df:f6:fd:af:1d has been tagged for rate-limiting
+-->
+<rule id="106014" level="5">
+   <if_sid>106000</if_sid>
+   <match>has been tagged for rate-limiting</match>
+   <description>Unifi Station Tagged for Rate-Limiting</description>
+</rule>
+
+<rule id="106199" level="3">
+   <if_sid>106000</if_sid>
+   <description>Unifi AP event</description>
+</rule>
+
+<rule id="106200" level="0">
+   <decoded_as>unifi-switch</decoded_as>
+   <description>Unifi switch event</description>
+</rule>
+
+<!--
+Aug 20 07:52:31 SW-yourswitch 7d83a26f1f1d,US-48-500W-5.43.18+12487: switch: TRAPMGR: Link Up: 0/46
+-->
+<rule id="106202" level="5">
+   <if_sid>106200</if_sid>
+   <match>TRAPMGR: Link Up:</match>
+   <description>Unifi Switch Port Link Up</description>
+</rule>
+
+<!--
+Aug 20 07:53:02 SW-yourswitch switch: TRAPMGR: Link Down: 0/20
+-->
+<rule id="106204" level="5">
+   <if_sid>106200</if_sid>
+   <match>TRAPMGR: Link Down:</match>
+   <description>Unifi Switch Port Link Down</description>
+</rule>
+
+<!--
+Aug 20 02:12:19 SW-Pool-01 ea6ddacde998,US-16-150W-5.64.8+13083: switch: DOT1S: inst(0) has elected a new STP root: 80:00:74:B3:C2:0D:3A:1C
+-->
+<rule id="106206" level="12">
+   <if_sid>106200</if_sid>
+   <match>elected as the new STP root|has elected a new STP root</match>
+   <description>Unifi Switch STP Root Event</description>
+</rule>
+
+<!--
+Aug 20 07:54:01 SW-Hunt-02 7daca93e78c6,US-48-500W-5.43.18+12487: switch: DOT1S: Port (9) inst(0) role changing from ROLE_DISABLED to ROLE_DESIGNATED
+-->
+<rule id="106208" level="3">
+   <if_sid>106200</if_sid>
+   <match>role changing</match>
+   <description>Unifi Switch Port Role Change Event</description>
+</rule>
+
+<rule id="106399" level="3">
+   <if_sid>106200</if_sid>
+   <description>Unifi Switch Event</description>
+</rule>
+
+<!-- Tuning out noise
+Aug 20 08:54:32 10.10.15.30 e0d3aaa0e786,UAP-AC-Pro-Gen2-5.43.35+12698: kernel: [141804.401734] [wifi1] FWLOG: [11008044] WAL_DBGID_TX_BA_SETUP 
+( 0x43b0a4, 0x6, 0x243, 0x10040, 0xdc53e21f )
+-->
+<rule id="106400" level="0">
+   <if_sid>106199</if_sid>
+   <match>[wifi1] FWLOG:</match>
+   <description>Unifi Switch WiFi log noise</description>
+</rule>
+
+</group>
