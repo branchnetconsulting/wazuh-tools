@@ -200,10 +200,14 @@ function checkSuite {
 	if ( -not ( $WazuhGroups -eq "#NOGROUP#" ) ) {
 		$file2 = Get-Content "C:\Program Files (x86)\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
 		if ($file2 -match "Source\sfile:") {
-			$CurrentGroups=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
+			If (Test-Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg'){
+				$CurrentGroups=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
+			}
 		} else {
 			# If the agent is presently a member of only one agent group, then pull that group name into current group variable.
-			$CurrentGroups=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
+			If (Test-Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg'){
+				$CurrentGroups=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
+			}
 		}
 		if ($Debug) { Write-Output "Current agent group membership: $CurrentGroups" }
 
@@ -883,8 +887,11 @@ New-Variable SkippedGroups -value $false -option AllScope
 # Note currently configured Wazuh manager if Wazuh agent is installed.  Needed during check and uninstall phases.
 $CurrentManager = ""
 if (Test-Path 'C:\Program Files (x86)\ossec-agent\ossec.conf' -PathType leaf) {
-	[XML]$ConfigFile = Get-Content 'C:\Program Files (x86)\ossec-agent\ossec.conf' -erroraction 'silentlycontinue'
-	$CurrentManager = $ConfigFile.ossec_config.client.server.address
+    $matches = $null
+    [string](Get-Content 'C:\Program Files (x86)\ossec-agent\ossec.conf' -erroraction 'silentlycontinue') -match '<server>[\s\n]+<address>([\w\d-\.]+)</address>'
+    if ($matches){
+        $CurrentManager = $matches[1]
+    }
 }
 
 # Check if install/reinstall is called for unless an install or uninstall is being forced with -Install or -Uninstall
