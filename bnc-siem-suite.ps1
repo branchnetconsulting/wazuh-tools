@@ -198,15 +198,18 @@ function checkSuite {
 	# Is the agent currently a member of all intended Wazuh agent groups?
 	#
 	if ( -not ( $WazuhGroups -eq "#NOGROUP#" ) ) {
-		$file2 = Get-Content "C:\Program Files (x86)\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
-		if ($file2 -match "Source\sfile:") {
-			$CurrentGroups=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
+		If (Test-Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg') {	
+			$file2 = Get-Content "C:\Program Files (x86)\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'	
+			if ($file2 -match "Source\sfile:") {
+				$CurrentGroups=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
+			} else {
+				# If the agent is presently a member of only one agent group, then pull that group name into current group variable.
+				$CurrentGroups=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
+			}
 		} else {
-			# If the agent is presently a member of only one agent group, then pull that group name into current group variable.
-			$CurrentGroups=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
+			$CurrentGroups="#NONE#"
 		}
 		if ($Debug) { Write-Output "Current agent group membership: $CurrentGroups" }
-
 		# Blend standard/dynamic groups with custom groups
 		$WazuhGroupsPrefix = "windows,windows-local,"
 		if ( $SkipOsquery -eq $false ) {
@@ -348,7 +351,7 @@ function uninstallSuite {
 			} else {
 				# If the agent is presently a member of only one agent group, then pull that group name into current group variable.
 				$CurrentGroups=((((Select-String -Path $MergedFileName -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
-			}	
+			}
 			Remove-Item -Path "$env:TEMP\client.keys.bnc" -erroraction 'silentlycontinue' | out-null
 			Copy-Item $RegFileName -Destination "$env:TEMP\client.keys.bnc"
 		} else {
