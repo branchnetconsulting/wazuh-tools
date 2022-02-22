@@ -885,9 +885,22 @@ New-Variable SkippedGroups -value $false -option AllScope
 
 # Note currently configured Wazuh manager if Wazuh agent is installed.  Needed during check and uninstall phases.
 $CurrentManager = ""
+
 if (Test-Path 'C:\Program Files (x86)\ossec-agent\ossec.conf' -PathType leaf) {
-	[XML]$ConfigFile = Get-Content 'C:\Program Files (x86)\ossec-agent\ossec.conf' -erroraction 'silentlycontinue'
-	$CurrentManager = $ConfigFile.ossec_config.client.server.address
+	[XML]$ConfigFile = Get-Content 'C:\Program Files (x86)\ossec-agent\ossec.conf' | out-null
+	# If XML parsing of ossec.conf fails, use string based approach for one last attempt
+	if ( $ConfigFile.ossec_config.client.server.address -ne $null ) {
+		$CurrentManager = $ConfigFile.ossec_config.client.server.address
+	} else {
+		$matches = $null
+		[string](Get-Content 'C:\Program Files (x86)\ossec-agent\ossec.conf' -erroraction 'silentlycontinue') -match '<server>[\s\n]+<address>([\w\d-\.]+)</address>'
+		if ($matches){
+			$CurrentManager = $matches[1]
+		}		
+		else {
+			$CurrentManager = "#UNKNOWN#"
+		}
+	}
 }
 
 # Check if install/reinstall is called for unless an install or uninstall is being forced with -Install or -Uninstall
