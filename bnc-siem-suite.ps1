@@ -665,7 +665,7 @@ function installSuite {
 	}
 
 	# Detect Windows version for use in configprofile line of ossec.conf
-	switch [int]((Get-CimInstance Win32_OperatingSystem).BuildNumber) 
+	switch ([int]((Get-CimInstance Win32_OperatingSystem).BuildNumber)) 
 	{
 		6001 {$OS = "Win2008"}
 		6002 {$OS = "Win2008"}
