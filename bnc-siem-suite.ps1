@@ -156,7 +156,7 @@ function checkSuite {
 		exit 2
 	}
 	# Force skip Sysmon if Windows is older then Win 10 or Win Svr 2012
-	if ( ((Get-CimInstance Win32_OperatingSystem).BuildNumber) -lt 9200 ) {
+	if ( [int]((Get-CimInstance Win32_OperatingSystem).BuildNumber) -lt 9200 ) {
 		$SkipSysmon=$true 
 	}
 	if ( ($SysmonVer -eq $null) -and ($SkipSysmon -eq $false) ) { 
@@ -473,7 +473,7 @@ function installSuite {
 		exit 1
 	}
 	# Force skip Sysmon if Windows is older then Win 10 or Win Svr 2012
-	if ( ((Get-CimInstance Win32_OperatingSystem).BuildNumber) -lt 9200 ) {
+	if ( [int]((Get-CimInstance Win32_OperatingSystem).BuildNumber) -lt 9200 ) {
 		$SkipSysmon=$true 
 	}
 	if ($SysmonSrc -eq $null) { 
@@ -665,7 +665,7 @@ function installSuite {
 	}
 
 	# Detect Windows version for use in configprofile line of ossec.conf
-	switch ((Get-CimInstance Win32_OperatingSystem).BuildNumber) 
+	switch [int]((Get-CimInstance Win32_OperatingSystem).BuildNumber) 
 	{
 		6001 {$OS = "Win2008"}
 		6002 {$OS = "Win2008"}
