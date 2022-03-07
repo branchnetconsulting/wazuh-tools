@@ -359,7 +359,7 @@ function uninstallSuite {
 			Remove-Item -Path "$env:TEMP\client.keys.bnc" -erroraction 'silentlycontinue' | out-null
 			Copy-Item $RegFileName -Destination "$env:TEMP\client.keys.bnc"
 		} else {
-			if ($Debug) { Write-Output "Registration will be not by recycled." }
+			if ($Debug) { Write-Output "Registration will not be recycled." }
 			$MightRecycleRegistration=$false
 		}
 	}
@@ -781,7 +781,7 @@ sca.remote_commands=1
 			$success = $false;
 			do{
 				try{
-					Invoke-WebRequest -Uri "$SysmonConfSrc" -OutFile "C:\Program Files (x86)\ossec-agent\shared\sysmonconfig.xml"
+					Invoke-WebRequest -Uri "$SysmonConfSrc" -OutFile "C:\sysmonconfig.xml"
 					$success = $true
 				}
 				catch{
@@ -792,7 +792,7 @@ sca.remote_commands=1
 			} until($count -eq 6 -or $success)
 			if(-not($success)){exit 1}
 		} else {	
-			Copy-Item "sysmonconfig.xml" -Destination "C:\Program Files (x86)\ossec-agent\shared\"
+			Copy-Item "sysmonconfig.xml" -Destination "C:\"
 		}
 	}
 
@@ -809,10 +809,10 @@ sca.remote_commands=1
 		if ($Debug) {  Write-Output "Installing Sysmon..." }
 		If ([Environment]::Is64BitProcess){
 			if ($Debug) { Write-Output "Using 64 bit installer" }
-			Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon64.exe -ArgumentList "-i","c:\progra~2\ossec-agent\shared\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
+			Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon64.exe -ArgumentList "-i","c:\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
 		}else{
 			if ($Debug) { Write-Output "Using 32 bit installer" }
-			Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-i","c:\progra~2\ossec-agent\shared\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
+			Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-i","c:\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
 		}
 	}
 
