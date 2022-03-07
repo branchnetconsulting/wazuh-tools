@@ -187,10 +187,10 @@ function checkSuite {
 	#
 	# Is the agent presently really connected to the Wazuh manager?
 	#
-	if (Test-Path "C:\Program Files (x86)\ossec-agent\wazuh-agent.state" -PathType leaf) {
-		$StateFile = Get-Content "C:\Program Files (x86)\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
+	if (Test-Path "$PFPATH\ossec-agent\wazuh-agent.state" -PathType leaf) {
+		$StateFile = Get-Content "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
 	} else {
-		$StateFile = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
+		$StateFile = Get-Content "$PFPATH\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
 	}	
 	if ( -not ($StateFile -match "'connected'" ) ) {
 		if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager." }
@@ -209,13 +209,13 @@ function checkSuite {
 	# Is the agent currently a member of all intended Wazuh agent groups?
 	#
 	if ( -not ( $WazuhGroups -eq "#NOGROUP#" ) ) {
-		If (Test-Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg') {	
-			$file2 = Get-Content "C:\Program Files (x86)\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'	
+		If (Test-Path "$PFPATH\ossec-agent\shared\merged.mg") {	
+			$file2 = Get-Content "$PFPATH\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'	
 			if ($file2 -match "Source\sfile:") {
-				$CurrentGroups=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
+				$CurrentGroups=((((Select-String -Path "$PFPATH\ossec-agent\shared\merged.mg" -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
 			} else {
 				# If the agent is presently a member of only one agent group, then pull that group name into current group variable.
-				$CurrentGroups=((((Select-String -Path 'C:\Program Files (x86)\ossec-agent\shared\merged.mg' -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
+				$CurrentGroups=((((Select-String -Path "$PFPATH\ossec-agent\shared\merged.mg" -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
 			}
 		} else {
 			$CurrentGroups="#NONE#"
@@ -243,7 +243,7 @@ function checkSuite {
 	#
 	# Is the target version of Wazuh agent installed?
 	#
-        $version = [IO.File]::ReadAllText("C:\Program Files (x86)\ossec-agent\VERSION").trim().split("v")[1]
+        $version = [IO.File]::ReadAllText("$PFPATH\ossec-agent\VERSION").trim().split("v")[1]
 	if ($Debug) { Write-Output "Current Wazuh agent version is: $version" }
 	if ($Debug) { Write-Output "Target Wazuh agent version is:  $WazuhVer" }
 	if ( -not ( $WazuhVer.Trim() -eq $version.Trim() ) ) {
@@ -256,7 +256,7 @@ function checkSuite {
 		# 4 - Is the target version of Sysmon installed?
 		#
 		# Local Sysmon.exe file exists?
-		if ( -not (Test-Path -LiteralPath "C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe") ) {
+		if ( -not (Test-Path -LiteralPath "$PFPATH\sysmon-wazuh\Sysmon.exe") ) {
 			if ($Debug) { Write-Output "Sysmon.exe is missing." }
 			return
 		}
@@ -266,7 +266,7 @@ function checkSuite {
 			return
 		}
 		# Local Sysmon.exe file at target version?  Both Sysmon.exe and Sysmon64.exe will exist in this directory at the same version, so checking the first one should always be fine.
-		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe").FileVersion
+		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion
 		if ($Debug) { Write-Output "Current Sysmon version is: $smver" }
 		if ($Debug) { Write-Output "Target Sysmon version is:  $SysmonVer" }
 		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
@@ -339,21 +339,21 @@ function uninstallSuite {
 	
 	# If Wazuh agent is already installed and registered, and this is not an explicit uninstallation call, then note if registration may be recyclable,
 	# and if so, preserve client.keys and the agent groups list to accomodate that, plus set the $MightRecycleRegistration flag.
-	$RegFileName = 'C:\Program Files (x86)\ossec-agent\client.keys'
+	$RegFileName = "$PFPATH\ossec-agent\client.keys"
 	if ( ( -not ($Uninstall) ) -and (Test-Path $RegFileName -PathType leaf) -and ((Get-Item $RegFileName).length -gt 0)  ) {
 		# The existing registration will be recyled if:
 		#	- the agent is already connected
 		#	- the current and target manager are the same
 		#	- the current and target agent name are the same
 		#	- the agent group list is exactly the same (unless ignored by ommittance of -WazuhGroups)
-		if (Test-Path "C:\Program Files (x86)\ossec-agent\wazuh-agent.state" -PathType leaf) {
-			$StateFile = Get-Content "C:\Program Files (x86)\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
+		if (Test-Path "$PFPATH\ossec-agent\wazuh-agent.state" -PathType leaf) {
+			$StateFile = Get-Content "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
 		} else {
-			$StateFile = Get-Content "C:\Program Files (x86)\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
+			$StateFile = Get-Content "$PFPATH\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
 		}
-		$MergedFile = Get-Content "C:\Program Files (x86)\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
-		$MergedFileName = "C:\Program Files (x86)\ossec-agent\shared\merged.mg"
-		$CurrentAgentName=(Get-Content "C:\Program Files (x86)\ossec-agent\client.keys").Split(" ")[1]
+		$MergedFile = Get-Content "$PFPATH\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
+		$MergedFileName = "$PFPATH\ossec-agent\shared\merged.mg"
+		$CurrentAgentName=(Get-Content "$PFPATH\ossec-agent\client.keys").Split(" ")[1]
 		if ( ($StateFile -match "'connected'") -and ($WazuhMgr -eq $CurrentManager) -and ($CurrentAgentName -eq $WazuhAgentName) ) {
 			if ($Debug) { Write-Output "Registration will be recycled unless there is an agent group mismatch." }
 			$MightRecycleRegistration=$true
@@ -378,20 +378,20 @@ function uninstallSuite {
 	}
 
 	# If Wazuh agent already installed, blow it away
-	if ( (Test-Path 'C:\Program Files (x86)\ossec-agent\wazuh-agent.exe' -PathType leaf) -or (Test-Path 'C:\Program Files (x86)\ossec-agent\ossec-agent.exe' -PathType leaf) ) {
+	if ( (Test-Path "$PFPATH\ossec-agent\wazuh-agent.exe" -PathType leaf) -or (Test-Path '$PFPATH\ossec-agent\ossec-agent.exe' -PathType leaf) ) {
 		if ($Debug) { Write-Output "Uninstalling existing Wazuh Agent..." }
 		Uninstall-Package -Name "Wazuh Agent" -erroraction 'silentlycontinue' | out-null
-		Remove-Item "C:\Program Files (x86)\ossec-agent" -recurse
+		Remove-Item "$PFPATH\ossec-agent" -recurse
 	}   
-	if (Test-Path 'C:\Program Files (x86)\ossec-agent' -PathType Container) {
-		Remove-Item "C:\Program Files (x86)\ossec-agent" -recurse -force
+	if (Test-Path "$PFPATH\ossec-agent" -PathType Container) {
+		Remove-Item "$PFPATH\ossec-agent" -recurse -force
 	}
 	
 	# If Sysmon present (and no -SkipSysmon specified), then wipe it all out
 	if ( -not ($SkipSysmon) ) {
 		# Blow away Wazuh-integrated Sysmon directory (used for applying Sysmon config updates)
-    	if ( Test-Path "C:\Program Files (x86)\sysmon-wazuh" -PathType Container ) {
-            Remove-Item "C:\Program Files (x86)\sysmon-wazuh" -recurse	
+    	if ( Test-Path "$PFPATH\sysmon-wazuh" -PathType Container ) {
+            Remove-Item "$PFPATH\sysmon-wazuh" -recurse	
         }
 		# If Sysmon is partly or fully installed, attempt to remove it with the Sysmon.exe or Sysmon64.exe that it was actually installed with.
 		if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -or (Test-Path c:\windows\Sysmon.exe -PathType leaf) -or (Test-Path c:\windows\Sysmon64.exe -PathType leaf) ) {
@@ -662,21 +662,20 @@ if ($SysmonSrc -eq $null) {
 
 	# If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
 	if ( ($MightRecycleRegistration) -and ( ($CurrentGroups -eq $WazuhGroups) -or ($SkippedGroups) ) ) { 
-		Copy-Item "$env:TEMP\client.keys.bnc" -Destination 'C:\Program Files (x86)\ossec-agent\client.keys'
+		Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$PFPATH\ossec-agent\client.keys"
 	} else {
 		# Register the agent with the manager (keep existing groups if agent connected and -WazuhGroups not specified)
 		if ($Debug) {  Write-Output "Registering Wazuh Agent with $WazuhRegMgr..." }
-        Remove-Item -Path "C:\Program Files (x86)\ossec-agent\client.keys"
+        Remove-Item -Path "$PFPATH\ossec-agent\client.keys"
 		#if ($SkippedGroups) {         
-        #    Start-Process -FilePath "C:\Program Files (x86)\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$CurrentGroups", "-A", "$WazuhAgentName" -Wait -WindowStyle 'Hidden'
+        #    Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$CurrentGroups", "-A", "$WazuhAgentName" -Wait -WindowStyle 'Hidden'
 		#} else {
-			Start-Process -FilePath "C:\Program Files (x86)\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName" -Wait -WindowStyle 'Hidden'
+			Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName" -Wait -WindowStyle 'Hidden'
 		#}
-		if ( -not (Test-Path 'C:\Program Files (x86)\ossec-agent\client.keys' -PathType leaf) ) {
+		if ( -not (Test-Path "$PFPATH\ossec-agent\client.keys" -PathType leaf) ) {
 			if ($Debug) {  Write-Output "Wazuh Agent self-registration failed." }
 			exit 1
 		}
-	
 	}
 
 	# Detect Windows version for use in configprofile line of ossec.conf
@@ -727,7 +726,7 @@ $ConfigToWrite = @"
    </logging>
 </ossec_config>
 "@
-	$ConfigToWrite | Out-File -FilePath C:/Progra~2/ossec-agent/ossec.conf -Encoding ASCII
+	$ConfigToWrite | Out-File -FilePath "$PFPATH/ossec-agent/ossec.conf" -Encoding ASCII
 
 	# Write the local_internal_options.conf file
 	if ($Debug) {  Write-Output "Writing local_internal_options.conf..." }
@@ -736,18 +735,18 @@ logcollector.remote_commands=1
 wazuh_command.remote_commands=1
 sca.remote_commands=1
 "@
-	$ConfigToWrite | Out-File -FilePath C:/Progra~2/ossec-agent/local_internal_options.conf -Encoding ASCII
+	$ConfigToWrite | Out-File -FilePath "$PFPATH/ossec-agent/local_internal_options.conf" -Encoding ASCII
 
 	#
 	# Sysmon
 	#
 
-	# Create "C:\Program Files (x86)\sysmon-wazuh" directory if missing
-	if ( -not (Test-Path -LiteralPath "C:\Program Files (x86)\sysmon-wazuh" -PathType Container) ) { New-Item -Path "C:\Program Files (x86)\" -Name "sysmon-wazuh" -ItemType "directory" | out-null }
+	# Create "$PFPATH\sysmon-wazuh" directory if missing
+	if ( -not (Test-Path -LiteralPath "$PFPATH\sysmon-wazuh" -PathType Container) ) { New-Item -Path "$PFPATH\" -Name "sysmon-wazuh" -ItemType "directory" | out-null }
 
 	# Download and unzip Sysmon.zip, or unzip it from local directory if "-Local" option specified.
 	# Sysmon must be acquired locally or via download even if "-SkipSysmon" was specified, so that we can use Sysmon.exe to uninstall Sysmon.
-	Remove-Item "C:\Progra~2\sysmon-wazuh\*" -Force
+	Remove-Item "$PFPATH\sysmon-wazuh\*" -Force
 	if ( $Local -eq $false ) {
 		if ($Debug) { Write-Output "Downloading and unpacking Sysmon installer..." }
 		$count = 0
@@ -780,10 +779,10 @@ sca.remote_commands=1
 				exit 1
 			}
 		}
-		Microsoft.PowerShell.Archive\Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh"
+		Microsoft.PowerShell.Archive\Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "$PFPATH\sysmon-wazuh"
 		Remove-Item "$env:TEMP\Sysmon.zip" -Force -erroraction 'silentlycontinue'
 	} else {
-		Microsoft.PowerShell.Archive\Expand-Archive "Sysmon.zip" -DestinationPath "C:\Program Files (x86)\sysmon-wazuh\"
+		Microsoft.PowerShell.Archive\Expand-Archive "Sysmon.zip" -DestinationPath "$PFPATH\sysmon-wazuh\"
 	}
 
 	if ( $SkipSysmon -eq $false ) {
@@ -813,7 +812,7 @@ sca.remote_commands=1
 
     # If -SysmonVer was specified but the version downloaded or previously provided (-Local) to install does not match it, then fail and bail
     If ( -not ($SysmonVer -eq $null ) )  {
-		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\sysmon-wazuh\Sysmon.exe").FileVersion
+		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion
 		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
 			if ($Debug) { Write-Output "Current version of Sysmon to be installed ($smver) differs from what was specified ($SysmonVer)." }
 			exit 1
@@ -824,10 +823,10 @@ sca.remote_commands=1
 		if ($Debug) {  Write-Output "Installing Sysmon..." }
 		If ([Environment]::Is64BitProcess){
 			if ($Debug) { Write-Output "Using 64 bit installer" }
-			Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon64.exe -ArgumentList "-i","c:\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
+			Start-Process -FilePath "$PFPATH\sysmon-wazuh\Sysmon64.exe" -ArgumentList "-i","c:\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
 		}else{
 			if ($Debug) { Write-Output "Using 32 bit installer" }
-			Start-Process -FilePath C:\Progra~2\sysmon-wazuh\Sysmon.exe -ArgumentList "-i","c:\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
+			Start-Process -FilePath "$PFPATH\sysmon-wazuh\Sysmon.exe" -ArgumentList "-i","c:\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
 		}
 	}
 
@@ -887,7 +886,7 @@ sca.remote_commands=1
 	# After 15 seconds confirm agent connected to manager
 	if ($Debug) { Write-Output "Pausing for 15 seconds to allow agent to connect to manager..." }
 	Start-Sleep -s 15 
-	$file = Get-Content "C:\Program Files (x86)\ossec-agent\ossec.log" -erroraction 'silentlycontinue'
+	$file = Get-Content "$PFPATH\ossec-agent\ossec.log" -erroraction 'silentlycontinue'
 	if ($file -match "Connected to the server " ) {
 		if ($Debug) { Write-Output "This agent has successfully connected to the Wazuh manager!" }
 		exit 0
@@ -897,7 +896,6 @@ sca.remote_commands=1
 	}
 }
 
-
 #
 # Main
 #
@@ -906,17 +904,24 @@ sca.remote_commands=1
 New-Variable MightRecycleRegistration -value $false -option AllScope
 New-Variable SkippedGroups -value $false -option AllScope
 
+#Set installation path based on 64 vs. 32-bit Windows OS
+$PFPATH="C:\Program Files (x86)"
+If ( -not ([Environment]::Is64BitProcess) ) {
+     Write-Output "Changing path variable to C:\Program Files for detected 32-bit Windows OS..."
+     $PFPATH="C:\Program Files"
+}
+
 # Note currently configured Wazuh manager if Wazuh agent is installed.  Needed during check and uninstall phases.
 $CurrentManager = ""
 
-if (Test-Path 'C:\Program Files (x86)\ossec-agent\ossec.conf' -PathType leaf) {
-	[XML]$ConfigFile = Get-Content 'C:\Program Files (x86)\ossec-agent\ossec.conf' | out-null
+if (Test-Path "$PFPATH\ossec-agent\ossec.conf" -PathType leaf) {
+	[XML]$ConfigFile = Get-Content "$PFPATH\ossec-agent\ossec.conf" | out-null
 	# If XML parsing of ossec.conf fails, use string based approach for one last attempt
 	if ( $ConfigFile.ossec_config.client.server.address -ne $null ) {
 		$CurrentManager = $ConfigFile.ossec_config.client.server.address
 	} else {
 		$matches = $null
-		[string](Get-Content 'C:\Program Files (x86)\ossec-agent\ossec.conf' -erroraction 'silentlycontinue') -match '<server>[\s\n]+<address>([\w\d-\.]+)</address>'
+		[string](Get-Content "$PFPATH\ossec-agent\ossec.conf" -erroraction 'silentlycontinue') -match '<server>[\s\n]+<address>([\w\d-\.]+)</address>'
 		if ($matches){
 			$CurrentManager = $matches[1]
 		}		
