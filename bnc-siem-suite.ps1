@@ -155,9 +155,16 @@ function checkSuite {
 		if ($Debug) { Write-Output "If -SkipOsquery is not specified, then -OsqueryVer must be provided." }
 		exit 2
 	}
-	# Force skip Sysmon if Windows is older then Win 10 or Win Svr 2012
+	# Force skip Sysmon and Osquery if Windows is older then Win 10 or Win Svr 2012
 	if ( [int]((Get-CimInstance Win32_OperatingSystem).BuildNumber) -lt 9200 ) {
-		$SkipSysmon=$true 
+	     Write-Output "Windows older than 10/2012, so skipping Sysmon and Osquery..."
+	     $SkipSysmon=$true
+	     $SkipOsquery=$true
+	}
+	# Force skip Osquery if Windows is 32bit
+	If ( -not ([Environment]::Is64BitProcess) ) {
+	     Write-Output "Windows is 32bit, so skipping Osquery..."
+	     $SkipOsquery=$true
 	}
 	if ( ($SysmonVer -eq $null) -and ($SkipSysmon -eq $false) ) { 
 		if ($Debug) { Write-Output "If -SkipSysmon is not specified, then -SysmonVer must be provided." }
@@ -472,11 +479,19 @@ function installSuite {
 		write-host "Must use '-OsqueryVer' to specify the password to use for agent registration."
 		exit 1
 	}
-	# Force skip Sysmon if Windows is older then Win 10 or Win Svr 2012
+	# Force skip Sysmon and Osquery if Windows is older then Win 10 or Win Svr 2012
 	if ( [int]((Get-CimInstance Win32_OperatingSystem).BuildNumber) -lt 9200 ) {
-		$SkipSysmon=$true 
+	     Write-Output "Windows older than 10/2012, so skipping Sysmon and Osquery..."
+	     $SkipSysmon=$true
+	     $SkipOsquery=$true
 	}
-	if ($SysmonSrc -eq $null) { 
+	# Force skip Osquery if Windows is 32bit
+	If ( -not ([Environment]::Is64BitProcess) ) {
+	     Write-Output "Windows is 32bit, so skipping Osquery..."
+	     $SkipOsquery=$true
+	}
+
+if ($SysmonSrc -eq $null) { 
 		$SysmonSrc = "https://download.sysinternals.com/files/Sysmon.zip"
 	} else {
 		if ( $SysmonDLhash -eq $null ) {
