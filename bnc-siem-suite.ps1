@@ -914,7 +914,7 @@ If ( -not ([Environment]::Is64BitProcess) ) {
 # Note currently configured Wazuh manager if Wazuh agent is installed.  Needed during check and uninstall phases.
 $CurrentManager = ""
 
-if (Test-Path "$PFPATH\ossec-agent\ossec.conf" -PathType leaf | out-null) {
+if (Test-Path "$PFPATH\ossec-agent\ossec.conf" -PathType leaf) {
 	[XML]$ConfigFile = Get-Content "$PFPATH\ossec-agent\ossec.conf" | out-null
 	# If XML parsing of ossec.conf fails, use string based approach for one last attempt
 	if ( $ConfigFile.ossec_config.client.server.address -ne $null ) {
