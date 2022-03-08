@@ -920,9 +920,8 @@ if (Test-Path "$PFPATH\ossec-agent\ossec.conf" -PathType leaf) {
 	if ( $ConfigFile.ossec_config.client.server.address -ne $null ) {
 		$CurrentManager = $ConfigFile.ossec_config.client.server.address
 	} else {
-		$matches = $null
-		[string](Get-Content "$PFPATH\ossec-agent\ossec.conf" -erroraction 'silentlycontinue') -match '<server>[\s\n]+<address>([\w\d-\.]+)</address>'
-		if ($matches){
+		$mresult = [string](Get-Content "$PFPATH\ossec-agent\ossec.conf" -erroraction 'silentlycontinue') -match '<server>[\s\n]+<address>([\w\d-\.]+)</address>'
+		if ($mresult){
 			$CurrentManager = $matches[1]
 		}		
 		else {
