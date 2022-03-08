@@ -915,7 +915,7 @@ If ( -not ([Environment]::Is64BitProcess) ) {
 $CurrentManager = ""
 
 if (Test-Path "$PFPATH\ossec-agent\ossec.conf" -PathType leaf) {
-	[XML]$ConfigFile = Get-Content "$PFPATH\ossec-agent\ossec.conf" | out-null
+	[XML]$ConfigFile = Get-Content "$PFPATH\ossec-agent\osjjsec.conf" -erroraction 'silentlycontinue'
 	# If XML parsing of ossec.conf fails, use string based approach for one last attempt
 	if ( $ConfigFile.ossec_config.client.server.address -ne $null ) {
 		$CurrentManager = $ConfigFile.ossec_config.client.server.address
