@@ -222,7 +222,7 @@ if [ -f /etc/nsm/securityonion.conf ]; then
 		if [ $Debug == 1 ]; then echo -e "\n*** This deploy script cannot be used on a system where Security Onion is installed."; fi
         exit 2
 fi
-if [[ `grep server /etc/ossec-init.conf` ]]; then
+if [[ `grep -s server /etc/ossec-init.conf` ]]; then
         if [ $Debug == 1 ]; then echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."; fi
         exit 2
 fi
