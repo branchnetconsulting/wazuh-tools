@@ -33,7 +33,7 @@ while true; do
         ((mod=$i%720))
         if [ $mod == 0 ]; then
                 #echo "Write hourly to file $TDROPS"
-                date +"%c - $TDROPS" > /var/spool/tot_anl_drops_hourly
+                date +"%c - $TDROPS" >> /var/spool/tot_anl_drops_hourly
         fi
         ((i=$i+1))
 done
