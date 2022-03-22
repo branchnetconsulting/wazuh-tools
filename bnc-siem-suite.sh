@@ -521,9 +521,16 @@ else
         yum -y install /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
         rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
 	CFG_PROFILE=`. /etc/os-release; echo $ID, $ID\`echo $VERSION_ID\``
+	if [[ -f /etc/redhat-release && `grep "CentOS release 6" /etc/redhat-release` ]]; then
+		CFG_PROFILE="centos, centos6, centos6.`cut -d. -f2 /etc/redhat-release | cut -d\" \" -f1`"
+	fi
 fi
 
-systemctl enable wazuh-agent
+if [[ `which systemctl 2> /dev/null` ]]; then
+	systemctl enable wazuh-agent
+else
+	chkconfig wazuh-agent on
+fi
 
 #
 # If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
@@ -569,8 +576,15 @@ if [ "$SkipOsquery" == "0" ]; then
 		yum -y install osquery.rpm
 		rm -f osquery.rpm
 	fi
-	systemctl stop osqueryd
-	systemctl disable osqueryd
+
+	if [[ `which systemctl 2> /dev/null` ]]; then
+		systemctl stop osqueryd
+		systemctl disable osqueryd
+	else
+		service osqueryd stop
+		chkconfig osqueryd off
+	fi
+
 	# Add symlinks from pre 5.x osqueryd and osqueryi executables to 5.x locations for compatibility
 	ln -s /opt/osquery/bin/osqueryd /usr/bin/osqueryd 2> /dev/null
 	ln -s /usr/local/bin/osqueryi /usr/bin/osqueryi 2> /dev/null
