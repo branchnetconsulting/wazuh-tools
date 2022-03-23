@@ -337,6 +337,38 @@ function uninstallSuite {
 
 	if ($Debug) { Write-Output "Uninstalling the SIEM suite." }
 	
+	# NuGet Dependency
+	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
+		if ($Debug) { Write-Output "Installing dependency (NuGet) to be able to uninstall other packages..." }
+		if ( $Local -eq $false ) {
+			cd c:\
+			$count = 0
+			$success = $false;
+			do{
+				try{
+					Install-PackageProvider -Name NuGet -Force
+					$success = $true
+				}
+				catch{
+					if ($count -lt 5) {
+						if ($Debug) { Write-Output "Download attempt failed.  Will retry 10 seconds." }
+					} else {
+						if ($Debug) { Write-Output "Download attempt still failed.  Giving up and aborting the installation..." }
+						exit 1
+					}
+					Start-sleep -Seconds 10
+				}  
+				$count++    
+			}until($count -eq 6 -or $success)
+		} else {
+			if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies" -PathType Container ) ) {
+				New-Item -ItemType "directory" -Path "C:\Program Files\PackageManagement\ProviderAssemblies"
+			}
+			Microsoft.PowerShell.Archive\Expand-Archive "nuget.zip" -DestinationPath "C:\Program Files\PackageManagement\ProviderAssemblies\"
+			Import-PackageProvider -Name NuGet
+		}
+	}
+	
 	# If Wazuh agent is already installed and registered, and this is not an explicit uninstallation call, then note if registration may be recyclable,
 	# and if so, preserve client.keys and the agent groups list to accomodate that, plus set the $MightRecycleRegistration flag.
 	$RegFileName = "$PFPATH\ossec-agent\client.keys"
@@ -592,38 +624,6 @@ if ($SysmonSrc -eq $null) {
 		    exit 2
 	    }
     }
-
-	# NuGet Dependency
-	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
-		if ($Debug) { Write-Output "Installing dependency (NuGet) to be able to uninstall other packages..." }
-		if ( $Local -eq $false ) {
-			cd c:\
-			$count = 0
-			$success = $false;
-			do{
-				try{
-					Install-PackageProvider -Name NuGet -Force
-					$success = $true
-				}
-				catch{
-					if ($count -lt 5) {
-						if ($Debug) { Write-Output "Download attempt failed.  Will retry 10 seconds." }
-					} else {
-						if ($Debug) { Write-Output "Download attempt still failed.  Giving up and aborting the installation..." }
-						exit 1
-					}
-					Start-sleep -Seconds 10
-				}  
-				$count++    
-			}until($count -eq 6 -or $success)
-		} else {
-			if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies" -PathType Container ) ) {
-				New-Item -ItemType "directory" -Path "C:\Program Files\PackageManagement\ProviderAssemblies"
-			}
-			Microsoft.PowerShell.Archive\Expand-Archive "nuget.zip" -DestinationPath "C:\Program Files\PackageManagement\ProviderAssemblies\"
-			Import-PackageProvider -Name NuGet
-		}
-	}
 
 	#
 	# Wazuh Agent 
@@ -915,14 +915,16 @@ If ( -not ([Environment]::Is64BitProcess) ) {
 $CurrentManager = ""
 
 if (Test-Path "$PFPATH\ossec-agent\ossec.conf" -PathType leaf) {
-	[XML]$ConfigFile = Get-Content "$PFPATH\ossec-agent\ossec.conf" | out-null
+	$ConfigFile = $null
+	if ( [bool]((Get-Content "$PFPATH\ossec-agent\ossec.conf" ) -as [xml]) ) {	
+		[XML]$ConfigFile = Get-Content "$PFPATH\ossec-agent\ossec.conf" -erroraction 'silentlycontinue'
+	}
 	# If XML parsing of ossec.conf fails, use string based approach for one last attempt
 	if ( $ConfigFile.ossec_config.client.server.address -ne $null ) {
 		$CurrentManager = $ConfigFile.ossec_config.client.server.address
 	} else {
-		$matches = $null
-		[string](Get-Content "$PFPATH\ossec-agent\ossec.conf" -erroraction 'silentlycontinue') -match '<server>[\s\n]+<address>([\w\d-\.]+)</address>'
-		if ($matches){
+		$mresult = [string](Get-Content "$PFPATH\ossec-agent\ossec.conf" -erroraction 'silentlycontinue') -match '<server>[\s\n]+<address>([\w\d-\.]+)</address>'
+		if ($mresult){
 			$CurrentManager = $matches[1]
 		}		
 		else {
