@@ -507,7 +507,7 @@ if [ "$LinuxFamily" == "deb" ]; then
 		apt -y install wget
 	fi
         rm -f /tmp/wazuh-agent_$WazuhVer-1_amd64.deb 2> /dev/null
-        wget -O /tmp/wazuh-agent_$WazuhVer-1_amd64.deb $WazuhSrc
+        wget --no-netrc -O /tmp/wazuh-agent_$WazuhVer-1_amd64.deb $WazuhSrc
         dpkg -i /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
         rm -f /tmp/wazuh-agent_$WazuhVer-1_amd64.deb
         CFG_PROFILE=`. /etc/os-release; echo $ID, $ID\`echo $VERSION_ID | cut -d. -f1\`, $ID\`echo $VERSION_ID\``
@@ -517,7 +517,7 @@ else
 		yum -y install wget
 	fi
 	rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm 2> /dev/null
-        wget -O /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm $WazuhSrc
+        wget --no-netrc -O /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm $WazuhSrc
         yum -y install /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
         rm -f /tmp/wazuh-agent-$WazuhVer-1.x86_64.rpm
 	CFG_PROFILE=`. /etc/os-release; echo $ID, $ID\`echo $VERSION_ID\``
@@ -564,15 +564,15 @@ fi
 if [ "$SkipOsquery" == "0" ]; then
 	if [ "$LinuxFamily" == "deb" ]; then
 	        rm -f osquery.deb 2> /dev/null
-                wget -O osquery.deb $OsquerySrc
+                wget --no-netrc -O osquery.deb $OsquerySrc
 		if [[ ! `file osquery.deb | grep "binary package"` ]]; then
-			wget -O osquery.deb $OsquerySrc2 
+			wget --no-netrc -O osquery.deb $OsquerySrc2 
 		fi
 		dpkg -i osquery.deb
                 rm -f osquery.deb
 	else
 		rm -f osquery.rpm 2> /dev/null
-		wget -O osquery.rpm $OsquerySrc
+		wget --no-netrc -O osquery.rpm $OsquerySrc
 		yum -y install osquery.rpm
 		rm -f osquery.rpm
 	fi
