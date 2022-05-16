@@ -266,7 +266,7 @@ function checkSuite {
 			return
 		}
 		# Local Sysmon.exe file at target version?  Both Sysmon.exe and Sysmon64.exe will exist in this directory at the same version, so checking the first one should always be fine.
-		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion
+		$smver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion)
 		if ($Debug) { Write-Output "Current Sysmon version is: $smver" }
 		if ($Debug) { Write-Output "Target Sysmon version is:  $SysmonVer" }
 		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
@@ -812,7 +812,7 @@ sca.remote_commands=1
 
     # If -SysmonVer was specified but the version downloaded or previously provided (-Local) to install does not match it, then fail and bail
     If ( -not ($SysmonVer -eq $null ) )  {
-		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion
+		$smver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion)
 		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
 			if ($Debug) { Write-Output "Current version of Sysmon to be installed ($smver) differs from what was specified ($SysmonVer)." }
 			exit 1
