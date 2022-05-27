@@ -406,7 +406,7 @@ function uninstallSuite {
 	# If Wazuh agent service is running, stop it.  Otherwise uninstall will fail.
 	if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
 		if ($Debug) { Write-Output "Stopping current Wazuh Agent service..." }
-		net stop wazuh | out-null
+		Stop-Service WazuhSvc
 	}
 
 	# If Wazuh agent already installed, blow it away
@@ -881,7 +881,7 @@ sca.remote_commands=1
 
 	# Start up the Wazuh agent service
 	if ($Debug) { Write-Output "Starting up the Wazuh agent..." }
-	net start wazuh | out-null
+	Start-Service WazuhSvc
 
 	# After 15 seconds confirm agent connected to manager
 	if ($Debug) { Write-Output "Pausing for 15 seconds to allow agent to connect to manager..." }
