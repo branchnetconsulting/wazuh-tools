@@ -279,7 +279,7 @@ function checkSuite {
 		### It appears this was cleared up with 12.01 but I am not sure I want to trust that file's version to stay aligned in the future with the real product version.
 		###
 		## SysmonDrv.sys at target version?
-		#$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
+		#$SysmonDrvVer = [String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion)
 		#if ($Debug) { Write-Output "Current SysmonDrv.sys version is: $SysmonDrvVer" }
 		#if ( -not ( $SysmonDrvVer.Trim() -eq $SysmonVer.Trim() ) ) {
 		#	if ($Debug) { Write-Output "Current and expected SysmonDrv.sys version differ." }
@@ -303,7 +303,7 @@ function checkSuite {
 			return
 		}
 		# Correct version?
-		$osqver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files\osquery\osqueryd\osqueryd.exe").FileVersion
+		$osqver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files\osquery\osqueryd\osqueryd.exe").FileVersion)
 		$osqver = $osqver -replace '\.\d+$',''
 		if ($Debug) { Write-Output "Current Osquery version is: $osqver" }
 		if ($Debug) { Write-Output "Target Osquery version is:  $OsqueryVer" }
