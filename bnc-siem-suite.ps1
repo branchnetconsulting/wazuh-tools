@@ -269,7 +269,7 @@ function checkSuite {
 		$smver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion)
 		if ($Debug) { Write-Output "Current Sysmon version is: $smver" }
 		if ($Debug) { Write-Output "Target Sysmon version is:  $SysmonVer" }
-		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
+		if ( -not ( $smver.Trim() -eq ([String]$SysmonVer).Trim() ) ) {
 			if ($Debug) { Write-Output "Current and expected Sysmon.exe version differ." }
 			return
 		}
@@ -281,7 +281,7 @@ function checkSuite {
 		## SysmonDrv.sys at target version?
 		#$SysmonDrvVer = [String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion)
 		#if ($Debug) { Write-Output "Current SysmonDrv.sys version is: $SysmonDrvVer" }
-		#if ( -not ( $SysmonDrvVer.Trim() -eq $SysmonVer.Trim() ) ) {
+		#if ( -not ( ([String]$SysmonDrvVer).Trim() -eq ([String]$SysmonVer).Trim() ) ) {
 		#	if ($Debug) { Write-Output "Current and expected SysmonDrv.sys version differ." }
 		#	return
 		#}
@@ -813,7 +813,7 @@ sca.remote_commands=1
     # If -SysmonVer was specified but the version downloaded or previously provided (-Local) to install does not match it, then fail and bail
     If ( -not ($SysmonVer -eq $null ) )  {
 		$smver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion)
-		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
+		if ( -not ( $smver.Trim() -eq ([String]$SysmonVer).Trim() ) ) {
 			if ($Debug) { Write-Output "Current version of Sysmon to be installed ($smver) differs from what was specified ($SysmonVer)." }
 			exit 1
 		}
