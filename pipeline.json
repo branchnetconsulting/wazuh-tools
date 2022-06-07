@@ -13,6 +13,15 @@
 
     {
       "set": {
+        "description": "For relayed syslog events, rename agent.name to name of original syslog sender",
+        "field": "agent.name",
+        "value": "{{predecoder.hostname}}",
+        "if" : "ctx.location == '/var/log/syslogtowazuh'"
+      }
+    },
+    
+    {
+      "set": {
         "field": "source.ip",
         "value": "{{data.src_ip}}",
         "ignore_empty_value": true

@@ -266,10 +266,10 @@ function checkSuite {
 			return
 		}
 		# Local Sysmon.exe file at target version?  Both Sysmon.exe and Sysmon64.exe will exist in this directory at the same version, so checking the first one should always be fine.
-		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion
+		$smver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion)
 		if ($Debug) { Write-Output "Current Sysmon version is: $smver" }
 		if ($Debug) { Write-Output "Target Sysmon version is:  $SysmonVer" }
-		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
+		if ( -not ( $smver.Trim() -eq ([String]$SysmonVer).Trim() ) ) {
 			if ($Debug) { Write-Output "Current and expected Sysmon.exe version differ." }
 			return
 		}
@@ -279,9 +279,9 @@ function checkSuite {
 		### It appears this was cleared up with 12.01 but I am not sure I want to trust that file's version to stay aligned in the future with the real product version.
 		###
 		## SysmonDrv.sys at target version?
-		#$SysmonDrvVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion
+		#$SysmonDrvVer = [String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("c:\windows\SysmonDrv.sys").FileVersion)
 		#if ($Debug) { Write-Output "Current SysmonDrv.sys version is: $SysmonDrvVer" }
-		#if ( -not ( $SysmonDrvVer.Trim() -eq $SysmonVer.Trim() ) ) {
+		#if ( -not ( ([String]$SysmonDrvVer).Trim() -eq ([String]$SysmonVer).Trim() ) ) {
 		#	if ($Debug) { Write-Output "Current and expected SysmonDrv.sys version differ." }
 		#	return
 		#}
@@ -303,7 +303,7 @@ function checkSuite {
 			return
 		}
 		# Correct version?
-		$osqver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files\osquery\osqueryd\osqueryd.exe").FileVersion
+		$osqver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files\osquery\osqueryd\osqueryd.exe").FileVersion)
 		$osqver = $osqver -replace '\.\d+$',''
 		if ($Debug) { Write-Output "Current Osquery version is: $osqver" }
 		if ($Debug) { Write-Output "Target Osquery version is:  $OsqueryVer" }
@@ -406,7 +406,7 @@ function uninstallSuite {
 	# If Wazuh agent service is running, stop it.  Otherwise uninstall will fail.
 	if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
 		if ($Debug) { Write-Output "Stopping current Wazuh Agent service..." }
-		net stop wazuh | out-null
+		Stop-Service WazuhSvc
 	}
 
 	# If Wazuh agent already installed, blow it away
@@ -812,8 +812,8 @@ sca.remote_commands=1
 
     # If -SysmonVer was specified but the version downloaded or previously provided (-Local) to install does not match it, then fail and bail
     If ( -not ($SysmonVer -eq $null ) )  {
-		$smver=[System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion
-		if ( -not ( $smver.Trim() -eq $SysmonVer.Trim() ) ) {
+		$smver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion)
+		if ( -not ( $smver.Trim() -eq ([String]$SysmonVer).Trim() ) ) {
 			if ($Debug) { Write-Output "Current version of Sysmon to be installed ($smver) differs from what was specified ($SysmonVer)." }
 			exit 1
 		}
@@ -881,7 +881,7 @@ sca.remote_commands=1
 
 	# Start up the Wazuh agent service
 	if ($Debug) { Write-Output "Starting up the Wazuh agent..." }
-	net start wazuh | out-null
+	Start-Service WazuhSvc
 
 	# After 15 seconds confirm agent connected to manager
 	if ($Debug) { Write-Output "Pausing for 15 seconds to allow agent to connect to manager..." }
