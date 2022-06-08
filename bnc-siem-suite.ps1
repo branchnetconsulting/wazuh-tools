@@ -609,8 +609,6 @@ if ($SysmonSrc -eq $null) {
 		}
 	}
 
-	# Set https protocol defaults to try stronger TLS first and allow all three forms of TLS
-	[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
 
     # If -Local not specified, then confirm that web requests to the Internet are allowed for this host before proceeding
     if ( -not ($Local) ) {
@@ -788,7 +786,7 @@ sca.remote_commands=1
 	if ( $SkipSysmon -eq $false ) {
 		# Download SwiftOnSecurity config file for Sysmon or confirm it is already locally present if "-Local" option specified.
 		if ( $Local -eq $false ) {
-			# Download the latest SwiftOnSecurity config file for Sysmon and write it to Wazuh agent shared directory.
+			# Download the latest SwiftOnSecurityconfig file for Sysmon and write it to Wazuh agent shared directory.
 			# This is only to seed it so that the install process works even if the official and perhaps localized file hasn't propagated down from Wazuh manager yet.
 			if ($Debug) { Write-Output "Downloading $SysmonConfSrc as sysmonconfig.xml..." }
 			$count = 0
@@ -899,6 +897,9 @@ sca.remote_commands=1
 #
 # Main
 #
+
+# Set https protocol defaults to try stronger TLS first and allow all three forms of TLS
+[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
 
 # These variables are set in one of the above functions and need to be seen in another one of the above functions, so make them global.
 New-Variable MightRecycleRegistration -value $false -option AllScope
