@@ -42,10 +42,11 @@
 # -OsquerySrc       Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
 # -SkipOsquery      Set this flag to skip examination and/or installation of Osquery.  If the script determines that installation is warranted, this flag will result in Osquery being removed if present.
 #                   Osquery is installed by default.
-# -Install                      Skip all checks and force installation
-# -Uninstall            Uninstall Wazuh agent and sub-agents
-# -CheckOnly            Only run checks to see if installation is current or in need of deployment
-# -Debug                Show debug output
+# -LBprobe	    Optional parameter for Load Balancer environment that initiates a registration with a bad password to ensure Wazuh Manager is listening.
+# -Install          Skip all checks and force installation
+# -Uninstall        Uninstall Wazuh agent and sub-agents
+# -CheckOnly        Only run checks to see if installation is current or in need of deployment
+# -Debug            Show debug output
 # -help             Show command syntax
 #
 # Sample way to fetch and use this script:
@@ -87,7 +88,7 @@ WazuhGroups="#NOGROUP#"
 OsqueryVer=
 OsquerySrc=
 SkipOsquery=0
-#Local=0
+LBprobe=0
 CheckOnly=0
 Install=0
 Uninstall=0
@@ -140,9 +141,9 @@ while [ "$1" != "" ]; do
       -SkipOsquery )  # no shift
                       SkipOsquery=1
                       ;;
-#      -Local )        # no shift
-#                      Local=1
-#                      ;;
+      -LBprobe )      # no shift
+                      LBprobe=1
+                      ;;
       -CheckOnly )    # no shift
                       CheckOnly=1
                       ;;
@@ -211,7 +212,7 @@ rm -f /usr/bin/osqueryd 2> /dev/null  # pre-5.x binary or symlink to it
 rm -f /usr/bin/osqueryi 2> /dev/null  # pre-5.x binary or symlink to it 
 rm -rf /var/osquery /var/log/osquery /usr/share/osquery /opt/osquery
 if [ $Uninstall == 1 ]; then
-        echo -e "\n*** Wazuh Agent suite successfully uninstalled";
+        if [ $Debug == 1 ]; then echo -e "\n*** Wazuh Agent suite successfully uninstalled"; fi
         exit 0
 fi
 }
@@ -249,6 +250,21 @@ fi
 # If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
 tprobe $WazuhMgr 1514
 tprobe $WazuhRegMgr 1515
+
+# Load Balancer Specific check for actual connection to a Wazuh Manager
+if [ $LBprobe == "1" ]; then
+        rm /tmp/lbprobe
+        /var/ossec/bin/agent-auth -m $WazuhMgr -p1515 -P bad &> /tmp/lbprobe &
+        sleep 5
+        if [[ `grep "Invalid password" /tmp/lbprobe` ]]; then
+                kill `ps auxw | grep agent-auth | grep -v grep | awk '{print $2}'` 2>/dev/null
+                if [ $Debug == 1 ]; then echo "The Wazuh Manager auth daemon is reachable."; fi
+        else
+                kill `ps auxw | grep agent-auth | grep -v grep | awk '{print $2}'` 2>/dev/null
+                if [ $Debug == 1 ]; then echo "Cannot reach Wazuh Manager auth daemon."; fi
+                exit 2
+        fi
+fi
 
 #
 # Is the agent presently really connected to the Wazuh manager?
@@ -540,10 +556,10 @@ fi
 #
 if [ "$ALREADY_CONNECTED" == "1" ]; then
         if [[ "$WazuhAgentName" == "$OLDNAME" && "$CURR_MGR" == "$WazuhMgr" && ( "$CURR_GROUPS" == "$WazuhGroups" || "$GROUPS_SKIPPED" == "1" ) ]]; then
-                echo "Old and new agent registration names, groups and manager match."
+                if [ $Debug == 1 ]; then echo "Old and new agent registration names, groups and manager match."; fi
                 cp -p /tmp/client.keys /var/ossec/etc/
         else
-                echo "Registration information has changed."
+                if [ $Debug == 1 ]; then echo "Registration information has changed."; fi
                 if [[  "$GROUPS_SKIPPED" == "1" && "$CURR_GROUPS" != "" ]]; then
                         /var/ossec/bin/agent-auth -m "$WazuhRegMgr" -P "$WazuhRegPass" -G "$CURR_GROUPS" -A "$WazuhAgentName"
                 else
@@ -641,7 +657,7 @@ else
         service wazuh-agent restart
 fi
 
-echo "Waiting 15 seconds before checking connection status to manager..."
+if [ $Debug == 1 ]; then echo "Waiting 15 seconds before checking connection status to manager..."; fi
 sleep 15
 if [[ `cat /var/ossec/logs/ossec.log | grep "Connected to the server "` ]]; then
         echo "Agent has successfully reported into the manager."
