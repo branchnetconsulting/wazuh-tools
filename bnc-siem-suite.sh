@@ -252,6 +252,7 @@ tprobe $WazuhMgr 1514
 tprobe $WazuhRegMgr 1515
 
 # Load Balancer Specific check for actual connection to a Wazuh Manager
+if [[ "$LBprobe" == "1" && -e /var/ossec/bin/agent-auth ]]; then 
 if [ $LBprobe == "1" ]; then
         rm /tmp/lbprobe
         /var/ossec/bin/agent-auth -m $WazuhMgr -p1515 -P bad &> /tmp/lbprobe &
