@@ -200,7 +200,6 @@ function checkSuite {
 		}
 		Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
 		if ($Debug) { Write-Output "-LBprobe check succeeded.  Manager is truly reachable." }
-
 	}
 
 	#
