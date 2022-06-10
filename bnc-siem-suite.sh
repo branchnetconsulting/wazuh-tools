@@ -256,11 +256,10 @@ if [[ "$LBprobe" == "1" && -e /var/ossec/bin/agent-auth ]]; then
         rm /tmp/lbprobe
         /var/ossec/bin/agent-auth -m $WazuhMgr -p1515 -P bad &> /tmp/lbprobe &
         sleep 5
+        kill `ps auxw | grep agent-auth | grep -v grep | awk '{print $2}'` 2>/dev/null
         if [[ `grep "Invalid password" /tmp/lbprobe` ]]; then
-                kill `ps auxw | grep agent-auth | grep -v grep | awk '{print $2}'` 2>/dev/null
                 if [ $Debug == 1 ]; then echo "The Wazuh Manager auth daemon is reachable."; fi
         else
-                kill `ps auxw | grep agent-auth | grep -v grep | awk '{print $2}'` 2>/dev/null
                 if [ $Debug == 1 ]; then echo "Cannot reach Wazuh Manager auth daemon."; fi
                 exit 2
         fi
