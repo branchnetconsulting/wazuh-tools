@@ -57,6 +57,7 @@
 # -Install          Skip all checks and force installation
 # -Uninstall        Uninstall Wazuh agent and sub-agents
 # -CheckOnly        Only run checks to see if installation is current or in need of deployment
+# -LBprobe          Additionally check for manager connectivity with an agent-auth probe to avoid being fooled by a load balancer that handshakes even when service down.
 # -Debug            Show debug output
 # -help             Show command syntax
 #
@@ -91,7 +92,8 @@ param ( $WazuhVer,
 	[switch]$Debug=$false,
 	[switch]$CheckOnly=$false,
 	[switch]$Install=$false,
-	[switch]$Uninstall=$false
+	[switch]$Uninstall=$false,
+	[switch]$LBprobe=$false
 );
 
 # 
@@ -138,6 +140,7 @@ function checkSuite {
 	#					If intentionally specifying an empty set of custom groups, then your must use the syntax -WazuhGroups '""'
 	# -SkipSysmon		Flag to not examine Sysmon. (Optional)
 	# -SkipOsquery		Flag not to examine Osquery. (Optional)
+	# -LBprobe		Additionally check for manager connectivity with an agent-auth probe to avoid being fooled by a load balancer that handshakes even when service down.
 
 	if ($WazuhMgr -eq $null) { 
 		if ($Debug) { Write-Output "Must use '-WazuhMgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection." }
@@ -183,6 +186,22 @@ function checkSuite {
 	# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
 	tprobe $WazuhMgr 1514
 	tprobe $WazuhRegMgr 1515
+
+	# If -LBprobe flag set, then additionally confirm the manager is reachable by intentionally attempting an agent-auth with a bad password
+	# to see if "Invalid password" is in the output, which would probe a real Wazuh registration service is reachable on port 1515.
+	if ( ( $LBprobe ) -and ( Test-Path -LiteralPath "$PFPATH\ossec-agent\agent-auth.exe") ) {
+		if ($Debug) { Write-Output "Performing a load-balancer-aware check via an agent-auth.exe call to confirm manager is truly reachable..." }
+		Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
+		Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "badpass" -Wait -WindowStyle 'Hidden' -redirectstandarderror "agent-auth-test-probe"
+		if (  ( -not ( Test-Path -LiteralPath "agent-auth-test-probe" ) ) -or ( -not ( Get-Content "agent-auth-test-probe" | select-String "Invalid password" ) ) ) {
+			Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
+			if ($Debug) { Write-Output "-LBprobe check failed.  Manager is not truly reachable." }
+			exit 2
+		}
+		Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
+		if ($Debug) { Write-Output "-LBprobe check succeeded.  Manager is truly reachable." }
+
+	}
 
 	#
 	# Is the agent presently really connected to the Wazuh manager?
