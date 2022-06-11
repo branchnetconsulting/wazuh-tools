@@ -195,11 +195,11 @@ function checkSuite {
 		Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "badpass" -Wait -WindowStyle 'Hidden' -redirectstandarderror "agent-auth-test-probe"
 		if (  ( -not ( Test-Path -LiteralPath "agent-auth-test-probe" ) ) -or ( -not ( Get-Content "agent-auth-test-probe" | select-String "Invalid password" ) ) ) {
 			Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
-			if ($Debug) { Write-Output "-LBprobe check failed.  Manager is not truly reachable." }
+			if ($Debug) { Write-Output "LBprobe check failed.  Manager is not truly reachable." }
 			exit 2
 		}
 		Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
-		if ($Debug) { Write-Output "-LBprobe check succeeded.  Manager is truly reachable." }
+		if ($Debug) { Write-Output "LBprobe check succeeded.  Manager is truly reachable." }
 	}
 
 	#
