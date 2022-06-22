@@ -210,9 +210,13 @@ function checkSuite {
 	} else {
 		$StateFile = Get-Content "$PFPATH\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
 	}	
-	if ( -not ($StateFile -match "'connected'" ) ) {
-		if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager." }
-		return
+	if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {
+		if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds." }
+		Start-Sleep -Seconds 90
+	       	if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {	
+	        	if ($Debug) { Write-Output "The Wazuh agent is still not connected to the Wazuh manager." }
+			return
+		}	
 	}
 
     #
@@ -355,6 +359,10 @@ function uninstallSuite {
 
 	if ($Debug) { Write-Output "Uninstalling the SIEM suite." }
 	
+	if (Test-Path "$PFPATH\ossec-agent\ossec.log" -PathType leaf) {
+		Copy-Item "$PFPATH\ossec-agent\ossec.log" -Destination "$Env:SystemDrive\Windows\Temp\"
+	}
+	
 	# NuGet Dependency
 	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
 		if ($Debug) { Write-Output "Installing dependency (NuGet) to be able to uninstall other packages..." }
@@ -404,7 +412,7 @@ function uninstallSuite {
 		$MergedFile = Get-Content "$PFPATH\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
 		$MergedFileName = "$PFPATH\ossec-agent\shared\merged.mg"
 		$CurrentAgentName=(Get-Content "$PFPATH\ossec-agent\client.keys").Split(" ")[1]
-		if ( ($StateFile -match "'connected'") -and ($WazuhMgr -eq $CurrentManager) -and ($CurrentAgentName -eq $WazuhAgentName) ) {
+		if ( ($StateFile | Select-String -Pattern "'connected'" -quiet) -and ($WazuhMgr -eq $CurrentManager) -and ($CurrentAgentName -eq $WazuhAgentName) ) {
 			if ($Debug) { Write-Output "Registration will be recycled unless there is an agent group mismatch." }
 			$MightRecycleRegistration=$true
 			if ($file2 -match "Source\sfile:") {
