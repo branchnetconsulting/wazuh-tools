@@ -190,6 +190,11 @@ function tprobe() {
 
 # Uninstallion function
 function uninstallsuite() {
+
+if [ -f /var/ossec/etc/ossec.log ]; then
+	cp /var/ossec/etc/ossec.log /tmp/
+fi
+
 # Shut down and clean out any previous Wazuh or OSSEC agent
 systemctl stop wazuh-agent 2> /dev/null
 systemctl stop ossec-hids-agent 2> /dev/null
@@ -270,14 +275,18 @@ fi
 # Is the agent presently really connected to the Wazuh manager?
 #
 if [[ ! `grep "'connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
-        if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager."; fi
+        if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds."; fi
+        sleep 90
+        if [[ ! `grep "'connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
+                if [ $Debug == 1 ]; then echo "*** The Wazuh agent is still not connected to the Wazuh manager."; fi
                 if [ $CheckOnly == 1 ]; then
                         exit 1
                 else
                         deploysuite
                 fi
-else
-        if [ $Debug == 1 ]; then echo "The Wazuh agent is connected to the Wazuh manager."; fi
+        else
+                if [ $Debug == 1 ]; then echo "The Wazuh agent is connected to the Wazuh manager."; fi
+        fi
 fi
 
 #
@@ -376,7 +385,7 @@ fi
 #
 # Passed!
 #
-if [ $Debug == 1 ]; then echo "All appears current on this system with respect to the Wazuh Linux agent suite."; fi
+if [ $Debug == 1 ]; then echo "No deployment/redeployment appears to be needed."; fi
 exit 0
 }
 
