@@ -42,10 +42,11 @@
 # -OsquerySrc       Static download path to fetch Osquery agent installer.  Overrides OsqueryVer value.
 # -SkipOsquery      Set this flag to skip examination and/or installation of Osquery.  If the script determines that installation is warranted, this flag will result in Osquery being removed if present.
 #                   Osquery is installed by default.
-# -Install                      Skip all checks and force installation
-# -Uninstall            Uninstall Wazuh agent and sub-agents
-# -CheckOnly            Only run checks to see if installation is current or in need of deployment
-# -Debug                Show debug output
+# -LBprobe          Load Balancer paramert that initiates further testing to ensure the Wazuh Manager auth daemon is listining.
+# -Install          Skip all checks and force installation
+# -Uninstall        Uninstall Wazuh agent and sub-agents
+# -CheckOnly        Only run checks to see if installation is current or in need of deployment
+# -Debug            Show debug output
 # -help             Show command syntax
 #
 # Sample way to fetch and use this script:
@@ -87,7 +88,7 @@ WazuhGroups="#NOGROUP#"
 OsqueryVer=
 OsquerySrc=
 SkipOsquery=0
-#Local=0
+LBprobe=0
 CheckOnly=0
 Install=0
 Uninstall=0
@@ -140,9 +141,9 @@ while [ "$1" != "" ]; do
       -SkipOsquery )  # no shift
                       SkipOsquery=1
                       ;;
-#      -Local )        # no shift
-#                      Local=1
-#                      ;;
+      -LBprobe )      # no shift
+                      LBprobe=1
+                      ;;
       -CheckOnly )    # no shift
                       CheckOnly=1
                       ;;
@@ -249,6 +250,21 @@ fi
 # If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
 tprobe $WazuhMgr 1514
 tprobe $WazuhRegMgr 1515
+
+# Load Balancer Specific check for actual connection to a Wazuh Manager
+if [[ "$LBprobe" == "1" && -e /var/ossec/bin/agent-auth ]]; then 
+	if [ $Debug == 1 ]; then echo "Performing a load-balancer-aware check via an agent-auth.exe call to confirm manager is truly reachable..."; fi
+	rm /tmp/lbprobe
+        /var/ossec/bin/agent-auth -m $WazuhMgr -p1515 -P bad &> /tmp/lbprobe &
+        sleep 5
+        kill `ps auxw | grep agent-auth | grep -v grep | awk '{print $2}'` 2>/dev/null
+        if [[ `grep "Invalid password" /tmp/lbprobe` ]]; then
+                if [ $Debug == 1 ]; then echo "The Wazuh Manager auth daemon is reachable."; fi
+        else
+                if [ $Debug == 1 ]; then echo "Cannot reach Wazuh Manager auth daemon."; fi
+                exit 2
+        fi
+fi
 
 #
 # Is the agent presently really connected to the Wazuh manager?
