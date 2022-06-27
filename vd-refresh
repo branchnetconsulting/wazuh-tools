@@ -2,6 +2,7 @@
 
 #
 # vd-refresh
+#
 # Clear all Wazuh Vulnerability Detection state stored on this Wazuh manager for all agents.
 # This will force a new Full vulnerability scan.
 # Run this interactively or via cron to cause a fresh set of alerts to be generated accounting for
