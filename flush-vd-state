@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# vd-refresh
+# flush-vd-state
 #
 # Clear all Wazuh Vulnerability Detection state stored on this Wazuh manager for all agents.
 # This will force a new Full vulnerability scan.
