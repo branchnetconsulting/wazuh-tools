@@ -1,0 +1,25 @@
+#!/bin/bash
+
+#
+# vd-refresh
+# Clear all Wazuh Vulnerability Detection state stored on this Wazuh manager for all agents.
+# This will force a new Full vulnerability scan.
+# Run this interactively or via cron to cause a fresh set of alerts to be generated accounting for
+# all CVE matches currently relevant to the agents the manager knows about.
+# This must be run on all managers in a Wazuh manager cluster to which agents check in.
+#
+
+mkdir /var/ossec/queue/db-backup 2> /dev/null
+echo "Stopping Wazuh Manager..."
+systemctl stop wazuh-manager
+DBS=`ls -1 /var/ossec/queue/db/*.db | grep -v global`
+for AGENT_DB in $DBS; do
+        echo "Clearing Vulnerability Detection state from Wazuh agent db $AGENT_DB..."
+        cp $AGENT_DB /var/ossec/queue/db-backup/
+        sqlite3 $AGENT_DB 'delete from vuln_cves;'
+        sqlite3 $AGENT_DB 'delete from vuln_metadata;'
+        sqlite3 $AGENT_DB 'insert into vuln_metadata(LAST_PARTIAL_SCAN,LAST_FULL_SCAN) values(0,0);'
+done
+echo "Starting Wazuh Manager..."
+systemctl start wazuh-manager
+echo "Very shortly a new Vulerability Detection full scan should commence, and alerts accounting for all currently active vulnerability detections should emerge soon thereafter."
