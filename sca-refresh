@@ -1,0 +1,24 @@
+#!/bin/bash
+
+#
+# sca-refresh
+#
+# Clear all Wazuh SCA state stored on this Wazuh manager for all agents.
+# Run this interactively or via cron to cause a fresh set of alerts to be generated accounting for
+# all SCA findings for each agent when they next run an SCA scan.
+# This must be run on all managers in a Wazuh manager cluster to which agents check in.
+# To 
+#
+
+mkdir /var/ossec/queue/db-backup 2> /dev/null
+echo "Stopping Wazuh Manager..."
+systemctl stop wazuh-manager
+DBS=`ls -1 /var/ossec/queue/db/*.db | grep -v global`
+for AGENT_DB in $DBS; do
+        echo "Clearing Security Configuration Assessment state from Wazuh agent db $AGENT_DB..."
+        cp $AGENT_DB /var/ossec/queue/db-backup/
+        sqlite3 $AGENT_DB 'delete from sca_check;'
+done
+echo "Starting Wazuh Manager..."
+systemctl start wazuh-manager
+echo "Starting now, the full findings for the first new SCA scan run on each agent will generate alerts visible in the Wazuh alert stream."
