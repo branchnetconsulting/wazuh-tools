@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# sca-refresh
+# flush-sca-state
 #
 # Clear all Wazuh SCA state stored on this Wazuh manager for all agents.
 # Run this interactively or via cron to cause a fresh set of alerts to be generated accounting for
