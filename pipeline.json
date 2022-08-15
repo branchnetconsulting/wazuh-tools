@@ -206,6 +206,19 @@
     },
 
     {
+      "date" : {
+        "field" : "data.office365.CreationTime",
+        "target_field" : "timestamp",
+        "formats" : [
+          "yyyy-MM-dd'T'HH:mm:ss"
+        ],
+        "timezone" : "UTC",
+        "ignore_failure" : false,
+        "if" : "ctx.location == 'office365'"
+      }
+    },
+
+    {
       "date": {
         "field": "timestamp",
         "target_field": "@timestamp",
