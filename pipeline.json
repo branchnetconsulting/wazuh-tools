@@ -125,8 +125,8 @@
     {
       "geoip": {
         "database_file": "GeoLite2-ASN.mmdb",
-        "field": "destination.as",
-        "target_field": "geoip",
+        "field": "destination.ip",
+        "target_field": "destination.as",
         "properties": ["ASN", "ORGANIZATION_NAME"],
         "ignore_missing": true,
         "ignore_failure": true
