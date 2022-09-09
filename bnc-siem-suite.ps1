@@ -684,7 +684,7 @@ if ($SysmonSrc -eq $null) {
 		# TODO: Keep existing groups if agent connected and -WazuhGroups not specified.
 		Remove-Item -Path "$PFPATH\ossec-agent\client.keys"
 		if ($Debug) {  
-			Write-Output "Registering Wazuh Agent with $WazuhRegMgr..." }
+			Write-Output "Registering Wazuh Agent with $WazuhRegMgr..."
 			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName" -Wait
 		} else 	{
 			Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName" -Wait -WindowStyle 'Hidden'
