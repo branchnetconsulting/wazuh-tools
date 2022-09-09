@@ -680,14 +680,15 @@ if ($SysmonSrc -eq $null) {
 	if ( ($MightRecycleRegistration) -and ( ($CurrentGroups -eq $WazuhGroups) -or ($SkippedGroups) ) ) { 
 		Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$PFPATH\ossec-agent\client.keys"
 	} else {
-		# Register the agent with the manager (keep existing groups if agent connected and -WazuhGroups not specified)
-		if ($Debug) {  Write-Output "Registering Wazuh Agent with $WazuhRegMgr..." }
-        Remove-Item -Path "$PFPATH\ossec-agent\client.keys"
-		#if ($SkippedGroups) {         
-        #    Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$CurrentGroups", "-A", "$WazuhAgentName" -Wait -WindowStyle 'Hidden'
-		#} else {
+		# Register the agent with the manager
+		# TODO: Keep existing groups if agent connected and -WazuhGroups not specified.
+		Remove-Item -Path "$PFPATH\ossec-agent\client.keys"
+		if ($Debug) {  
+			Write-Output "Registering Wazuh Agent with $WazuhRegMgr..." }
+			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName" -Wait
+		} else 	{
 			Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName" -Wait -WindowStyle 'Hidden'
-		#}
+		}
 		if ( -not (Test-Path "$PFPATH\ossec-agent\client.keys" -PathType leaf) ) {
 			if ($Debug) {  Write-Output "Wazuh Agent self-registration failed." }
 			exit 1
