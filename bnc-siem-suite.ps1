@@ -165,7 +165,7 @@ function checkSuite {
 	     $SkipOsquery=$true
 	}
 	# Force skip Osquery if Windows is 32bit
-	If ( -not ([Environment]::Is64BitProcess) ) {
+	If ( -not ([Environment]::Is64BitOperatingSystem) ) {
 	     Write-Output "Windows is 32bit, so skipping Osquery..."
 	     $SkipOsquery=$true
 	}
@@ -536,7 +536,7 @@ function installSuite {
 	     $SkipOsquery=$true
 	}
 	# Force skip Osquery if Windows is 32bit
-	If ( -not ([Environment]::Is64BitProcess) ) {
+	If ( -not ([Environment]::Is64BitOperatingSystem) ) {
 	     Write-Output "Windows is 32bit, so skipping Osquery..."
 	     $SkipOsquery=$true
 	}
@@ -838,7 +838,7 @@ sca.remote_commands=1
 
 	if ( $SkipSysmon -eq $false ) {
 		if ($Debug) {  Write-Output "Installing Sysmon..." }
-		If ([Environment]::Is64BitProcess){
+		If ([Environment]::Is64BitOperatingSystem){
 			if ($Debug) { Write-Output "Using 64 bit installer" }
 			Start-Process -FilePath "$PFPATH\sysmon-wazuh\Sysmon64.exe" -ArgumentList "-i","c:\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
 		}else{
@@ -926,7 +926,7 @@ New-Variable SkippedGroups -value $false -option AllScope
 
 #Set installation path based on 64 vs. 32-bit Windows OS
 $PFPATH="C:\Program Files (x86)"
-If ( -not ([Environment]::Is64BitProcess) ) {
+If ( -not ([Environment]::Is64BitOperatingSystem) ) {
      Write-Output "Changing path variable to C:\Program Files for detected 32-bit Windows OS..."
      $PFPATH="C:\Program Files"
 }
