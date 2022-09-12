@@ -685,7 +685,7 @@ if ($SysmonSrc -eq $null) {
 		Remove-Item -Path "$PFPATH\ossec-agent\client.keys"
 		if ($Debug) {  
 			Write-Output "Registering Wazuh Agent with $WazuhRegMgr..."
-			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName" -Wait
+			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName"
 		} else 	{
 			Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName" -Wait -WindowStyle 'Hidden'
 		}
