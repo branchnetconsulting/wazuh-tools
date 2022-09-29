@@ -915,7 +915,7 @@ sca.remote_commands=1
 	Start-Service WazuhSvc
 
 	# Do first-time execution of conf.d merge script to build a merged ossec.conf from conf.d files
-	PowerShell.exe -ExecutionPolicy Bypass "$PFPATH\ossec-agent\custbin\merge-wazuh-conf.ps1"
+	& "$PFPATH\ossec-agent\custbin\merge-wazuh-conf.ps1"
 
 	# After 15 seconds confirm agent connected to manager
 	if ($Debug) { Write-Output "Pausing for 15 seconds to allow agent to connect to manager..." }
