@@ -1,8 +1,9 @@
-﻿#
-# merge-wazuh-conf.ps1
-# by Kevin Branch
 #
-# This builds and applies a fresh ossec-agent/ossec.conf from a merge of all ossec-agent/conf.d/*.conf files, with automatic revertion to the previous ossec.conf in the event that Wazuh Agent fails to restart with the newer merged version of ossec.conf.
+# merge-wazuh-conf.ps1
+# version 1.0
+# by Kevin Branch (Branch Network Consulting, LLC)
+#
+# This builds and applies a fresh ossec-agent/ossec.conf from a merge of all ossec-agent/conf.d/*.conf files, with automatic revertion to the previous ossec.conf in the event that Wazuh Agent fails to restart or reconnect with the newer merged version of ossec.conf.
 # It is intended to be run automatically by Wazuh Agent itself via a locally defined command-type localfile section invoking it at ossec-agent custbin/merge-wazuh-conf.ps1.
 # This is part of accomodating the use of custom WPKs to securely distribute and/or invoke new scripts and to distribute and apply new config sections to be merged into ossec.conf, especially ones involving formerly "remote" commands.
 #
@@ -21,7 +22,7 @@
 # EventLog entries written to Application log with source BNC-SIEM-Instrumentation:
 #
 # 10000 - Info  - "merge-wazuh-conf.ps1 applying new merged ossec.conf and restarting Wazuh agent..."
-# 10001 - Error - "merge-wazuh-conf.ps1 new ossec.conf appears to present Wazuh Agent from starting.  Reverting and restarting..."
+# 10001 - Error - "merge-wazuh-conf.ps1 new ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..."
 # 10002 - Info  - "merge-wazuh-conf.ps1 reverted ossec.conf and Wazuh agent successfully restarted..."
 # 10003 - Error - "merge-wazuh-conf.ps1 reverted ossec.conf and Wazuh agent still failed to start."
 # 10004 - Info  - "merge-wazuh-conf.ps1 exited due to a previous failed ossec.conf remerge attempt less than an hour ago."
@@ -39,12 +40,26 @@ If ([Environment]::Is64BitOperatingSystem) {
 }
 
 # If Wazuh agent conf.d directory is not yet present, then create it and populate it with a 000-base.conf copied from current ossec.conf file.
+$MergeConfig = @"
+<ossec_config>
+    <localfile>
+        <log_format>command</log_format>
+        <alias>merge-wazuh-conf</alias>
+        <command>PowerShell.exe -ExecutionPolicy Bypass -File custbin/merge-wazuh-conf.ps1</command>
+        <frequency>86400</frequency>
+    </localfile>  
+</ossec_config>
+"@
 if ( -not (Test-Path -LiteralPath "$PFPATH\ossec-agent\conf.d" -PathType Container ) ) {
-    New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\conf.d"
+    New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\conf.d" | out-null
     Copy-Item "$PFPATH\ossec-agent\ossec.conf" "$PFPATH\ossec-agent\conf.d\000-base.conf"
-    #
-    # consider conditionally adding the merge-wazuh-conf command section to 000-base.conf
-    #
+    # If the newly generated 000-base.conf (from old ossec.conf) is missing the merge-wazuh-conf command section, then append it now.
+    $baseFile = Get-Content "$PFPATH/ossec-agent/conf.d/000-base.conf" -erroraction 'silentlycontinue'
+    if ( -not ( $baseFile -match "merge-wazuh-conf" ) ) {
+	    Add-Content -Path "$PFPATH/ossec-agent/conf.d/000-base.conf" -Value ""
+        Add-Content -Path "$PFPATH/ossec-agent/conf.d/000-base.conf" -Value $MergeConfig
+	    #echo "appended"
+    }
 }
 
 # If there was a failed ossec.conf remerge attempt less than an hour ago then bail out (failed as in Wazuh agent would not start using latest merged ossec.conf)
@@ -57,7 +72,7 @@ if ( ( Test-Path -LiteralPath "$PFPATH\ossec-agent\ossec.conf-BAD" ) -and ( ( (G
 # Merge conf.d/*.conf into conf.d/config.merged
 $files = Get-ChildItem "$PFPATH\ossec-agent\conf.d\*.conf"
 Remove-Item -Path "$PFPATH\ossec-agent\conf.d\config.merged" -erroraction 'silentlycontinue'
-foreach ($f in $files){
+foreach ($f in $files) {
     $fname = $f.Name
     $content = Get-Content $f.FullName
     Add-Content -Path "$PFPATH\ossec-agent\conf.d\config.merged" -Value "<!--`nFrom conf.d/$fname`n-->"
@@ -81,7 +96,7 @@ if ($hash1 -eq $hash2) {
     Start-Service WazuhSvc
     Start-Sleep -s 5
     # If after replacing ossec.conf and restarting, the Wazuh Agent fails to start, then revert to the backed up ossec.conf, restart, and hopefully recovering the service.
-    if ( -not ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) ) {
+    if ( ( -not ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) ) -or ( -not ( ( netstat -nat ) –match ':1514[^\d]+ESTABLISHED' ) ) ) {
         #echo "Wazuh Agent service failed to start with the newly merged ossec.conf!  Reverting to backed up ossec.conf..."
         Write-EventLog -LogName "Application" -Source "BNC-SIEM-Instrumentation" -EventID 10001 -EntryType Error -Message "merge-wazuh-conf.ps1 new ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..." -Category 0
         Move-Item "$PFPATH\ossec-agent\ossec.conf" "$PFPATH\ossec-agent\ossec.conf-BAD" -Force
@@ -90,7 +105,7 @@ if ($hash1 -eq $hash2) {
         Start-Service WazuhSvc
         Start-Sleep -s 5
         # Indicate if the service was successfully recovered by reverting ossec.conf.
-        if ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) {
+        if ( ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) -and ( ( netstat -nat ) –match ':1514[^\d]+ESTABLISHED' ) ) {
             #echo "Wazuh Agent successfully running with reverted ossec.conf."
             Write-EventLog -LogName "Application" -Source "BNC-SIEM-Instrumentation" -EventID 10002 -EntryType Information -Message "merge-wazuh-conf.ps1 reverted ossec.conf and Wazuh agent successfully restarted..." -Category 0
         } else {
