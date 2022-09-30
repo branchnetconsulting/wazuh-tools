@@ -5,6 +5,15 @@
 # Determines if Sysmon needs to be installed/upgraded to the target version on a system.
 # To be run on Windows agents in "sysmon" agent group from ossec-agent\custbin\ by a local "check-sysmon" Wazuh command on every agent restart
 #
+# <ossec_config>
+#   <localfile>
+#      <log_format>command</log_format>
+#      <alias>check-sysmon</alias>
+#      <command>PowerShell.exe -ExecutionPolicy Bypass -File custbin/check-sysmon.ps1</command>
+#      <frequency>86400</frequency>
+#   </localfile>  
+# </ossec_config>
+#
 # Outputs "0" if no target sysmon version defined in sysmon-target-version.txt.
 # Outputs "0" if Sysmon is already loaded and at the target version.
 # Outputs the target version number to indicate Sysmon state needs to be remediated on this host.
