@@ -33,7 +33,7 @@
 
 if  [ ! -d /var/ossec/etc/conf.d ]; then
     mkdir /var/ossec/etc/conf.d
-    cp /var/ossec/etc/ossec.conf" /var/ossec/etc/conf.d/000-base.conf"
+    cp /var/ossec/etc/ossec.conf /var/ossec/etc/conf.d/000-base.conf
     # If the newly generated 000-base.conf (from old ossec.conf) is missing the merge-wazuh-conf command section, then append it now.
     if [[ ! `grep merge-wazuh-conf /var/ossec/etc/conf.d/000-base.conf 2> /dev/null` ]]; then
         echo "
@@ -41,7 +41,7 @@ if  [ ! -d /var/ossec/etc/conf.d ]; then
             <localfile>
                 <log_format>command</log_format>
                 <alias>merge-wazuh-conf</alias>
-                <command>PowerShell.exe -ExecutionPolicy Bypass -File custbin/merge-wazuh-conf.ps1</command>
+                <command>/usr/local/bin/merge-wazuh-conf.sh</command>
                 <frequency>86400</frequency>
             </localfile>  
         </ossec_config>
@@ -57,7 +57,7 @@ if [ -f /var/ossec/etc/ossec.conf-BAD ] && [ $((`date +%s` - `stat -c %Y /var/os
 fi
 
 # Merge conf.d/*.conf into conf.d/config.merged
-$files=`ls /var/ossec/etc/conf.d/*.conf`
+files=`ls /var/ossec/etc/conf.d/*.conf`
 rm /var/ossec/etc/conf.d/config.merged 2> /dev/null
 cat $files > /var/ossec/etc/conf.d/config.merged
 
