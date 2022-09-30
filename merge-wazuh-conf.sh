@@ -32,9 +32,9 @@
 # If Wazuh agent conf.d directory is not yet present, then create it and populate it with a 000-base.conf copied from current ossec.conf file.
 
 if  [ ! -d /var/ossec/etc/conf.d ]; then
-    mkdir /var/ossec/etc/conf.d
-    chown -R root:wazuh /var/ossec/etc/conf.d
-    cp /var/ossec/etc/ossec.conf /var/ossec/etc/conf.d/000-base.conf
+    mkdir /var/ossec/etc/conf.d 2> /dev/null
+    chown -R root:wazuh /var/ossec/etc/conf.d 2> /dev/null
+    cp /var/ossec/etc/ossec.conf /var/ossec/etc/conf.d/000-base.conf 2> /dev/null
     # If the newly generated 000-base.conf (from old ossec.conf) is missing the merge-wazuh-conf command section, then append it now.
     if [[ ! `grep merge-wazuh-conf /var/ossec/etc/conf.d/000-base.conf 2> /dev/null` ]]; then
         echo "
@@ -60,7 +60,7 @@ fi
 # Merge conf.d/*.conf into conf.d/config.merged
 files=`ls /var/ossec/etc/conf.d/*.conf`
 rm /var/ossec/etc/conf.d/config.merged 2> /dev/null
-cat $files > /var/ossec/etc/conf.d/config.merged
+cat $files > /var/ossec/etc/conf.d/config.merged 2> /dev/null
 
 # If the rebuilt config.merged file is the same (by MD5 hash) as the main ossec.conf then there is nothing more to do.
 hash1=`md5sum /var/ossec/etc/conf.d/config.merged | awk '{print $1}'`
@@ -71,30 +71,30 @@ if [ "$hash1" = "$hash2" ]; then
 
 # However if config.merged is different than ossec.conf, then back up ossec.conf, replace it with config.merged, and restart Wazuh Agent service
 else
-    echo "ossec.conf rebuilt from merge of conf.d files"
+    # echo "ossec.conf rebuilt from merge of conf.d files"
     logger -t "BNC-SIEM-Instrumentation" "Info - merge-wazuh-conf.sh applying new merged ossec.conf and restarting Wazuh agent..."
-    cp -pr /var/ossec/etc/ossec.conf /var/ossec/etc/ossec.conf-BACKUP
-    cp -pr /var/ossec/etc/conf.d/config.merged /var/ossec/etc/ossec.conf
-    chown root:wazuh /var/ossec/etc/ossec.conf
-    systemctl stop wazuh-agent
-    systemctl start wazuh-agent
+    cp -pr /var/ossec/etc/ossec.conf /var/ossec/etc/ossec.conf-BACKUP 2> /dev/null
+    cp -pr /var/ossec/etc/conf.d/config.merged /var/ossec/etc/ossec.conf 2> /dev/null
+    chown root:wazuh /var/ossec/etc/ossec.conf 2> /dev/null
+    systemctl stop wazuh-agent 2> /dev/null
+    systemctl start wazuh-agent 2> /dev/null
     sleep 10
     # If after replacing ossec.conf and restarting, the Wazuh Agent fails to start, then revert to the backed up ossec.conf, restart, and hopefully recovering the service.
     if [[ ! `pgrep -x "wazuh-agentd"` ]] || [[ ! `netstat -nat | grep 1514 | awk -F':' '{print $3}'` =~ ^1514[^\d]+ESTABLISHED ]]; then
-        echo "Wazuh Agent service failed to start with the newly merged ossec.conf!  Reverting to backed up ossec.conf..."
+        # echo "Wazuh Agent service failed to start with the newly merged ossec.conf!  Reverting to backed up ossec.conf..."
         logger -t "BNC-SIEM-Instrumentation" "Error - merge-wazuh-conf.sh new ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..."
-        mv /var/ossec/etc/ossec.conf /var/ossec/etc/ossec.conf-BAD
-        mv /var/ossec/etc/ossec.conf-BACKUP /var/ossec/etc/ossec.conf
-        chown root:wazuh /var/ossec/etc/ossec.conf
-        systemctl stop wazuh-agent
-        systemctl start wazuh-agent
+        mv /var/ossec/etc/ossec.conf /var/ossec/etc/ossec.conf-BAD 2> /dev/null
+        mv /var/ossec/etc/ossec.conf-BACKUP /var/ossec/etc/ossec.conf 2> /dev/null
+        chown root:wazuh /var/ossec/etc/ossec.conf 2> /dev/null
+        systemctl stop wazuh-agent 2> /dev/null
+        systemctl start wazuh-agent 2> /dev/null
         sleep 10
         # Indicate if the service was successfully recovered by reverting ossec.conf.
         if [[ `pgrep -x "wazuh-agentd"` ]] && [[ `netstat -nat | grep 1514 | awk -F':' '{print $3}'` =~ ^1514[^\d]+ESTABLISHED ]]; then
-                echo "Wazuh Agent successfully running with reverted ossec.conf."
+                # echo "Wazuh Agent successfully running with reverted ossec.conf."
                 logger -t "BNC-SIEM-Instrumentation" "Info - merge-wazuh-conf.sh reverted ossec.conf and Wazuh agent successfully restarted..."
         else
-                echo "Wazuh Agent fails to start with reverted ossec.conf.  Manual intervention required."
+                # echo "Wazuh Agent fails to start with reverted ossec.conf.  Manual intervention required."
                 logger -t "BNC-SIEM-Instrumentation" "Error - merge-wazuh-conf.sh reverted ossec.conf and Wazuh agent still failed to start."
         fi
     fi
