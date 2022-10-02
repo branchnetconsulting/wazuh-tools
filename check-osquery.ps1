@@ -44,7 +44,7 @@ $InstalledVersion = & 'C:\Program Files\osquery\osqueryi.exe' --csv 'select vers
 $TargetOsqueryVersion = (Get-Content "$PFPATH\ossec-agent\shared\osquery-target-version.txt" -TotalCount 1).Trim()
 
 if ($InstalledVersion -ne $TargetOsqueryVersion) {
-    echo "$TargetOsqueryVersion"
+    echo "$TargetOsqueryVersion,Windows"
     exit
 }
 
