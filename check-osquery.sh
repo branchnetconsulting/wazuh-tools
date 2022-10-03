@@ -22,29 +22,19 @@
 #
 # Is Osquery expected for this OS environment?
 
-if [[ $OSTYPE == 'darwin'* ]]; then
-    OS=Darwin
-else
-    if [[ -f /etc/os-release && `grep -i debian /etc/os-release` ]]; then
-        OS=Linux
-        LinuxFamily="deb"
-    else
-        OS=Linux
-        LinuxFamily="rpm"
-    fi
-fi
-
 if [ ! -f /var/ossec/etc/shared/osquery-target-version ]; then
     echo "0"
-	  exit
+    exit
 fi
 
 InstalledVersion=`/usr/bin/osqueryi --csv "select version from osquery_info;" | tail -n1`
+InstalledVersion=`echo $InstalledVersion | sed 's/\s*\([^\s]\+\)\s*/\1/'`
 TargetOsqueryVersion=`cat /var/ossec/etc/shared/osquery-target-version`
+TargetOsqueryVersion=`echo $TargetOsqueryVersion | sed 's/\s*\([^\s]\+\)\s*/\1/'`
 
-if [ ! $InstalledVersion = $TargetOsqueryVersion ]; then
-    echo "$TargetOsqueryVersion,$OS,$LinuxFamily"
-    #exit
+if [ ! "$InstalledVersion" = "$TargetOsqueryVersion" ]; then
+    echo "$TargetOsqueryVersion"
+    exit
 fi
 
 echo "0"
