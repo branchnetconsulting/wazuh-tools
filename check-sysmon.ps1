@@ -56,5 +56,24 @@ if ( ($InstalledInstallerVersion -ne $TargetSysmonVersion) -or ($InstalledDriver
     exit
 }
 
+# If Sysmon run/version state is compliant, then before outputting success code of "0", re-hash shared sysmonconfig.xml and compared it to 
+# locally stored hash file sysmonconfig.md5.  If the hash file is missing or does not match the re-hashed value, then make Sysmon reload
+# the config and lastly write the re-hashed value to sysmonconfig.md5
+if ( (Test-Path -LiteralPath "$PFPATH\ossec-agent\sysmonconfig.md5") ) {
+	$hashInUse = (Get-Content "$PFPATH\ossec-agent\sysmonconfig.md5" -TotalCount 1).Trim()
+} else {
+	$hashInUse = "none"
+}
+$hashLatest = (Get-FileHash "$PFPATH\ossec-agent\shared\sysmonconfig.xml" -Algorithm MD5).Hash
+if ( $hashInUse -ne $hashLatest ) {
+	echo "reload"
+	If ([Environment]::Is64BitProcess){
+		c:\progra~2\sysmon-wazuh\Sysmon64.exe -c c:\progra~2\ossec-agent\shared\sysmonconfig.xml
+	} else {
+		c:\progra~2\sysmon-wazuh\Sysmon.exe -c c:\progra~2\ossec-agent\shared\sysmonconfig.xml
+	}
+	$hashLatest | Out-File -FilePath "$PFPATH\ossec-agent\sysmonconfig.md5" -Encoding ASCII
+}
+
 echo "0"
 exit
