@@ -23,25 +23,25 @@
 #
 # Is Osquery expected for this OS environment?
 
-If ( -not ([Environment]::Is64BitOperatingSystem) ) {
+$PFPATH="C:\Program Files (x86)"
+
+if ( -not ([Environment]::Is64BitOperatingSystem) ) {
     echo "0"
     exit
 }
 
-# Discover which Program Files directory would contain Wazuh's program directory, with a 64bit vs 32bit check.
-If ([Environment]::Is64BitOperatingSystem) {
-    $PFPATH="C:\Program Files (x86)"
-} else {
-    $PFPATH="C:\Program Files"
-}
-
 if ( -not (Test-Path -LiteralPath "$PFPATH\ossec-agent\shared\osquery-target-version.txt") ) {
     echo "0"
-	exit
+    exit
 }
 
 $InstalledVersion = & 'C:\Program Files\osquery\osqueryi.exe' --csv 'select version from osquery_info;' | select -Last 1
 $TargetOsqueryVersion = (Get-Content "$PFPATH\ossec-agent\shared\osquery-target-version.txt" -TotalCount 1).Trim()
+
+if ((get-process "osqueryd" -ErrorAction SilentlyContinue) -eq $Null) {
+    echo "$TargetOsqueryVersion"
+    exit
+}
 
 if ($InstalledVersion -ne $TargetOsqueryVersion) {
     echo "$TargetOsqueryVersion"
