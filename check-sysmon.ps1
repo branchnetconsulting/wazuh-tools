@@ -66,12 +66,7 @@ if ( (Test-Path -LiteralPath "$PFPATH\ossec-agent\sysmonconfig.md5") ) {
 }
 $hashLatest = (Get-FileHash "$PFPATH\ossec-agent\shared\sysmonconfig.xml" -Algorithm MD5).Hash
 if ( $hashInUse -ne $hashLatest ) {
-	echo "reload"
-	If ([Environment]::Is64BitProcess){
-		c:\progra~2\sysmon-wazuh\Sysmon64.exe -c c:\progra~2\ossec-agent\shared\sysmonconfig.xml
-	} else {
-		c:\progra~2\sysmon-wazuh\Sysmon.exe -c c:\progra~2\ossec-agent\shared\sysmonconfig.xml
-	}
+	c:\progra~2\sysmon-wazuh\$SysmonInstallerFile -c c:\progra~2\ossec-agent\shared\sysmonconfig.xml
 	$hashLatest | Out-File -FilePath "$PFPATH\ossec-agent\sysmonconfig.md5" -Encoding ASCII
 }
 
