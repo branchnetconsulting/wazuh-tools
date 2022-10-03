@@ -38,7 +38,7 @@ If ([Environment]::Is64BitOperatingSystem) {
 
 if ( -not (Test-Path -LiteralPath "$PFPATH\ossec-agent\shared\sysmon-target-version.txt") ) {
     echo "0"
-	exit
+    exit
 }
 
 $InstalledInstallerVersion = [String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$Env:windir\$SysmonInstallerFile").FileVersion)
