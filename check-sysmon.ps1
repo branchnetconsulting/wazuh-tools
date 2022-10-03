@@ -66,7 +66,7 @@ if ( (Test-Path -LiteralPath "$PFPATH\ossec-agent\sysmonconfig.md5") ) {
 }
 $hashLatest = (Get-FileHash "$PFPATH\ossec-agent\shared\sysmonconfig.xml" -Algorithm MD5).Hash
 if ( $hashInUse -ne $hashLatest ) {
-	c:\progra~2\sysmon-wazuh\$SysmonInstallerFile -c c:\progra~2\ossec-agent\shared\sysmonconfig.xml
+	& $Env:windir\$SysmonInstallerFile -c "$PFPATH\ossec-agent\shared\sysmonconfig.xml"
 	$hashLatest | Out-File -FilePath "$PFPATH\ossec-agent\sysmonconfig.md5" -Encoding ASCII
 }
 
