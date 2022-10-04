@@ -1,4 +1,4 @@
-﻿#
+#
 # check-sysmon.ps1
 # developed by Branch Network Consulting, LLC
 #
@@ -37,7 +37,7 @@ If ([Environment]::Is64BitOperatingSystem) {
 }
 
 if ( -not (Test-Path -LiteralPath "$PFPATH\ossec-agent\shared\sysmon-target-version.txt") ) {
-    echo "0"
+    Write-Host "0"
     exit
 }
 
@@ -47,12 +47,12 @@ $TargetSysmonVersion = (Get-Content "$PFPATH\ossec-agent\shared\sysmon-target-ve
 
 # Write fail string and exit if fltmc.exe indicates Sysmon is not loadded under default name (SysmonDrv)
 if ( -not ( ( (fltMC.exe) | Out-String) -match 'SysmonDrv' ) ) {
-    echo "$TargetSysmonVersion"
+    Write-Host "$TargetSysmonVersion" -NoNewline
     exit
 }
 
 if ( ($InstalledInstallerVersion -ne $TargetSysmonVersion) -or ($InstalledDriverVersion -ne $TargetSysmonVersion) ) {
-    echo "$TargetSysmonVersion"
+    Write-Host "$TargetSysmonVersion" -NoNewline
     exit
 }
 
@@ -70,5 +70,5 @@ if ( $hashInUse -ne $hashLatest ) {
 	$hashLatest | Out-File -FilePath "$PFPATH\ossec-agent\sysmonconfig.md5" -Encoding ASCII
 }
 
-echo "0"
+Write-Host "0"
 exit
