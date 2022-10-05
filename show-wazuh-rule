@@ -16,7 +16,7 @@ if [ ! -z "$FILES" ];then
         for F in $FILES; do
         echo $F":"
         echo
-        grep  -Pzo "^.*<rule id=\"$ID\" .*(.|\n)*?</rule>" $F -h
+        grep  -Pzo "^[\s|\t]*<rule id=\"$ID\" .*(.|\n)*?</rule>" $F -h
         echo -ne "\n"
    done
 else
