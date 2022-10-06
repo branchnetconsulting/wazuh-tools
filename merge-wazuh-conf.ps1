@@ -39,16 +39,6 @@ If ([Environment]::Is64BitOperatingSystem) {
     $PFPATH="C:\Program Files"
 }
 
-#  If no custbin directory is present yet, then create it and copy this script into it
-if ( -not (Test-Path -LiteralPath "$PFPATH\ossec-agent\custbin\merge-wazuh-conf.ps1" -PathType Leaf ) ) {
-	# Discover full path and name of this script where is is presently being run from.
-	$thisScriptName = & { $myInvocation.ScriptName }
-	# Create custbin directory if needed
-	New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\custbin" -erroraction 'silentlycontinue' | out-null
-	# Copy this script there
-	Copy-Item $thisScriptName "$PFPATH\ossec-agent\custbin\merge-wazuh-conf.ps1"
-}
-
 # If Wazuh agent conf.d directory is not yet present, then create it and populate it with a 000-base.conf copied from current ossec.conf file.
 $MergeConfig = @"
 <ossec_config>
