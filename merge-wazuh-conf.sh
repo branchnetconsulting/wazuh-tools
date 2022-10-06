@@ -37,6 +37,7 @@ if  [ ! -d /var/ossec/etc/conf.d ]; then
     cp /var/ossec/etc/ossec.conf /var/ossec/etc/conf.d/000-base.conf 2> /dev/null
     # If the newly generated 000-base.conf (from old ossec.conf) is missing the merge-wazuh-conf command section, then append it now.
     if [[ ! `grep merge-wazuh-conf /var/ossec/etc/conf.d/000-base.conf 2> /dev/null` ]]; then
+        echo "" >> /var/ossec/etc/conf.d/000-base.conf
         echo "
 <ossec_config>
     <localfile>
@@ -60,8 +61,12 @@ fi
 # Merge conf.d/*.conf into conf.d/config.merged
 files=`ls /var/ossec/etc/conf.d/*.conf`
 rm /var/ossec/etc/conf.d/config.merged 2> /dev/null
-cat $files > /var/ossec/etc/conf.d/config.merged 2> /dev/null
-
+touch /var/ossec/etc/conf.d/config.merged
+for file in $files
+    echo -e "<!--\nFrom conf.d/$file\n-->" >> /var/ossec/etc/conf.d/config.merged 2> /dev/null
+    cat $file >> /var/ossec/etc/conf.d/config.merged 2> /dev/null
+    echo "" >> /var/ossec/etc/conf.d/config.merged 2> /dev/null
+done
 # If the rebuilt config.merged file is the same (by MD5 hash) as the main ossec.conf then there is nothing more to do.
 hash1=`md5sum /var/ossec/etc/conf.d/config.merged | awk '{print $1}'`
 hash2=`md5sum /var/ossec/etc/ossec.conf | awk '{print $1}'`
