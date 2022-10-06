@@ -32,13 +32,13 @@ InstalledVersion=`echo $InstalledVersion | sed 's/\s*\([^\s]\+\)\s*/\1/'`
 TargetOsqueryVersion=`cat /var/ossec/etc/shared/osquery-target-version`
 TargetOsqueryVersion=`echo $TargetOsqueryVersion | sed 's/\s*\([^\s]\+\)\s*/\1/'`
 
-sleep 10
-if [[ ! `ps auxw | grep -v grep | egrep "osqueryd.*osquery-linux.conf"` ]]; then
+if [ ! "$InstalledVersion" = "$TargetOsqueryVersion" ]; then
     echo "$TargetOsqueryVersion"
     exit
 fi
 
-if [ ! "$InstalledVersion" = "$TargetOsqueryVersion" ]; then
+sleep 10
+if [[ ! `ps auxw | grep -v grep | egrep "osqueryd.*osquery-linux.conf"` ]]; then
     echo "$TargetOsqueryVersion"
     exit
 fi
