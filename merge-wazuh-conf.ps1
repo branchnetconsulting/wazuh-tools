@@ -93,7 +93,7 @@ if ($hash1 -eq $hash2) {
     Start-Service WazuhSvc
     Start-Sleep -s 5
     # If after replacing ossec.conf and restarting, the Wazuh Agent fails to start, then revert to the backed up ossec.conf, restart, and hopefully recovering the service.
-    if ( ( -not ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) ) -or ( -not ( ( netstat -nat ) –match ':1514[^\d]+ESTABLISHED' ) ) ) {
+    if ( ( -not ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) ) -or ( -not ( ( netstat -nat ) -match ':1514[^\d]+ESTABLISHED' ) ) ) {
         Write-EventLog -LogName "Application" -Source "BNC-SIEM-Instrumentation" -EventID 10001 -EntryType Error -Message "merge-wazuh-conf.ps1 new ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..." -Category 0
         Move-Item "$PFPATH\ossec-agent\ossec.conf" "$PFPATH\ossec-agent\ossec.conf-BAD" -Force
         Move-Item "$PFPATH\ossec-agent\ossec.conf-BACKUP" "$PFPATH\ossec-agent\ossec.conf" -Force
@@ -101,7 +101,7 @@ if ($hash1 -eq $hash2) {
         Start-Service WazuhSvc
         Start-Sleep -s 5
         # Indicate if the service was successfully recovered by reverting ossec.conf.
-        if ( ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) -and ( ( netstat -nat ) –match ':1514[^\d]+ESTABLISHED' ) ) {
+        if ( ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) -and ( ( netstat -nat ) -match ':1514[^\d]+ESTABLISHED' ) ) {
             Write-EventLog -LogName "Application" -Source "BNC-SIEM-Instrumentation" -EventID 10002 -EntryType Information -Message "merge-wazuh-conf.ps1 reverted ossec.conf and Wazuh agent successfully restarted..." -Category 0
         } else {
             Write-EventLog -LogName "Application" -Source "BNC-SIEM-Instrumentation" -EventID 10003 -EntryType Error -Message "merge-wazuh-conf.ps1 reverted ossec.conf and Wazuh agent still failed to start." -Category 0
