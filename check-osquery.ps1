@@ -38,12 +38,13 @@ if ( -not (Test-Path -LiteralPath "$PFPATH\ossec-agent\shared\osquery-target-ver
 $InstalledVersion = & 'C:\Program Files\osquery\osqueryi.exe' --csv 'select version from osquery_info;' | select -Last 1
 $TargetOsqueryVersion = (Get-Content "$PFPATH\ossec-agent\shared\osquery-target-version.txt" -TotalCount 1).Trim()
 
-if ((get-process "osqueryd" -ErrorAction SilentlyContinue) -eq $Null) {
+if ($InstalledVersion -ne $TargetOsqueryVersion) {
     echo "$TargetOsqueryVersion"
     exit
 }
 
-if ($InstalledVersion -ne $TargetOsqueryVersion) {
+Start-Sleep 10
+if ((get-process "osqueryd" -ErrorAction SilentlyContinue) -eq $Null) {
     echo "$TargetOsqueryVersion"
     exit
 }
