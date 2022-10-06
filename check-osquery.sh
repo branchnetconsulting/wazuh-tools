@@ -22,14 +22,14 @@
 #
 # Is Osquery expected for this OS environment?
 
-if [ ! -f /var/ossec/etc/shared/osquery-target-version ]; then
+if [ ! -f /var/ossec/etc/shared/osquery-target-version.txt ]; then
     echo "0"
     exit
 fi
 
 InstalledVersion=`/usr/bin/osqueryi --csv "select version from osquery_info;" | tail -n1`
 InstalledVersion=`echo $InstalledVersion | sed 's/\s*\([^\s]\+\)\s*/\1/'`
-TargetOsqueryVersion=`cat /var/ossec/etc/shared/osquery-target-version`
+TargetOsqueryVersion=`cat /var/ossec/etc/shared/osquery-target-version.txt`
 TargetOsqueryVersion=`echo $TargetOsqueryVersion | sed 's/\s*\([^\s]\+\)\s*/\1/'`
 
 if [ ! "$InstalledVersion" = "$TargetOsqueryVersion" ]; then
