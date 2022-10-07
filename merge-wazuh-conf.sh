@@ -64,7 +64,7 @@ fi
 files=`ls /var/ossec/etc/conf.d/*.conf`
 rm /var/ossec/etc/conf.d/config.merged 2> /dev/null
 touch /var/ossec/etc/conf.d/config.merged
-for file in $files
+for file in $files; do
     echo -e "<!--\nFrom conf.d/$file\n-->" >> /var/ossec/etc/conf.d/config.merged 2> /dev/null
     cat $file >> /var/ossec/etc/conf.d/config.merged 2> /dev/null
     echo "" >> /var/ossec/etc/conf.d/config.merged 2> /dev/null
