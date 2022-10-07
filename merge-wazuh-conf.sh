@@ -61,12 +61,12 @@ if [ -f /var/ossec/etc/ossec.conf-BAD ] && [ $((`date +%s` - `stat -c %Y /var/os
 fi
 
 # Merge conf.d/*.conf into conf.d/config.merged
-files=`ls /var/ossec/etc/conf.d/*.conf`
+files=`cd /var/ossec/etc/conf.d; ls *.conf`
 rm /var/ossec/etc/conf.d/config.merged 2> /dev/null
 touch /var/ossec/etc/conf.d/config.merged
 for file in $files; do
     echo -e "<!--\nFrom conf.d/$file\n-->" >> /var/ossec/etc/conf.d/config.merged 2> /dev/null
-    cat $file >> /var/ossec/etc/conf.d/config.merged 2> /dev/null
+    cat /var/ossec/etc/conf.d/$file >> /var/ossec/etc/conf.d/config.merged 2> /dev/null
     echo "" >> /var/ossec/etc/conf.d/config.merged 2> /dev/null
 done
 # If the rebuilt config.merged file is the same (by MD5 hash) as the main ossec.conf then there is nothing more to do.
