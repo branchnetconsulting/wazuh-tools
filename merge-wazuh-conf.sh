@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 # merge-wazuh-conf.sh
 # version 1.0
