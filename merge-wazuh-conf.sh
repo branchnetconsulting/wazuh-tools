@@ -43,7 +43,7 @@ if  [ ! -d /var/ossec/etc/conf.d ]; then
     <localfile>
        <log_format>command</log_format>
        <alias>merge-wazuh-conf</alias>
-       <command>/usr/local/bin/merge-wazuh-conf.sh</command>
+       <command>custbin/merge-wazuh-conf.sh</command>
        <frequency>86400</frequency>
     </localfile>
 </ossec_config>
