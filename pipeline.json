@@ -139,6 +139,13 @@
         "ignore_failure": true
       }
     },
+    {
+      "rename": {
+        "field": "destination.as.organization_name",
+        "target_field": "destination.as.organization.name",
+        "ignore_failure": true
+      }
+    },
     
     {
       "gsub": {
