@@ -561,7 +561,7 @@ else
 fi
 
 # Create /var/ossec/custbin and write merge-wazuh-conf.sh file to it.
-writeMergeScript
+# writeMergeScript
 
 if [[ `which systemctl 2> /dev/null` ]]; then
 	systemctl enable wazuh-agent
@@ -678,7 +678,7 @@ else
         service wazuh-agent restart
 fi
 
-/var/ossec/custbin/merge-wazuh-conf.sh
+# /var/ossec/custbin/merge-wazuh-conf.sh
 
 echo "Waiting 15 seconds before checking connection status to manager..."
 sleep 15
