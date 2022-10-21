@@ -696,7 +696,7 @@ if ($SysmonSrc -eq $null) {
 	}
 
 	# Create ossec-agent\custbin and write merge-wazuh-conf.ps1 file to it.
-	writeMergeScript
+	# writeMergeScript
 
 	# If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
 	if ( ($MightRecycleRegistration) -and ( ($CurrentGroups -eq $WazuhGroups) -or ($SkippedGroups) ) ) { 
@@ -923,7 +923,7 @@ sca.remote_commands=1
 	Start-Service WazuhSvc
 
 	# Do first-time execution of conf.d merge script to build a merged ossec.conf from conf.d files
-	& "$PFPATH\ossec-agent\custbin\merge-wazuh-conf.ps1"
+	# & "$PFPATH\ossec-agent\custbin\merge-wazuh-conf.ps1"
 
 	# After 15 seconds confirm agent connected to manager
 	if ($Debug) { Write-Output "Pausing for 15 seconds to allow agent to connect to manager..." }
