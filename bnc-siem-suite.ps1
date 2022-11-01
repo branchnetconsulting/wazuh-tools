@@ -545,7 +545,7 @@ function installSuite {
 		exit 1
 	}
 	if ( ($OsqueryVer -eq $null) -and ( $SkipOsquery -eq $false ) -and ( $OsquerySrc -eq $null ) ) { 
-		write-host "Must use '-OsqueryVer' to specify the password to use for agent registration."
+		write-host "Must use '-OsqueryVer' to specify the target version for Osquery."
 		exit 1
 	}
 	# Force skip Sysmon and Osquery if Windows is older then Win 10 or Win Svr 2012
