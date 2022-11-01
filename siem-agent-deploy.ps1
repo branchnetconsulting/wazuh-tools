@@ -714,14 +714,16 @@ $ConfigToWrite = @"
 	}
 
 	if ($Debug) { Write-Output "This agent has successfully connected to the Wazuh manager!" }
-	if ( $Debug -and ( -not ( $SkipSysmon  ) ) ) { Write-Output "Sysmon should be automatically provisioned in an hour or less." }
-	if ( $Debug -and ( -not ( $SkipOsquery ) ) ) { Write-Output "Osquery should be automatically provisioned in an hour or less." }
+	if ( $Debug -and ( -not ( $SkipSysmon  ) ) ) { Write-Output "Sysmon should be automatically provisioned/reprovisioned in an hour or less as needed." }
+	if ( $Debug -and ( -not ( $SkipOsquery ) ) ) { Write-Output "Osquery should be automatically provisioned/reprovisioned in an hour or less as needed." }
 	exit 0
 }
 
 #
 # Main
 #
+
+New-EventLog -LogName 'Application' -Source "Wazuh-Modular" -ErrorAction 'silentlycontinue'
 
 # Set https protocol defaults to try stronger TLS first and allow all three forms of TLS
 [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
