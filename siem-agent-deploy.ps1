@@ -136,7 +136,7 @@ O7bM4haWNBQkxEU=
 #
 function writeMergeScript {
 	
-$ScriptToWrite = @"
+$ScriptToWrite = @'
 #
 # merge-wazuh-conf.ps1
 # version 1.1
@@ -233,7 +233,7 @@ if ($hash1 -eq $hash2) {
         }
     }
 }
-"@
+'@
 New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\scripts" -erroraction 'silentlycontinue' | out-null
 $ScriptToWrite | Out-File -FilePath "$PFPATH\ossec-agent\scripts\merge-wazuh-conf.ps1" -Encoding "UTF8"
 }
@@ -676,19 +676,19 @@ $ConfigToWrite = @"
 			<enabled>no</enabled>
 		</enrollment>
 	</client>
-    <agent-upgrade>
-        <ca_verification>
-            <enabled>yes</enabled>
-            <ca_store>wpk_root.pem</ca_store>
-            <ca_store>bnc_wpk_root.pem</ca_store>
-        </ca_verification>
-    </agent-upgrade>
-    <localfile>
-        <log_format>command</log_format>
-        <alias>merge-wazuh-conf</alias>
-        <command>PowerShell.exe -ExecutionPolicy Bypass -File custbin/merge-wazuh-conf.ps1</command>
-        <frequency>86400</frequency>
-    </localfile>  
+	<agent-upgrade>
+		<ca_verification>
+			<enabled>yes</enabled>
+			<ca_store>wpk_root.pem</ca_store>
+			<ca_store>bnc_wpk_root.pem</ca_store>
+		</ca_verification>
+	</agent-upgrade>
+	<localfile>
+		<log_format>command</log_format>
+		<alias>merge-wazuh-conf</alias>
+		<command>PowerShell.exe -ExecutionPolicy Bypass -File scripts/merge-wazuh-conf.ps1</command>
+		<frequency>86400</frequency>
+	</localfile>  
 </ossec_config>
 "@
 	$ConfigToWrite | Out-File -FilePath "$PFPATH/ossec-agent/ossec.conf" -Encoding ASCII
@@ -702,7 +702,7 @@ $ConfigToWrite = @"
 	Start-Service WazuhSvc
 
 	# Do first-time execution of conf.d merge script to build a merged ossec.conf from conf.d files
-	& "$PFPATH\ossec-agent\custbin\merge-wazuh-conf.ps1"
+	& "$PFPATH\ossec-agent\scripts\merge-wazuh-conf.ps1"
 
 	# After 15 seconds confirm agent connected to manager
 	if ($Debug) { Write-Output "Pausing for 15 seconds to allow agent to connect to manager..." }
