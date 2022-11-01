@@ -293,26 +293,26 @@ function checkAgent {
 	# Is the agent presently really connected to the Wazuh manager?
 	#
 	if (Test-Path "$PFPATH\ossec-agent\wazuh-agent.state" -PathType leaf) {
-		$StateFile = Get-Content "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
+		$StateFile = Get-Content "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'		
+		if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {
+			if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds." }
+			Start-Sleep -Seconds 90
+			if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {	
+				if ($Debug) { Write-Output "The Wazuh agent is still not connected to the Wazuh manager." }
+				return
+			}	
+		}
 	} else {
 		$StateFile = Get-Content "$PFPATH\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
 	}	
-	if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {
-		if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds." }
-		Start-Sleep -Seconds 90
-	       	if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {	
-	        	if ($Debug) { Write-Output "The Wazuh agent is still not connected to the Wazuh manager." }
-			return
-		}	
-	}
 
-    #
-    # Connected to the right manager?
-    #
-    if ( -not ( $CurrentManager -eq $WazuhMgr ) ) {
-        if ($Debug) { Write-Output "The Wazuh agent is connected to a different manager than the target manager." }
-		return
-    }
+        #
+        # Connected to the right manager?
+        #
+        if ( -not ( $CurrentManager -eq $WazuhMgr ) ) {
+            if ($Debug) { Write-Output "The Wazuh agent is connected to a different manager than the target manager." }
+	    return
+        }
 
 	#
 	# Is the agent currently a member of all intended Wazuh agent groups?
