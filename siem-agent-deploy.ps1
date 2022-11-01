@@ -496,10 +496,6 @@ function installSuite {
 		write-host "Must use '-WazuhVer' to specify the target version of Wazuh agent, like 3.13.1."
 		exit 1
 	}
-	if ( ($OsqueryVer -eq $null) -and ( $SkipOsquery -eq $false ) -and ( $OsquerySrc -eq $null ) ) { 
-		write-host "Must use '-OsqueryVer' to specify the password to use for agent registration."
-		exit 1
-	}
 	# Force skip Sysmon and Osquery if Windows is older then Win 10 or Win Svr 2012
 	if ( [int]((Get-CimInstance Win32_OperatingSystem).BuildNumber) -lt 9200 ) {
 	     Write-Output "Windows older than 10/2012, so skipping Sysmon and Osquery..."
