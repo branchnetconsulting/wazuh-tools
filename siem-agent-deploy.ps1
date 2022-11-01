@@ -1,13 +1,13 @@
 #
-# bnc-siem-suite.ps1
+# siem-agent-deploy.ps1
 #
-# This script is for checking and/or installing the BNC SIEM suite on Windows systems.  It can directly install or uninstall it, conditionally install it, or simply check to see if installation/reinstallation is needed.
-# The BNC SIEM suite for Windows presently includes Wazuh agent integrated for centralized configuration and reporting via the Wazuh manager.  
+# This script is for checking and/or installing the Wazuh agent on Windows systems.  It can directly install or uninstall it, conditionally install it, or simply check to see if installation/reinstallation is needed.
+# The Wazuh agent for Windows presently includes Wazuh agent integrated for centralized configuration and reporting via the Wazuh manager.  
 # It also defaults to signalling to the Wazuh manager to push the Sysmon and/or Osquery management WPKs to this agent, which can be optionally excluded.
 #
-# Depending on the use case, this script can be called singly on a one time or periodic basis to conditionally install/reinstall the suite.  
+# Depending on the use case, this script can be called singly on a one time or periodic basis to conditionally install/reinstall the agent.  
 # Alternatively, a higher level configuration management system like Puppet could first call this script just to check if installation/reinstallation is called for, and based on the exit code it receives, 
-# conditionally call this script a second time to explicitly install/reinstall the suite.
+# conditionally call this script a second time to explicitly install/reinstall the agent.
 #
 # Deployment will install Wazuh agent on Ubuntu, CentOS, and Amazon Linux systems.
 # After preserving the working Wazuh agent registration key if present, Wazuh/OSSEC agent is completely purged and then reinstalled.
@@ -15,7 +15,7 @@
 # The Wazuh agent self registration process is included, but will be skipped if an existing working registration can be recycled.
 # Agent name and group names must match exactly for registration to be recycled. This will keep the same agent id associated with the agent.
 #
-# If any of the listed test families fail, the SIEM packages will be (re)installed.
+# If any of the listed test families fail, the Wazuh agent will be (re)installed.
 #
 # If the call to this script is deemed broken, or either the Wazuh Manager connect port or registration port are unresponsive to a probe, an exit code of 2 will be returned.
 #
@@ -54,7 +54,7 @@
 #
 # Sample command line:
 #
-# PowerShell.exe -ExecutionPolicy Bypass -File .\bnc-siem-suite.ps1 -WazuhVer "4.3.9" -WazuhMgr "{Manager DNS or IP}" -WazuhRegPass "{Your_Password}" -WazuhGroups "{Your_comma_separated_group_list}" -Debug
+# PowerShell.exe -ExecutionPolicy Bypass -File .\siem-agent-deploy.ps1 -WazuhVer "4.3.9" -WazuhMgr "{Manager DNS or IP}" -WazuhRegPass "{Your_Password}" -WazuhGroups "{Your_comma_separated_group_list}" -Debug
 #
 # Please note that the following groups are built into the script and should be added to the Wazuh Manager PRIOR to any use of this script.
 #
@@ -239,11 +239,11 @@ $ScriptToWrite | Out-File -FilePath "$PFPATH\ossec-agent\scripts\merge-wazuh-con
 }
 
 #
-# Check if SIEM suite deployment is in the target state.  If this cannot be determined due to an invalid call on failed probe of the Wazuh manager, fail and bail with exit code 2.
+# Check if Wazuh agent deployment is in the target state.  If this cannot be determined due to an invalid call on failed probe of the Wazuh manager, fail and bail with exit code 2.
 # If no install/reinstall appears to be needed, then bail with an exit code of 0.
 # If a installation/reinstallation is called for, then simply return.
 #
-function checkSuite {
+function checkAgent {
 
 	# Relevant script parameters
 	#		
@@ -369,7 +369,7 @@ function checkSuite {
 # Uninstall Wazuh Agent, and unless skipped
 # As part of the Wazuh Agent uninstall process, ascertain if we might be in a position to recycle the agent registration, and set the flag and preserve information accordingly.
 #
-function uninstallSuite {
+function uninstallAgent {
 
 	# Relevant script parameters
 	#		
@@ -377,7 +377,7 @@ function uninstallSuite {
 	# -WazuhAgentName	Name under which to register this agent in place of locally detected Windows host name
 	# -Uninstall		Uninstall without checking and without installing thereafter
 
-	if ($Debug) { Write-Output "Uninstalling the SIEM suite." }
+	if ($Debug) { Write-Output "Uninstalling the Wazuh agent." }
 	
 	if (Test-Path "$PFPATH\ossec-agent\ossec.log" -PathType leaf) {
 		Copy-Item "$PFPATH\ossec-agent\ossec.log" -Destination "$Env:SystemDrive\Windows\Temp\"
@@ -470,7 +470,7 @@ function uninstallSuite {
 #
 # Install Wazuh Agent, recycling an existing registration if possible and otherwise re-registering it.
 #
-function installSuite {
+function installAgent {
 
 	# Relevant script parameters
 	#		
@@ -753,9 +753,9 @@ if (Test-Path "$PFPATH\ossec-agent\ossec.conf" -PathType leaf) {
 }
 
 # Check if install/reinstall is called for unless an install or uninstall is being forced with -Install or -Uninstall
-# checkSuite will bail unless an install/reinstall is called for.
+# checkAgent will bail unless an install/reinstall is called for.
 if ( -not ( ($Install) -or ($Uninstall) ) ) {
-	checkSuite
+	checkAgent
 }
 
 # If all we are doing is a check, then the check must have indicated a install/reinstall was needed, so return an exit code of 1 now.
@@ -763,12 +763,12 @@ if ( $CheckOnly ) {
 	exit 1
 }
 
-# Uninstall the SIEM suite whether or not a fresh installation is to follow.  Bail if it cannot uninstall everything satisfactorily (exit code 1)
-uninstallSuite
+# Uninstall the Wazuh Agent whether or not a fresh installation is to follow.  Bail if it cannot uninstall everything satisfactorily (exit code 1)
+uninstallAgent
 
 # Continue to the installation phase unless this was just a -Uninstall call to the script.  Fail and bail with exit code 1 if cannot install/deploy completely
 if ( -not ($Uninstall) ) {
-	installSuite
+	installAgent
 }
 
 # Uninstall or uninstall&install process must have succeeded, so close down with code 0.
