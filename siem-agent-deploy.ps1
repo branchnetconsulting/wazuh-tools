@@ -302,8 +302,17 @@ function checkAgent {
 				return
 			}	
 		}
-	} else {
+	}
+	if (Test-Path "$PFPATH\ossec-agent\ossec-agent.state" -PathType leaf) {
 		$StateFile = Get-Content "$PFPATH\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
+		if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {
+			if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds." }
+			Start-Sleep -Seconds 90
+			if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {	
+				if ($Debug) { Write-Output "The Wazuh agent is still not connected to the Wazuh manager." }
+				return
+			}	
+		}
 	}	
 
         #
