@@ -665,7 +665,7 @@ function installAgent {
 	if ($Debug) {  Write-Output "Writing ossec.conf" }
 	# Write the ossec.conf file
 $ConfigToWrite = @"
-<!-- BNC Wazuh Agent Extension 1.0 -->
+<!-- Wazuh Modular version 1.0 -->
 <ossec_config>
 	<client>
 		<server>
