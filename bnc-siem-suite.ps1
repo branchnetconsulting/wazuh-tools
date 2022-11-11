@@ -214,6 +214,7 @@ function checkSuite {
 		if ($Debug) { Write-Output "The Wazuh agent is connected to a Wazuh manager." }
 	} else {
 		if ( $StateFile.LastWriteTime -gt (Get-Date).AddMinutes(-10) ) {
+			if ($Debug) { Write-Output "Waiting 70 seconds to see if Wazuh agent is only temporarily disconnected from manager." }
 			Start-Sleep -Seconds 70
 			$StateFile = Get-Item -Path "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction SilentlyContinue
 			if ( (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
