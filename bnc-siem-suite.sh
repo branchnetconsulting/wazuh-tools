@@ -220,7 +220,7 @@ apt-get -y purge wazuh-agent 2> /dev/null
 apt-get -y purge ossec-hids-agent 2> /dev/null
 apt-get -y purge ossec-agent 2> /dev/null
 kill -kill `ps auxw | grep "/var/ossec/bin" | grep -v grep | awk '{print $2}'` 2> /dev/null
-rm -rf /var/ossec /etc/ossec-init.conf 2> /dev/null
+rm -rf /var/ossec 2> /dev/null
 # Clean out any previous Osquery
 dpkg --purge osquery 2> /dev/null
 yum -y erase osquery 2> /dev/null
@@ -239,7 +239,7 @@ if [ -f /etc/nsm/securityonion.conf ]; then
 		if [ $Debug == 1 ]; then echo -e "\n*** This deploy script cannot be used on a system where Security Onion is installed."; fi
         exit 2
 fi
-if [[ `grep -s server /etc/ossec-init.conf` ]]; then
+if [ -f /var/ossec/bin/agent_control ]; then
         if [ $Debug == 1 ]; then echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."; fi
         exit 2
 fi
@@ -365,7 +365,7 @@ fi
 #
 # Is the target version of Wazuh agent installed?
 #
-if [ -f /var/ossec/bin/wazuh-control ] && [[ `/var/ossec/bin/wazuh-control info | grep "\"v$WazuhVer\""` ]] || [[ `grep "\"v$WazuhVer\"" /etc/ossec-init.conf` ]]; then
+if [ -f /var/ossec/bin/wazuh-control ] && [[ `/var/ossec/bin/wazuh-control info | grep "\"v$WazuhVer\""` ]]; then
         if [ $Debug == 1 ]; then echo "The running Wazuh agent appears to be at the desired version ($WazuhVer)."; fi
 else
         if [ $Debug == 1 ]; then echo "*** The running Wazuh agent does not appear to be at the desired version ($WazuhVer)."; fi
@@ -425,7 +425,7 @@ if [ -f /etc/nsm/securityonion.conf ]; then
         show_usage
         exit 2
 fi
-if [[ `grep server /etc/ossec-init.conf` ]]; then
+if [ -f /var/ossec/bin/agent_control ]; then
         echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."
         show_usage
         exit 2
