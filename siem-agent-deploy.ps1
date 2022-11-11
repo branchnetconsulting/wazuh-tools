@@ -269,51 +269,52 @@ function checkAgent {
 		exit 2
 	}
 
-	# Confirm the self registration and agent connection ports on the manager(s) are responsive.  
-	# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
-	tprobe $WazuhMgr 1514
-	tprobe $WazuhRegMgr 1515
-
-	# If -LBprobe flag set, then additionally confirm the manager is reachable by intentionally attempting an agent-auth with a bad password
-	# to see if "Invalid password" is in the output, which would probe a real Wazuh registration service is reachable on port 1515.
-	if ( ( $LBprobe ) -and ( Test-Path -LiteralPath "$PFPATH\ossec-agent\agent-auth.exe") ) {
-		if ($Debug) { Write-Output "Performing a load-balancer-aware check via an agent-auth.exe call to confirm manager is truly reachable..." }
-		Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
-		Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "badpass" -Wait -WindowStyle 'Hidden' -redirectstandarderror "agent-auth-test-probe"
-		if (  ( -not ( Test-Path -LiteralPath "agent-auth-test-probe" ) ) -or ( -not ( Get-Content "agent-auth-test-probe" | select-String "Invalid password" ) ) ) {
+	$StateFile = Get-Item -Path "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction SilentlyContinue
+	if ( (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
+		if ($Debug) { Write-Output "Agent is connected to a manager." }	
+	} else {
+		if ($Debug) { Write-Output "Agent is not connected to a manager, so will probe next." }	
+		# Confirm the self registration and agent connection ports on the manager(s) are responsive.  
+		# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
+		tprobe $WazuhMgr 1514
+		tprobe $WazuhRegMgr 1515
+		# If -LBprobe flag set, then additionally confirm the manager is reachable by intentionally attempting an agent-auth with a bad password
+		# to see if "Invalid password" is in the output, which would probe a real Wazuh registration service is reachable on port 1515.
+		if ( ( $LBprobe ) -and ( Test-Path -LiteralPath "$PFPATH\ossec-agent\agent-auth.exe") ) {
+			if ($Debug) { Write-Output "Performing a load-balancer-aware check via an agent-auth.exe call to confirm manager is truly reachable..." }
 			Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
-			if ($Debug) { Write-Output "LBprobe check failed.  Manager is not truly reachable." }
-			exit 2
+			Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "badpass" -Wait -WindowStyle 'Hidden' -redirectstandarderror "agent-auth-test-probe"
+			if (  ( -not ( Test-Path -LiteralPath "agent-auth-test-probe" ) ) -or ( -not ( Get-Content "agent-auth-test-probe" | select-String "Invalid password" ) ) ) {
+				Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
+				if ($Debug) { Write-Output "LBprobe check failed.  Manager is not truly reachable." }
+				exit 2
+			}
+			Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
+			if ($Debug) { Write-Output "LBprobe check succeeded.  Manager is truly reachable." }
 		}
-		Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
-		if ($Debug) { Write-Output "LBprobe check succeeded.  Manager is truly reachable." }
 	}
 
 	#
-	# Is the agent presently really connected to the Wazuh manager?
+	# Is the agent presently really connected to a Wazuh manager?
 	#
-	if (Test-Path "$PFPATH\ossec-agent\wazuh-agent.state" -PathType leaf) {
-		$StateFile = Get-Content "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'		
-		if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {
-			if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds." }
-			Start-Sleep -Seconds 90
-			if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {	
-				if ($Debug) { Write-Output "The Wazuh agent is still not connected to the Wazuh manager." }
+	if ( (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
+		if ($Debug) { Write-Output "The Wazuh agent is connected to a Wazuh manager." }
+	} else {
+		if ( $StateFile.LastWriteTime -gt (Get-Date).AddMinutes(-10) ) {
+			if ($Debug) { Write-Output "Waiting 70 seconds to see if Wazuh agent is only temporarily disconnected from manager." }
+			Start-Sleep -Seconds 70
+			$StateFile = Get-Item -Path "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction SilentlyContinue
+			if ( (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
+				if ($Debug) { Write-Output "The Wazuh agent is now connected to a Wazuh manager." }
+			} else {
+				if ($Debug) { Write-Output "The Wazuh agent is still not connected to a Wazuh manager." }
 				return
-			}	
+			}
+		} else {
+			if ($Debug) { Write-Output "The Wazuh agent is not connected to a Wazuh manager." }
+			return
 		}
 	}
-	if (Test-Path "$PFPATH\ossec-agent\ossec-agent.state" -PathType leaf) {
-		$StateFile = Get-Content "$PFPATH\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
-		if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {
-			if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds." }
-			Start-Sleep -Seconds 90
-			if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {	
-				if ($Debug) { Write-Output "The Wazuh agent is still not connected to the Wazuh manager." }
-				return
-			}	
-		}
-	}	
 
         #
         # Connected to the right manager?
@@ -433,11 +434,7 @@ function uninstallAgent {
 		#	- the current and target manager are the same
 		#	- the current and target agent name are the same
 		#	- the agent group list is exactly the same (unless ignored by ommittance of -WazuhGroups)
-		if (Test-Path "$PFPATH\ossec-agent\wazuh-agent.state" -PathType leaf) {
-			$StateFile = Get-Content "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
-		} else {
-			$StateFile = Get-Content "$PFPATH\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
-		}
+		$StateFile = Get-Content "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction 'silentlycontinue'
 		$MergedFile = Get-Content "$PFPATH\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
 		$MergedFileName = "$PFPATH\ossec-agent\shared\merged.mg"
 		$CurrentAgentName=(Get-Content "$PFPATH\ossec-agent\client.keys").Split(" ")[1]
