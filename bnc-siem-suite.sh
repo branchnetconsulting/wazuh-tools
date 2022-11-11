@@ -270,6 +270,7 @@ fi
 sfage=$((`date +%s`-$mtime))
 
 if [[ ! -f /var/ossec/var/run/wazuh-agentd.state || ! `grep "status='connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` || $sfage -gt 70 ]]; then
+	if [ $Debug == 1 ]; then echo "Agent is clearly not present or not connected to manager.  Testing reachability of manager..."; fi
 	# Confirm the self registration and agent connection ports on the manager(s) are responsive.
 	# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
 	tprobe $WazuhMgr 1514
