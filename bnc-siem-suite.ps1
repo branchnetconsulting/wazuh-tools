@@ -490,6 +490,7 @@ function uninstallSuite {
 	If ( -not ($SkipOsquery) ) {
 		if (Test-Path "c:\Program Files\osquery\osqueryd\osqueryd.exe" -PathType leaf)  {
 			if ($Debug) { Write-Output "Removing Osquery..." }
+			net stop osqueryd
 			Uninstall-Package -Name "osquery" -erroraction 'silentlycontinue' | out-null
 			Remove-Item "C:\Progra~1\osquery" -recurse -erroraction 'silentlycontinue'
 		}
