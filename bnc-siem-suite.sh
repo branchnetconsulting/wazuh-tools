@@ -289,6 +289,12 @@ else
 	if [ $sfage -lt 70 ]; then
 		if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to a Wazuh manager, waiting 70 seconds."; fi
 		sleep 70
+		# Recalculate how old the state file is ( 0 means absent )
+		mtime=`stat -c%Y /var/ossec/var/run/wazuh-agentd.state 2> /dev/null`
+		if [[ "$mtime" == "" ]]; then
+			mtime=0
+		fi
+		sfage=$((`date +%s`-$mtime))		
 		if [[ $sfage -lt 70 && `grep "status='connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
 			if [ $Debug == 1 ]; then echo "Now the Wazuh agent is connected to a Wazuh manager."; fi
 		else
