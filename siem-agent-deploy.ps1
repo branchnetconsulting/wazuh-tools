@@ -732,8 +732,13 @@ New-Variable SkippedGroups -value $false -option AllScope
 #Set installation path based on 64 vs. 32-bit Windows OS
 $PFPATH="C:\Program Files (x86)"
 If ( -not ([Environment]::Is64BitOperatingSystem) ) {
-     Write-Output "Changing path variable to C:\Program Files for detected 32-bit Windows OS..."
-     $PFPATH="C:\Program Files"
+	Write-Output "Changing path variable to C:\Program Files for detected 32-bit Windows OS..."
+	$PFPATH="C:\Program Files"
+}
+
+if ( $CheckOnly -and $Install ) {
+	Write-Output "Cannot use -Install in combination with -CheckOnly."
+	exit 2
 }
 
 # Note currently configured Wazuh manager if Wazuh agent is installed.  Needed during check and uninstall phases.
