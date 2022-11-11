@@ -262,33 +262,43 @@ if [[ "$OsqueryVer" == "" && "$SkipOsquery" == "0" ]]; then
         exit 2
 fi
 
-# Confirm the self registration and agent connection ports on the manager(s) are responsive.
-# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
-tprobe $WazuhMgr 1514
-tprobe $WazuhRegMgr 1515
+# Determine how old the state file is ( 0 means absent )
+mtime=`stat -c%Y /var/ossec/var/run/wazuh-agentd.state 2> /dev/null`
+if [[ "$mtime" == "" ]]; then
+        mtime=0
+fi
+sfage=$((`date +%s`-$mtime))
 
-# Load Balancer Specific check for actual connection to a Wazuh Manager
-if [[ "$LBprobe" == "1" && -e /var/ossec/bin/agent-auth ]]; then 
-	if [ $Debug == 1 ]; then echo "Performing a load-balancer-aware check via an agent-auth.exe call to confirm manager is truly reachable..."; fi
-	rm /tmp/lbprobe
-        /var/ossec/bin/agent-auth -m $WazuhMgr -p1515 -P bad &> /tmp/lbprobe &
-        sleep 5
-        kill `ps auxw | grep agent-auth | grep -v grep | awk '{print $2}'` 2>/dev/null
-        if [[ `grep "Invalid password" /tmp/lbprobe` ]]; then
-                if [ $Debug == 1 ]; then echo "The Wazuh Manager auth daemon is reachable."; fi
-        else
-                if [ $Debug == 1 ]; then echo "Cannot reach Wazuh Manager auth daemon."; fi
-                exit 2
-        fi
+if [[ ! -f /var/ossec/var/run/wazuh-agentd.state || ! `grep "status='connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` || $sfage -gt 70 ]]; then
+	# Confirm the self registration and agent connection ports on the manager(s) are responsive.
+	# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
+	tprobe $WazuhMgr 1514
+	tprobe $WazuhRegMgr 1515
+	# Load Balancer Specific check for actual connection to a Wazuh Manager
+	if [[ "$LBprobe" == "1" && -e /var/ossec/bin/agent-auth ]]; then 
+		if [ $Debug == 1 ]; then echo "Performing a load-balancer-aware check via an agent-auth.exe call to confirm manager is truly reachable..."; fi
+		rm /tmp/lbprobe
+		/var/ossec/bin/agent-auth -m $WazuhMgr -p1515 -P bad &> /tmp/lbprobe &
+		sleep 5
+		kill `ps auxw | grep agent-auth | grep -v grep | awk '{print $2}'` 2>/dev/null
+		if [[ `grep "Invalid password" /tmp/lbprobe` ]]; then
+			if [ $Debug == 1 ]; then echo "The Wazuh Manager auth daemon is reachable."; fi
+		else
+			if [ $Debug == 1 ]; then echo "Cannot reach Wazuh Manager auth daemon."; fi
+			exit 2
+		fi
+	fi
 fi
 
 #
 # Is the agent presently really connected to the Wazuh manager?
 #
-if [[ ! `grep "'connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
-        if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds."; fi
-        sleep 90
-        if [[ ! `grep "'connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
+if [[ ! `grep "'connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` || $sfage -gt 70 ]]; then
+	if [ $sfage -lt 70 ]; then
+		if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds."; fi
+		sleep 90
+	fi
+	if [[ ! `grep "'connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
                 if [ $Debug == 1 ]; then echo "*** The Wazuh agent is still not connected to the Wazuh manager."; fi
                 if [ $CheckOnly == 1 ]; then
                         exit 1
