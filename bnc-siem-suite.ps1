@@ -184,7 +184,7 @@ function checkSuite {
 
 	$StateFile = Get-Item -Path "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction SilentlyContinue
 	if ( (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
-		if ($Debug) { Write-Output "Agent is clearly not present or not connected to manager.  Testing reachability of manager..." }	
+		if ($Debug) { Write-Output "Agent is connected to a manager." }	
 		# Confirm the self registration and agent connection ports on the manager(s) are responsive.  
 		# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
 		tprobe $WazuhMgr 1514
