@@ -281,23 +281,32 @@ if [[ ! -f /var/ossec/var/run/wazuh-agentd.state || ! `grep "status='connected'"
 fi
 
 #
-# Is the agent presently really connected to the Wazuh manager?
+# Is the agent presently really connected to a Wazuh manager (possibly not the right one)?
 #
-if [[ ! `grep "'connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` || $sfage -gt 70 ]]; then
+if [[ $sfage -lt 70 && `grep "status='connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
+	if [ $Debug == 1 ]; then echo "The Wazuh agent is connected to a Wazuh manager."; fi
+else
 	if [ $sfage -lt 70 ]; then
-		if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds."; fi
-		sleep 90
-	fi
-	if [[ ! `grep "'connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
-                if [ $Debug == 1 ]; then echo "*** The Wazuh agent is still not connected to the Wazuh manager."; fi
-                if [ $CheckOnly == 1 ]; then
+		if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to a Wazuh manager, waiting 70 seconds."; fi
+		sleep 70
+		if [[ $sfage -lt 70 && `grep "status='connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
+			if [ $Debug == 1 ]; then echo "Now the Wazuh agent is connected to a Wazuh manager."; fi
+		else
+			if [ $Debug == 1 ]; then echo "*** The Wazuh agent is still not connected to a Wazuh manager."; fi
+                	if [ $CheckOnly == 1 ]; then
+	                        exit 1
+	                else
+	                        deploysuite
+	                fi
+		fi
+	else
+		if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to a Wazuh manager."; fi
+               	if [ $CheckOnly == 1 ]; then
                         exit 1
                 else
                         deploysuite
                 fi
-        else
-                if [ $Debug == 1 ]; then echo "The Wazuh agent is connected to the Wazuh manager."; fi
-        fi
+	fi
 fi
 
 #
