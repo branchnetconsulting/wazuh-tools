@@ -364,7 +364,7 @@ function uninstallSuite {
 	}
 	
 	# NuGet Dependency
-	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
+	if ( -not (Get-PackageProvider -ListAvailable -Name NuGet -ErrorAction SilentlyContinue) ) {
 		if ($Debug) { Write-Output "Installing dependency (NuGet) to be able to uninstall other packages..." }
 		if ( $Local -eq $false ) {
 			cd c:\
