@@ -909,8 +909,8 @@ sca.remote_commands=1
 	Start-Service WazuhSvc
 	
 	if ($Debug) { write-output "Configuring WazuhSvc Windows service to auto-restart after a 15 minute delay if the service fails." }
-	& sc.exe failure wazuhsvc reset=86400 actions=restart/900000
-	& sc.exe failureflag wazuhsvc 1
+	& sc.exe failure wazuhsvc reset=86400 actions=restart/900000 | out-null
+	& sc.exe failureflag wazuhsvc 1 | out-null
 
 	# Do first-time execution of conf.d merge script to build a merged ossec.conf from conf.d files
 	# & "$PFPATH\ossec-agent\custbin\merge-wazuh-conf.ps1"
