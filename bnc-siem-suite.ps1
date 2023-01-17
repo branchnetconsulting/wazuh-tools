@@ -483,7 +483,9 @@ function uninstallSuite {
 	If ( -not ($SkipOsquery) ) {
 		if (Test-Path "c:\Program Files\osquery\osqueryd\osqueryd.exe" -PathType leaf)  {
 			if ($Debug) { Write-Output "Removing Osquery..." }
-			Uninstall-Package -Name "osquery" -erroraction 'silentlycontinue' | out-null
+                        # The osqueryd service is not always stopped during uninstall process and may be left behind causing the script to fail
+			Stop-Service osqueryd | out-null
+                        Uninstall-Package -Name "osquery" -erroraction 'silentlycontinue' | out-null
 			Remove-Item "C:\Progra~1\osquery" -recurse -erroraction 'silentlycontinue'
 		}
 		if (Test-Path "c:\Program Files\osquery\osqueryd\osqueryd.exe" -PathType leaf)  {
