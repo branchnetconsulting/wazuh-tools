@@ -763,54 +763,55 @@ sca.remote_commands=1
 	$ConfigToWrite | Out-File -FilePath "$PFPATH/ossec-agent/local_internal_options.conf" -Encoding ASCII
 
 	#
-	# Sysmon
+	# Sysmon (if not skipped)
 	#
 
-	# Create "$PFPATH\sysmon-wazuh" directory if missing
-	if ( -not (Test-Path -LiteralPath "$PFPATH\sysmon-wazuh" -PathType Container) ) { New-Item -Path "$PFPATH\" -Name "sysmon-wazuh" -ItemType "directory" | out-null }
+	if ( $SkipSysmon -eq $false ) {	
 
-	# Download and unzip Sysmon.zip, or unzip it from local directory if "-Local" option specified.
-	# Sysmon must be acquired locally or via download even if "-SkipSysmon" was specified, so that we can use Sysmon.exe to uninstall Sysmon.
-	Remove-Item "$PFPATH\sysmon-wazuh\*" -Force
-	if ( $Local -eq $false ) {
-		if ($Debug) { Write-Output "Downloading and unpacking Sysmon installer..." }
-		$count = 0
-		$success = $false;
-		do{
-			try{
-				if ( $SysmonDLhash -eq $null ) {
-					Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
-				} else {
-					Invoke-WebRequest -Uri $SysmonSrc -Method Get -Headers $headers -OutFile "$env:TEMP\Sysmon.zip"
+		# Create "$PFPATH\sysmon-wazuh" directory if missing
+		if ( -not (Test-Path -LiteralPath "$PFPATH\sysmon-wazuh" -PathType Container) ) { New-Item -Path "$PFPATH\" -Name "sysmon-wazuh" -ItemType "directory" | out-null }
+
+		# Download and unzip Sysmon.zip, or unzip it from local directory if "-Local" option specified.
+		# Sysmon must be acquired locally or via download even if "-SkipSysmon" was specified, so that we can use Sysmon.exe to uninstall Sysmon.
+		Remove-Item "$PFPATH\sysmon-wazuh\*" -Force
+		if ( $Local -eq $false ) {
+			if ($Debug) { Write-Output "Downloading and unpacking Sysmon installer..." }
+			$count = 0
+			$success = $false;
+			do{
+				try{
+					if ( $SysmonDLhash -eq $null ) {
+						Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
+					} else {
+						Invoke-WebRequest -Uri $SysmonSrc -Method Get -Headers $headers -OutFile "$env:TEMP\Sysmon.zip"
+					}
+					$success = $true
 				}
-				$success = $true
-			}
-			catch{
-				if ($count -lt 5) {
-					if ($Debug) { Write-Output "Download attempt failed.  Will retry 10 seconds." }
-				} else {
-					if ($Debug) { Write-Output "Download attempt still failed.  Giving up and aborting the installation..." }
+				catch{
+					if ($count -lt 5) {
+						if ($Debug) { Write-Output "Download attempt failed.  Will retry 10 seconds." }
+					} else {
+						if ($Debug) { Write-Output "Download attempt still failed.  Giving up and aborting the installation..." }
+						exit 1
+					}
+					Start-sleep -Seconds 10
+				}  
+				$count++    
+			}until($count -eq 6 -or $success)
+			# If a hash was provided then calculate the hash of the downloaded Sysmon.zip and if the hashes don't match then fail.
+			if ( -not ( $SysmonDLhash -eq $null ) ) {
+				$SysmonRealHash=(Get-FileHash "$env:TEMP\Sysmon.zip" -Algorithm SHA256).Hash
+				if ( -not ( $SysmonDLhash -eq $SysmonRealHash ) ) {
+					if ($Debug) { Write-Output "The Sysmon verification hash does not match the downloaded $SysmonSrc." }
 					exit 1
 				}
-				Start-sleep -Seconds 10
-			}  
-			$count++    
-		}until($count -eq 6 -or $success)
-		# If a hash was provided then calculate the hash of the downloaded Sysmon.zip and if the hashes don't match then fail.
-		if ( -not ( $SysmonDLhash -eq $null ) ) {
-			$SysmonRealHash=(Get-FileHash "$env:TEMP\Sysmon.zip" -Algorithm SHA256).Hash
-			if ( -not ( $SysmonDLhash -eq $SysmonRealHash ) ) {
-				if ($Debug) { Write-Output "The Sysmon verification hash does not match the downloaded $SysmonSrc." }
-				exit 1
 			}
+			Microsoft.PowerShell.Archive\Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "$PFPATH\sysmon-wazuh"
+			Remove-Item "$env:TEMP\Sysmon.zip" -Force -erroraction 'silentlycontinue'
+		} else {
+			Microsoft.PowerShell.Archive\Expand-Archive "Sysmon.zip" -DestinationPath "$PFPATH\sysmon-wazuh\"
 		}
-		Microsoft.PowerShell.Archive\Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "$PFPATH\sysmon-wazuh"
-		Remove-Item "$env:TEMP\Sysmon.zip" -Force -erroraction 'silentlycontinue'
-	} else {
-		Microsoft.PowerShell.Archive\Expand-Archive "Sysmon.zip" -DestinationPath "$PFPATH\sysmon-wazuh\"
-	}
 
-	if ( $SkipSysmon -eq $false ) {
 		# Download SwiftOnSecurity config file for Sysmon or confirm it is already locally present if "-Local" option specified.
 		if ( $Local -eq $false ) {
 			# Download the latest SwiftOnSecurityconfig file for Sysmon and write it to Wazuh agent shared directory.
@@ -833,18 +834,16 @@ sca.remote_commands=1
 		} else {	
 			Copy-Item "sysmonconfig.xml" -Destination "C:\"
 		}
-	}
 
-    # If -SysmonVer was specified but the version downloaded or previously provided (-Local) to install does not match it, then fail and bail
-    If ( -not ($SysmonVer -eq $null ) )  {
-		$smver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion)
-		if ( -not ( $smver.Trim() -eq ([String]$SysmonVer).Trim() ) ) {
-			if ($Debug) { Write-Output "Current version of Sysmon to be installed ($smver) differs from what was specified ($SysmonVer)." }
-			exit 1
+		# If -SysmonVer was specified but the version downloaded or previously provided (-Local) to install does not match it, then fail and bail
+		If ( -not ($SysmonVer -eq $null ) )  {
+			$smver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion)
+			if ( -not ( $smver.Trim() -eq ([String]$SysmonVer).Trim() ) ) {
+				if ($Debug) { Write-Output "Current version of Sysmon to be installed ($smver) differs from what was specified ($SysmonVer)." }
+				exit 1
+			}
 		}
-    }
 
-	if ( $SkipSysmon -eq $false ) {
 		if ($Debug) {  Write-Output "Installing Sysmon..." }
 		If ([Environment]::Is64BitOperatingSystem){
 			if ($Debug) { Write-Output "Using 64 bit installer" }
@@ -853,12 +852,12 @@ sca.remote_commands=1
 			if ($Debug) { Write-Output "Using 32 bit installer" }
 			Start-Process -FilePath "$PFPATH\sysmon-wazuh\Sysmon.exe" -ArgumentList "-i","c:\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
 		}
-	}
 
-	# Confirm Sysmon driver is actually loaded
-	if (-not ( fltmc | findstr -i SysmonDrv )) {
-		if ($Debug) { Write-Output "Installation of Sysmon failed.  Driver not loaded." }
-		exit 1
+		# Confirm Sysmon driver is actually loaded
+		if (-not ( fltmc | findstr -i SysmonDrv )) {
+			if ($Debug) { Write-Output "Installation of Sysmon failed.  Driver not loaded." }
+			exit 1
+		}
 	}
 
 	#
