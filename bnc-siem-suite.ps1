@@ -448,9 +448,9 @@ function uninstallSuite {
 	# If Sysmon present (and no -SkipSysmon specified), then wipe it all out
 	if ( -not ($SkipSysmon) ) {
 		# Blow away Wazuh-integrated Sysmon directory (used for applying Sysmon config updates)
-    	if ( Test-Path "$PFPATH\sysmon-wazuh" -PathType Container ) {
-            Remove-Item "$PFPATH\sysmon-wazuh" -recurse	
-        }
+		if ( Test-Path "$PFPATH\sysmon-wazuh" -PathType Container ) {
+		    Remove-Item "$PFPATH\sysmon-wazuh" -recurse	
+		}
 		# If Sysmon is partly or fully installed, attempt to remove it with the Sysmon.exe or Sysmon64.exe that it was actually installed with.
 		if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -or (Test-Path c:\windows\Sysmon.exe -PathType leaf) -or (Test-Path c:\windows\Sysmon64.exe -PathType leaf) ) {
 			if ($Debug) { Write-Output "Removing presently installed Sysmon..." }
