@@ -231,8 +231,8 @@ e1A3jj1X98UOy+58chxEHtyaZy06v3vz4UNWgJf/LGBMT7wO3c8TsTT5KmgHR460
 zraxbhmzb4JAji0bZuYlldSjhizRCpJjroFjWHluDUa9Oqi5La52o+rpRVwT53bY
 O7bM4haWNBQkxEU=
 -----END CERTIFICATE-----
-" > /var/ossec/bnc_wpk_root.pem
-chown root:wazuh /var/ossec/bnc_wpk_root.pem
+" > /var/ossec/etc/bnc_wpk_root.pem
+chown root:wazuh /var/ossec/etc/bnc_wpk_root.pem
 }
 
 #
@@ -370,16 +370,16 @@ function checkAgent() {
 
     # Relevant script parameters
     #		
-    # -Mgr			      The IP or FQDN of the Wazuh manager for ongoing agent connections. (Required)
-    # -RegPass     		Password for registration with Wazuh manager (put in quotes). (Required)
-    # -RegMgr  			  The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
-    # -AgentName   		Name under which to register this agent in place of locally detected Windows host name.
+    # -Mgr		The IP or FQDN of the Wazuh manager for ongoing agent connections. (Required)
+    # -RegPass     	Password for registration with Wazuh manager (put in quotes). (Required)
+    # -RegMgr  		The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
+    # -AgentName   	Name under which to register this agent in place of locally detected Windows host name.
     # -ExtraGroups  	Additional groups beyond the default groups that are applied by the script, which include: 
-    #				          linux, linux-local, osquery, osquery-local. 
+    #			linux, linux-local, osquery, osquery-local. 
     # -SkipOsquery  	Flag to not signal the Wazuh manager to push managed Osquery WPK to this system. (Default is to not skip this.)
     # -CheckOnly    	Flag to only run checks to see if installation is current or in need of deployment
-    # -LBprobe        Flag to additionally check for manager connectivity with an agent-auth probe to avoid being fooled by a load balancer 
-    #				          that handshakes even when service down.
+    # -LBprobe          Flag to additionally check for manager connectivity with an agent-auth probe to avoid being fooled by a load balancer 
+    #			that handshakes even when service down.
     # -Debug        	Flag to show debug output
 
     if [ -f /var/ossec/bin/agent_control ]; then
@@ -753,8 +753,8 @@ echo "
     <agent-upgrade>
         <ca_verification>
             <enabled>yes</enabled>
-            <ca_store>wpk_root.pem</ca_store>
-            <ca_store>bnc_wpk_root.pem</ca_store>
+            <ca_store>etc/wpk_root.pem</ca_store>
+            <ca_store>etc/bnc_wpk_root.pem</ca_store>
         </ca_verification>
     </agent-upgrade>
     <localfile>
