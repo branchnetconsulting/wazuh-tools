@@ -532,7 +532,8 @@ function uninstallAgent() {
 
     CorrectAgentName="0"
     RegFileName="/var/ossec/etc/client.keys"
-    if [ "$Uninstall" == "0" ] && [ -f "$RegFileName" ] && [ -s "$RegFileName" ]; then
+    ConfigFileName="/var/ossec/etc/ossec.conf"
+    if [ "$Uninstall" == "0" ] && [ -s "$RegFileName" ]; then
         # The existing registration will be recyled if:
         #    - the agent is already connected
         #    - the current and target agent name are the same
@@ -546,7 +547,8 @@ function uninstallAgent() {
             CorrectAgentName="1"
 	    MightRecycleRegistration="1"
 	    rm /tmp/client.keys.bnc 2> /dev/null
-	    cp -p /var/ossec/etc/client.keys /tmp/client.keys.bnc
+	    cp -p $RegFileName /tmp/client.keys.bnc
+	    cp -p $ConfigFileName /tmp/ossec.conf.bnc
         else
             if [ $Debug == 1 ]; then echo "Registration will not be recycled."; fi
             MightRecycleRegistration="0"
@@ -710,19 +712,40 @@ function installAgent() {
             cp -p /tmp/client.keys.bnc /var/ossec/etc/client.keys 2> /dev/null
         else
             # Register the agent with the manager
-	          if [ $Debug == 1 ]; then echo "Registering Wazuh Agent with $RegMgr..."; fi
+	    if [ $Debug == 1 ]; then echo "Registering Wazuh Agent with $RegMgr..."; fi
             if [ "$CorrectGroupPrefix" == "1" ] && [ "$SkippedGroups" != "1" ]; then
-                if [ $Debug == 1 ]; then
-                    /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName"
-                else
-                    /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" 2> /dev/null
-                fi
+                /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" > /tmp/reg.state
             else
-                if [ $Debug == 1 ]; then
-                    /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName"
+                /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" > /tmp/reg.state
+	    fi
+	    if [ $Debug == 1 ]; then 
+                cat /tmp/reg.state 
+	    fi
+            if [[ `grep "Duplicate agent" /tmp/reg.state` ]]; then 
+                if [ $Debug == 1 ]; then echo "Waiting 30 seconds for Manager to discover agent is disconnected before retrying registration..."; fi
+                sleep 30
+		if [ "$CorrectGroupPrefix" == "1" ] && [ "$SkippedGroups" != "1" ]; then
+                    /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" > /tmp/reg.state
                 else
-                    /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" 2> /dev/null
+                    /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" > /tmp/reg.state
                 fi
+                if [ $Debug == 1 ]; then
+                    cat /tmp/reg.state
+                fi
+	    fi
+            if [ ! -s "$RegFileName" ]; then
+                cp -p /tmp/client.keys.bnc $RegFileName 2> /dev/null
+		cp -p /tmp/ossec.conf.bnc $ConfigFileName 2> /dev/null
+                if [[ `which systemctl 2> /dev/null` ]]; then
+                    systemctl daemon-reload 2> /dev/null
+                    systemctl enable wazuh-agent 2> /dev/null
+                    systemctl start wazuh-agent
+                else
+                    chkconfig wazuh-agent on 2> /dev/null
+                    service wazuh-agent start
+                fi
+		if [ $Debug == 1 ]; then echo "Registration failed.  Reverted to previous known working client.keys and restarted Wazuh..."; fi
+	        exit 2	
 	    fi
         fi
     fi
