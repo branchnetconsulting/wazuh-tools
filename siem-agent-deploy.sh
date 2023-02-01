@@ -471,12 +471,6 @@ function checkAgent() {
     #
     # Split Linux into two basic categories: deb and rpm, and work up the full set of Wazuh agent groups including dynamically set prefix plus custom extras.
     CorrectGroupPrefix="0"
-    if [ "$ExtraGroups" == "#NOGROUP#" ]; then
-        SkippedGroups=1
-	      ExtraGroups=""
-    else
-        SkippedGroups=0
-    fi
 
     # Blend standard/dynamic groups with custom groups
     GroupsPrefix="linux,linux-local,"
@@ -487,32 +481,41 @@ function checkAgent() {
         GroupsPrefix="${GroupsPrefix}$ExtraGroups"
     fi
     TargetGroups=`echo $GroupsPrefix | sed 's/,$//'`
-    if [ "$SkippedGroups" == "0" ]; then
-        if [ -f /var/ossec/etc/shared/merged.mg ]; then
-            CurrentGroups=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
-        else
-            CurrentGroups="#NONE#"
-        fi	
-        if [ $Debug == 1 ]; then echo "Current agent groups: $CurrentGroups"; fi
-        if [ $Debug == 1 ]; then echo "Target agent groups:  $TargetGroups"; fi
-        if [[ "$CurrentGroups" =~ ^${TargetGroups}* ]]; then
-            if [ $Debug == 1 ]; then echo "*** Expected $TargetGroups matches the prefix in $CurrentGroups."; fi
-            CorrectGroupPrefix="1"
-        else
-            if [ $Debug == 1 ]; then echo "Expected $TargetGroups is not at the start of $CurrentGroups."; fi
-        fi
+    if [ -f /var/ossec/etc/shared/merged.mg ]; then
+        CurrentGroups=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
     else
-        if [ $Debug == 1 ]; then echo "Ignoring agent group membership since -ExtraGroups not specified."; fi
+        CurrentGroups="#NONE#"
+    fi	
+    if [ $Debug == 1 ]; then echo "Current agent groups: $CurrentGroups"; fi
+    if [ $Debug == 1 ]; then echo "Target agent groups:  $TargetGroups"; fi
+    if [[ "$CurrentGroups" =~ ^${TargetGroups}* ]]; then
+        if [ $Debug == 1 ]; then echo "*** Expected $TargetGroups matches the prefix in $CurrentGroups."; fi
+        CorrectGroupPrefix="1"
+    else
+        if [ $Debug == 1 ]; then echo "Expected $TargetGroups is not at the start of $CurrentGroups."; fi
     fi
 
     # Bail on the check if the agent is not connected to the manager or group membership prefix is not correct.
-    if ([ "$SkippedGroups" == "0" ] && [ "$CorrectGroupPrefix" != "1" ]) || [ "$Install" == "1" ] || [ "$Connected" != "1" ]; then
+    if [ "$Install" == "1" ] || [ "$Connected" != "1" ] || [ "$CorrectGroupPrefix" != 1 ]; then
         return
     fi
 
     #
     # Passed!
     #
+    if [ $Debug == 1 ]; then
+        echo -e "\nMgr: $Mgr"
+        echo "RegMgr: $RegMgr"
+        echo "RegPass: $RegPass"
+        echo "InstallVer: $InstallVer"
+        echo "AgentName: $AgentName"
+        echo "DownloadSource: $DownloadSource"
+        echo "SkipOsquery: $SkipOsquery"
+        echo "Connected: $Connected"
+        echo "ExtraGroups: $ExtraGroups"
+        echo "CorrectGroupPrefix: $CorrectGroupPrefix"
+    fi
+
     if [ $Debug == 1 ]; then echo "No deployment/redeployment appears to be needed."; fi
     exit 0
 }
@@ -530,6 +533,8 @@ function uninstallAgent() {
         cp -p /var/ossec/etc/ossec.log /tmp/
     fi
 
+    # If Wazuh agent is already installed and registered, and this is not an explicit uninstallation call, then note if registration may be
+    # recyclable, and if so, preserve client.keys and the agent groups list to accomodate that, plus set the $MightRecycleRegistration flag.
     CorrectAgentName="0"
     RegFileName="/var/ossec/etc/client.keys"
     ConfigFileName="/var/ossec/etc/ossec.conf"
@@ -547,6 +552,7 @@ function uninstallAgent() {
             CorrectAgentName="1"
 	    MightRecycleRegistration="1"
 	    rm /tmp/client.keys.bnc 2> /dev/null
+	    rm /tmp/ossec.conf.bnc 2> /dev/null
 	    cp -p $RegFileName /tmp/client.keys.bnc
 	    cp -p $ConfigFileName /tmp/ossec.conf.bnc
         else
@@ -556,8 +562,8 @@ function uninstallAgent() {
     fi  
 
     # Stop any previous wazuh agent
-#    systemctl stop wazuh-agent 2> /dev/null
-#    service wazuh-agent stop 2> /dev/null
+    systemctl stop wazuh-agent 2> /dev/null
+    service wazuh-agent stop 2> /dev/null
 
     # If Wazuh agent already installed and the -Uninstall or the -Install flag is set or Wazuh agent is not connected to a manager, blow it away.
     if [ "$Install" == "1" ] || [ "$Uninstall" == "1" ] || [ "$Connected" == "0" ]; then
@@ -647,20 +653,6 @@ function installAgent() {
             fi
         fi
 
-        if [ $Debug == 1 ]; then
-            echo -e "\nMgr: $Mgr"
-            echo "RegMgr: $RegMgr"
-            echo "RegPass: $RegPass"
-            echo "InstallVer: $InstallVer"
-            echo "AgentName: $AgentName"
-            echo "DownloadSource: $DownloadSource"
-            echo "SkipOsquery: $SkipOsquery"
-            echo "Connected: $Connected"
-            echo "ExtraGroups: $ExtraGroups"
-            echo "CorrectGroupPrefix: $CorrectGroupPrefix"
-            echo -e "SkippedGroups: $SkippedGroups\n"
-        fi
-
         #
         # Wazuh Agent 
         #
@@ -703,51 +695,52 @@ function installAgent() {
         # Create /var/ossec/scripts and write the merge-wazuh-conf.sh file to it, and write bnc_wpk_root.pem file
         writePEMfile
         writeMergeScript
+    fi
 
-        # If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
-        if [ $Debug == 1 ]; then echo "Stopping Wazuh agent to register and adjust config..."; fi
-        systemctl stop wazuh-agent 2> /dev/null
-        service wazuh-agent stop 2> /dev/null
-        if [ "$MightRecycleRegistration" == "1" ] && [ "$Connected" == "1" ] && ([ "$CorrectGroupPrefix" == "1" ] || [ "$SkippedGroups" == "1" ]); then
-            cp -p /tmp/client.keys.bnc /var/ossec/etc/client.keys 2> /dev/null
+    # If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
+    if [ $Debug == 1 ]; then echo "Stopping Wazuh agent to register and adjust config..."; fi
+    systemctl stop wazuh-agent 2> /dev/null
+    service wazuh-agent stop 2> /dev/null
+    if [ "$MightRecycleRegistration" == "1" ] && [ "$Connected" == "1" ] && [ "$CorrectGroupPrefix" == "1" ]; then
+        cp -p /tmp/client.keys.bnc /var/ossec/etc/client.keys 2> /dev/null
+    else
+        # Register the agent with the manager
+	rm $RegFileName
+        if [ $Debug == 1 ]; then echo "Registering Wazuh Agent with $RegMgr..."; fi
+        if [ "$CorrectGroupPrefix" == "1" ]; then
+            /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" > /tmp/reg.state
         else
-            # Register the agent with the manager
-	    if [ $Debug == 1 ]; then echo "Registering Wazuh Agent with $RegMgr..."; fi
-            if [ "$CorrectGroupPrefix" == "1" ] && [ "$SkippedGroups" != "1" ]; then
+            /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" > /tmp/reg.state
+	fi
+	if [ $Debug == 1 ]; then 
+            cat /tmp/reg.state 
+	fi
+        if [[ `grep "Duplicate agent" /tmp/reg.state` ]]; then 
+            if [ $Debug == 1 ]; then echo "Waiting 30 seconds for Manager to discover agent is disconnected before retrying registration..."; fi
+            sleep 30
+	    if [ "$CorrectGroupPrefix" == "1" ]; then
                 /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" > /tmp/reg.state
             else
                 /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" > /tmp/reg.state
-	    fi
-	    if [ $Debug == 1 ]; then 
-                cat /tmp/reg.state 
-	    fi
-            if [[ `grep "Duplicate agent" /tmp/reg.state` ]]; then 
-                if [ $Debug == 1 ]; then echo "Waiting 30 seconds for Manager to discover agent is disconnected before retrying registration..."; fi
-                sleep 30
-		if [ "$CorrectGroupPrefix" == "1" ] && [ "$SkippedGroups" != "1" ]; then
-                    /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" > /tmp/reg.state
-                else
-                    /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" > /tmp/reg.state
-                fi
-                if [ $Debug == 1 ]; then
-                    cat /tmp/reg.state
-                fi
-	    fi
-            if [ ! -s "$RegFileName" ]; then
-                cp -p /tmp/client.keys.bnc $RegFileName 2> /dev/null
-		cp -p /tmp/ossec.conf.bnc $ConfigFileName 2> /dev/null
-                if [[ `which systemctl 2> /dev/null` ]]; then
-                    systemctl daemon-reload 2> /dev/null
-                    systemctl enable wazuh-agent 2> /dev/null
-                    systemctl start wazuh-agent
-                else
-                    chkconfig wazuh-agent on 2> /dev/null
-                    service wazuh-agent start
-                fi
-		if [ $Debug == 1 ]; then echo "Registration failed.  Reverted to previous known working client.keys and restarted Wazuh..."; fi
-	        exit 2	
-	    fi
-        fi
+            fi
+            if [ $Debug == 1 ]; then
+                cat /tmp/reg.state
+            fi
+	fi
+        if [ ! -s "$RegFileName" ]; then
+            cp -p /tmp/client.keys.bnc $RegFileName 2> /dev/null
+	    cp -p /tmp/ossec.conf.bnc $ConfigFileName 2> /dev/null
+            if [[ `which systemctl 2> /dev/null` ]]; then
+                systemctl daemon-reload 2> /dev/null
+                systemctl enable wazuh-agent 2> /dev/null
+                systemctl start wazuh-agent
+            else
+                chkconfig wazuh-agent on 2> /dev/null
+                service wazuh-agent start
+            fi
+	    if [ $Debug == 1 ]; then echo "Registration failed.  Reverted to previous known working client.keys and restarted Wazuh..."; fi
+	    exit 2	
+	fi
     fi
 
 #
@@ -813,8 +806,12 @@ echo "
     if [ $Debug == 1 ]; then echo "Pausing for 15 seconds to allow agent to connect to manager..."; fi
     sleep 15
     if [[ ! `cat /var/ossec/logs/ossec.log | grep "Connected to the server "` ]]; then
-        if [ $Debug == 1 ]; then echo "This agent FAILED to connect to the Wazuh manager."; fi
-        exit 2
+        sleep 15
+	if [ $Debug == 1 ]; then echo "Pausing for an additional 15 seconds to allow agent to connect to manager..."; fi
+	if [[ ! `cat /var/ossec/logs/ossec.log | grep "Connected to the server "` ]]; then
+       	    if [ $Debug == 1 ]; then echo "This agent FAILED to connect to the Wazuh manager."; fi
+            exit 2
+        fi
     fi
 
     if [ $Debug == 1 ]; then echo "This agent has successfully connected to the Wazuh manager!"; fi
@@ -841,6 +838,19 @@ fi
 # install/reinstall is called for.
 if [ "$Uninstall" != "1" ]; then
     checkAgent
+fi
+
+if [ $Debug == 1 ]; then
+    echo -e "\nMgr: $Mgr"
+    echo "RegMgr: $RegMgr"
+    echo "RegPass: $RegPass"
+    echo "InstallVer: $InstallVer"
+    echo "AgentName: $AgentName"
+    echo "DownloadSource: $DownloadSource"
+    echo "SkipOsquery: $SkipOsquery"
+    echo "Connected: $Connected"
+    echo "ExtraGroups: $ExtraGroups"
+    echo "CorrectGroupPrefix: $CorrectGroupPrefix"
 fi
 
 # If all we are doing is a check, then the check must have indicated a install/reinstall was needed, so return an exit code of 1 now.
