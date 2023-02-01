@@ -376,13 +376,6 @@ function checkAgent {
 	     $SkipOsquery=$true
 	}
 
-	if ( $ExtraGroups -eq "#NOGROUP#" ) {
-		$global:SkippedGroups = $true
-		$ExtraGroups = ""
-	} else {
-		$global:SkippedGroups = $false
-	}
-
 	# Blend standard/dynamic groups with custom groups
 	$GroupsPrefix = "windows,windows-local,"
 	if ( $SkipOsquery -eq $false ) {
@@ -393,36 +386,45 @@ function checkAgent {
 	}
 	$GroupsPrefix = $GroupsPrefix+$ExtraGroups
 	$global:TargetGroups = $GroupsPrefix.TrimEnd(",")
-	if ( $SkippedGroups -eq	$false ) {
-		If (Test-Path "$PFPATH\ossec-agent\shared\merged.mg") {	
-			$file2 = Get-Content "$PFPATH\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'	
-			if ($file2 -match "Source\sfile:") {
-				$global:CurrentGroups=((((Select-String -Path "$PFPATH\ossec-agent\shared\merged.mg" -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
-			} else {
-				# If the agent is presently a member of only one agent group, then pull that group name into current group variable.
-				$global:CurrentGroups=((((Select-String -Path "$PFPATH\ossec-agent\shared\merged.mg" -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
-			}
+
+	If (Test-Path "$PFPATH\ossec-agent\shared\merged.mg") {	
+		$file2 = Get-Content "$PFPATH\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'	
+		if ($file2 -match "Source\sfile:") {
+			$global:CurrentGroups=((((Select-String -Path "$PFPATH\ossec-agent\shared\merged.mg" -Pattern "Source file:") | Select-Object -ExpandProperty Line).Replace("<!-- Source file: ","")).Replace("/agent.conf -->","")) -join ','
 		} else {
-			$global:CurrentGroups="#NONE#"
-		}
-		if ($Debug) { Write-Output "Current agent group membership: $CurrentGroups" }
-		if ($Debug) { Write-Output "Target agent group membership:  $TargetGroups" }
-		if ( $CurrentGroups -like "$TargetGroups*" ) {
-			if ($Debug) { Write-Output "Expected $TargetGroups matches the prefix in $CurrentGroups." }
-			$global:CorrectGroupPrefix = $true
-		} else {
-			if ($Debug) { Write-Output "Expected $TargetGroups is not at the start of $CurrentGroups." }
+			# If the agent is presently a member of only one agent group, then pull that group name into current group variable.
+			$global:CurrentGroups=((((Select-String -Path "$PFPATH\ossec-agent\shared\merged.mg" -Pattern "#") | Select-Object -ExpandProperty Line).Replace("#","")))
 		}
 	} else {
-		if ($Debug) { Write-Output "Ignoring agent group membership since -ExtraGroups not specified." }
+		$global:CurrentGroups="#NONE#"
+	}
+	if ($Debug) { Write-Output "Current agent group membership: $CurrentGroups" }
+	if ($Debug) { Write-Output "Target agent group membership:  $TargetGroups" }
+	if ( $CurrentGroups -like "$TargetGroups*" ) {
+		if ($Debug) { Write-Output "Expected $TargetGroups matches the prefix in $CurrentGroups." }
+		$global:CorrectGroupPrefix = $true
+	} else {
+		if ($Debug) { Write-Output "Expected $TargetGroups is not at the start of $CurrentGroups." }
 	}
 	
 	# Bail on the check if the agent is not connected to the manager or group membership prefix is not correct.
-	if ( ( -not ( $CorrectGroupPrefix -eq $true ) -and ($SkippedGroups -eq $false) ) -or ($Install) -or ( -not ( $Connected -eq $true ) )) {
+	if  ( -not ( $CorrectGroupPrefix -eq $true ) -or ($Install) -or ( -not ( $Connected -eq $true ) )) {
 		return
 	}
 
 	# All relevant tests passed, so return a success code.
+	if ($Debug) {
+        Write-Output "Mgr: $Mgr"
+        Write-Output "RegMgr: $RegMgr"
+        Write-Output "RegPass: $RegPass"
+        Write-Output "InstallVer: $InstallVer"
+        Write-Output "AgentName: $AgentName"
+        Write-Output "DownloadSource: $DownloadSource"
+        Write-Output "SkipOsquery: $SkipOsquery"
+        Write-Output "Connected: $Connected"
+        Write-Output "ExtraGroups: $ExtraGroups"
+        Write-Output "CorrectGroupPrefix: $CorrectGroupPrefix"
+    }
 	if ($Debug) { Write-Output "No deployment/redeployment appears to be needed." }
 	exit 0
 }
@@ -477,6 +479,7 @@ function uninstallAgent {
 	# recyclable, and if so, preserve client.keys and the agent groups list to accomodate that, plus set the $MightRecycleRegistration flag.
 	$CorrectAgentName = $false
 	$RegFileName = "$PFPATH\ossec-agent\client.keys"
+	$ConfigFileName="PFPATH\ossec-agent\ossec.conf"
 	if ( ( -not ($Uninstall) ) -and (Test-Path $RegFileName -PathType leaf) -and ((Get-Item $RegFileName).length -gt 0)  ) {
 		# The existing registration will be recyled if:
 		#	- the agent is already connected
@@ -491,7 +494,9 @@ function uninstallAgent {
 			$CorrectAgentName = $true
 			$global:MightRecycleRegistration=$true
 			Remove-Item -Path "$env:TEMP\client.keys.bnc" -erroraction 'silentlycontinue' | out-null
+			Remove-Item -Path "$env:TEMP\ossec.conf.bnc" -erroraction 'silentlycontinue' | out-null
 			Copy-Item $RegFileName -Destination "$env:TEMP\client.keys.bnc"
+			Copy-Item $ConfigFileName -Destination "$env:TEMP\ossec.conf.bnc"
 		} else {
 			if ($Debug) { Write-Output "Registration will not be recycled." }
 			$global:MightRecycleRegistration=$false
@@ -644,28 +649,31 @@ function installAgent {
 		if ( -not ($Local) ) {
 			rm .\wazuh-agent.msi
 		}
-	}
 	
 	# Create ossec-agent\scripts and write the merge-wazuh-conf.ps1 file to it, and write bnc_wpk_root.pem file
 	writePEMfile
 	writeMergeScript
+    }
 	
 	if ($Debug) { Write-Output "Stopping Wazuh agent to register and adjust config..." }
 	Stop-Service WazuhSvc
 	# If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
-	if ( ( $MightRecycleRegistration ) -and ( $Connected ) -and ( ( $CorrectGroupPrefix ) -or ( $SkippedGroups ) ) ) { 
-		Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$PFPATH\ossec-agent\client.keys"
+	if ( ( $MightRecycleRegistration ) -and ( $Connected ) -and ( $CorrectGroupPrefix ) ) { 
+		Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$RegFileName"
 	} else {
 		# Register the agent with the manager
-		Remove-Item -Path "$PFPATH\ossec-agent\client.keys"
+		Remove-Item -Path "$RegFileName"
 		if ($Debug) { Write-Output "Registering Wazuh Agent with $RegMgr..." }
-		if ( ($CorrectGroupPrefix) -and ( -not ($SkippedGroups) ) )  {
+		if ($CorrectGroupPrefix) {
 			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$CurrentGroups", "-A", "$AgentName" -Wait
 		} else {
 			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$TargetGroups", "-A", "$AgentName" -Wait
 		}	
-		if ( -not (Test-Path "$PFPATH\ossec-agent\client.keys" -PathType leaf) ) {
-			if ($Debug) {  Write-Output "Wazuh Agent self-registration failed." }
+		if ( ( -not (Test-Path "$PFPATH\ossec-agent\client.keys" -PathType leaf) )  -or ( -not (Get-Item $RegFileName).length -gt 0)   ) {
+			Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$RegFileName"
+			Copy-Item "$env:TEMP\ossec.conf.bnc" -Destination "$ConfigFileName"
+			Start-Service WazuhSvc
+			if ($Debug) {  Write-Output "Registration failed.  Reverted to previous known working client.keys and restarted Wazuh..." }
 			exit 2
 		}
 	}
@@ -751,13 +759,17 @@ $ConfigToWrite = @"
 	# Do first-time execution of conf.d merge script to build a merged ossec.conf from conf.d files
 	& "$PFPATH\ossec-agent\scripts\merge-wazuh-conf.ps1"
 
-	# After 30 seconds confirm agent connected to manager
-	if ($Debug) { Write-Output "Pausing for 30 seconds to allow agent to connect to manager..." }
-	Start-Sleep -s 30 
+	# After 15 seconds confirm agent connected to manager
+	if ($Debug) { Write-Output "Pausing for 15 seconds to allow agent to connect to manager..." }
+	Start-Sleep -s 15 
 	$file = Get-Content "$PFPATH\ossec-agent\ossec.log" -erroraction 'silentlycontinue'
 	if ( -not ($file -match "Connected to the server ") ) {
-		if ($Debug) { Write-Output "This agent FAILED to connect to the Wazuh manager." }
-		exit 2
+		Start-Sleep -s 15
+		if ($Debug) { Write-Output "Pausing for an additional 15 seconds to allow agent to connect to manager..." }
+		if ( -not ($file -match "Connected to the server ") ) {
+			if ($Debug) { Write-Output "This agent FAILED to connect to the Wazuh manager." }
+			exit 2
+		}
 	}
 
 	if ($Debug) { Write-Output "This agent has successfully connected to the Wazuh manager!" }
@@ -791,6 +803,19 @@ if ( $CheckOnly -and $Install ) {
 # install/reinstall is called for.
 if ( -not ($Uninstall) ) {
 	checkAgent
+}
+
+if ($Debug) {
+	Write-Output "Mgr: $Mgr"
+	Write-Output "RegMgr: $RegMgr"
+	Write-Output "RegPass: $RegPass"
+	Write-Output "InstallVer: $InstallVer"
+	Write-Output "AgentName: $AgentName"
+	Write-Output "DownloadSource: $DownloadSource"
+	Write-Output "SkipOsquery: $SkipOsquery"
+	Write-Output "Connected: $Connected"
+	Write-Output "ExtraGroups: $ExtraGroups"
+	Write-Output "CorrectGroupPrefix: $CorrectGroupPrefix"
 }
 
 # If all we are doing is a check, then the check must have indicated a install/reinstall was needed, so return an exit code of 1 now.
