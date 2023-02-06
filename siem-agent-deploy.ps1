@@ -479,7 +479,7 @@ function uninstallAgent {
 	# recyclable, and if so, preserve client.keys and the agent groups list to accomodate that, plus set the $MightRecycleRegistration flag.
 	$CorrectAgentName = $false
 	$RegFileName = "$PFPATH\ossec-agent\client.keys"
-	$ConfigFileName="PFPATH\ossec-agent\ossec.conf"
+	$ConfigFileName="$PFPATH\ossec-agent\ossec.conf"
 	if ( ( -not ($Uninstall) ) -and (Test-Path $RegFileName -PathType leaf) -and ((Get-Item $RegFileName).length -gt 0)  ) {
 		# The existing registration will be recyled if:
 		#	- the agent is already connected
