@@ -655,6 +655,7 @@ function installAgent {
 	
 	if ($Debug) { Write-Output "Stopping Wazuh agent to register and adjust config..." }
 	Stop-Service WazuhSvc
+	Remove-Item -Path "$PFPATH\ossec-agent\ossec.log" -erroraction silentlycontinue
 	# If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
 	if ( ( $MightRecycleRegistration ) -and ( $Connected ) -and ( $CorrectGroupPrefix ) ) { 
 		Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$RegFileName"
