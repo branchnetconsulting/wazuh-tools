@@ -79,7 +79,7 @@ param ( $Mgr,
 	$RegPass,	
 	$RegMgr,  
 	$AgentName = $env:computername, 
-	$ExtraGroups = "#NOGROUP#", 
+	$ExtraGroups, 
 	$VerDiscAddr,
 	$InstallVer,
 	$DefaultInstallVer = "4.3.9",
@@ -354,12 +354,6 @@ function checkAgent {
 		}
 	}
 	
-	if ( $ExtraGroups -eq "#NOGROUP#" ) {
-		if ( ($SkipSysmon -eq $true) -or ($SkipOsquery -eq $true) ) {
-			if ($Debug) { write-host "-SkipSysmon and -SkipOsquery must always be accompanied with the use of -ExtraGroups." }
-			exit 2
-		}
-	}
 	#
 	# Is the agent group prefix correct?
 	#
