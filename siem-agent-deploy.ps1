@@ -759,9 +759,9 @@ $ConfigToWrite = @"
 	# Do first-time execution of conf.d merge script to build a merged ossec.conf from conf.d files
 	& "$PFPATH\ossec-agent\scripts\merge-wazuh-conf.ps1"
 
-	# After 15 seconds confirm agent connected to manager
-	if ($Debug) { Write-Output "Pausing for 15 seconds to allow agent to connect to manager..." }
-	Start-Sleep -s 15 
+	# After 30 seconds confirm agent connected to manager
+	if ($Debug) { Write-Output "Pausing for 30 seconds to allow agent to connect to manager..." }
+	Start-Sleep -s 30 
 	$file = Get-Content "$PFPATH\ossec-agent\ossec.log" -erroraction 'silentlycontinue'
 	if ( -not ($file -match "Connected to the server ") ) {
 		Start-Sleep -s 15
