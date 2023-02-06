@@ -478,8 +478,6 @@ function uninstallAgent {
 	# If Wazuh agent is already installed and registered, and this is not an explicit uninstallation call, then note if registration may be 
 	# recyclable, and if so, preserve client.keys and the agent groups list to accomodate that, plus set the $MightRecycleRegistration flag.
 	$CorrectAgentName = $false
-	$RegFileName = "$PFPATH\ossec-agent\client.keys"
-	$ConfigFileName="$PFPATH\ossec-agent\ossec.conf"
 	if ( ( -not ($Uninstall) ) -and (Test-Path $RegFileName -PathType leaf) -and ((Get-Item $RegFileName).length -gt 0)  ) {
 		# The existing registration will be recyled if:
 		#	- the agent is already connected
@@ -662,7 +660,7 @@ function installAgent {
 		Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$RegFileName"
 	} else {
 		# Register the agent with the manager
-		Remove-Item -Path "$RegFileName"
+		Remove-Item -Path "$RegFileName" -erroraction silentlycontinue
 		if ($Debug) { Write-Output "Registering Wazuh Agent with $RegMgr..." }
 		if ($CorrectGroupPrefix) {
 			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$CurrentGroups", "-A", "$AgentName" -Wait
@@ -670,8 +668,8 @@ function installAgent {
 			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$TargetGroups", "-A", "$AgentName" -Wait
 		}	
 		if ( ( -not (Test-Path "$PFPATH\ossec-agent\client.keys" -PathType leaf) )  -or ( -not (Get-Item $RegFileName).length -gt 0)   ) {
-			Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$RegFileName"
-			Copy-Item "$env:TEMP\ossec.conf.bnc" -Destination "$ConfigFileName"
+			Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$RegFileName" -erroraction silentlycontinue
+			Copy-Item "$env:TEMP\ossec.conf.bnc" -Destination "$ConfigFileName" -erroraction silentlycontinue
 			Start-Service WazuhSvc
 			if ($Debug) {  Write-Output "Registration failed.  Reverted to previous known working client.keys and restarted Wazuh..." }
 			exit 2
@@ -795,6 +793,9 @@ If ( -not ([Environment]::Is64BitOperatingSystem) ) {
 	$PFPATH="C:\Program Files"
 }
 
+$RegFileName = "$PFPATH\ossec-agent\client.keys"
+$ConfigFileName="$PFPATH\ossec-agent\ossec.conf"
+	
 if ( $CheckOnly -and $Install ) {
 	Write-Output "Cannot use -Install in combination with -CheckOnly."
 	exit 2
