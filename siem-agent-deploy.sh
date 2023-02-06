@@ -716,8 +716,8 @@ function installAgent() {
             cat /tmp/reg.state 
 	fi
         if [[ `grep "Duplicate agent" /tmp/reg.state` ]]; then 
-            if [ $Debug == 1 ]; then echo "Waiting 30 seconds for Manager to discover agent is disconnected before retrying registration..."; fi
-            sleep 30
+            if [ $Debug == 1 ]; then echo "Waiting 45 seconds for Manager to discover agent is disconnected before retrying registration..."; fi
+            sleep 45
 	    if [ "$CorrectGroupPrefix" == "1" ]; then
                 /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" > /tmp/reg.state
             else
