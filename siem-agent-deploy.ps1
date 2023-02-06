@@ -665,8 +665,8 @@ function installAgent {
 		if ($Debug) { type "$env:TEMP\reg.state" }
 		$file = Get-Content "$env:TEMP\reg.state" -erroraction 'silentlycontinue'
 		if ($file -match "Duplicate name") {
-			if ($Debug) { Write-Output "Waiting 30 seconds for Manager to discover agent is disconnected before retrying registration..." }
-			Start-Sleep 30
+			if ($Debug) { Write-Output "Waiting 45 seconds for Manager to discover agent is disconnected before retrying registration..." }
+			Start-Sleep 45
 			if ($CorrectGroupPrefix) {
 			    Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$CurrentGroups", "-A", "$AgentName" -Wait -RedirectStandardError "$env:TEMP\reg.state"
 	                } else {
