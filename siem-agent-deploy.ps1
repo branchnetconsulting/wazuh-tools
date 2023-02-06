@@ -658,10 +658,27 @@ function installAgent {
 		Remove-Item -Path "$RegFileName" -erroraction silentlycontinue
 		if ($Debug) { Write-Output "Registering Wazuh Agent with $RegMgr..." }
 		if ($CorrectGroupPrefix) {
-			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$CurrentGroups", "-A", "$AgentName" -Wait
-		} else {
-			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$TargetGroups", "-A", "$AgentName" -Wait
-		}	
+#			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$CurrentGroups", "-A", "$AgentName" -Wait
+                        & "$PFPATH\ossec-agent\agent-auth.exe" -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" > "$env:TEMP\reg.state"
+	        } else {
+#			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$TargetGroups", "-A", "$AgentName" -Wait
+                        & "$PFPATH\ossec-agent\agent-auth.exe" -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" > "$env:TEMP\reg.state"
+		}
+		if ($Debug) { type "$env:TEMP\reg.state" }
+		$file = Get-Content "$env:TEMP\reg.state" -erroraction 'silentlycontinue'
+		if ($file -match "Duplicate name") {
+			if ($Debug) { Write-Output "Waiting 30 seconds for Manager to discover agent is disconnected before retrying registration..." }
+			Start-Sleep 30
+			if ($CorrectGroupPrefix) {
+#			    Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$CurrentGroups", "-A", "$AgentName" -Wait
+                            & "$PFPATH\ossec-agent\agent-auth.exe" -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" > "$env:TEMP\reg.state"
+	                } else {
+#			    Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$TargetGroups", "-A", "$AgentName" -Wait
+                            & "$PFPATH\ossec-agent\agent-auth.exe" -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" > "$env:TEMP\reg.state"
+		        }
+			$file = Get-Content "$env:TEMP\reg.state" -erroraction 'silentlycontinue'	
+			if ($Debug) { type "$env:TEMP\reg.state" }
+		}
 		if ( ( -not (Test-Path "$PFPATH\ossec-agent\client.keys" -PathType leaf) )  -or ( -not (Get-Item $RegFileName).length -gt 0)   ) {
 			Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$RegFileName" -erroraction silentlycontinue
 			Copy-Item "$env:TEMP\ossec.conf.bnc" -Destination "$ConfigFileName" -erroraction silentlycontinue
