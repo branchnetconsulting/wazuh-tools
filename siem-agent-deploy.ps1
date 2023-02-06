@@ -766,6 +766,7 @@ $ConfigToWrite = @"
 	if ( -not ($file -match "Connected to the server ") ) {
 		Start-Sleep -s 15
 		if ($Debug) { Write-Output "Pausing for an additional 15 seconds to allow agent to connect to manager..." }
+		$file = Get-Content "$PFPATH\ossec-agent\ossec.log" -erroraction 'silentlycontinue'
 		if ( -not ($file -match "Connected to the server ") ) {
 			if ($Debug) { Write-Output "This agent FAILED to connect to the Wazuh manager." }
 			exit 2
