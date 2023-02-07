@@ -1,0 +1,55 @@
+#!/bin/bash
+
+. /root/.siem-esauth
+TOKEN=$(sudo curl -s -u $WAPIUSER:$WAPIPASS -k -X GET "$WAPIPROTO://localhost:55000/security/user/authenticate?raw=true")
+# List agents in the Sysmon agent group
+AIG=`curl -s -k -X GET "$WAPIPROTO://$WAPIHOST:55000/agents?group=sysmon&status=Active&select=id" -H "Authorization: Bearer $TOKEN" | jq .data.affected_items[].id | sed 's/"//g'`
+
+#List agents reporting results from the check-sysmon command
+SR=`curl -XGET --insecure -u admin:''$ESPASS'' "$ESPROTO://$ESHOST:$ESPORT/wazuh-a*/_search?size=0" -H 'Content-Type: application/json' -d '
+{
+  "query" : {
+    "bool": {
+      "must": {
+        "query_string": {
+          "query" : "rule.id: 104324 OR rule.id: 104326"
+        }
+      },
+      "filter":  {
+        "range" : {
+          "timestamp" : {
+              "gte": "now-25h"
+          }
+        }
+      }
+    }
+  },
+    "aggs": {
+    "unique_agents": {
+      "terms": {
+        "field": "agent.id"
+      }
+    }
+  }
+}
+' 2> /dev/null | jq .aggregations.unique_agents.buckets[].key | sed 's/"//g'`
+
+TargetSysmonVer=`head -n1 /var/ossec/etc/shared/sysmon/sysmon-target-version.txt | sed 's/^\s*\([0-9\.]\+\)\s*$/\1/'`
+
+# Check if the agents in the Sysmon Group are recently reporting check-sysmon results and if not, push out the Sysmon bootstrap WPK to the agent.
+for agent in $AIG; do
+        if [[ ! `echo $SR | egrep "(^| )\$agent($| )"` ]]; then
+                echo "agent.id:$agent needs wpk"
+                if [[ `curl -s -k -X GET "$WAPIPROTO://$WAPIHOST:55000/syscollector/$agent/os" -H "Authorization: Bearer $TOKEN" | jq .data.affected_items[].architecture | sed 's/"//g'` = "x86_64" ]]; then
+                        echo "pushing install-sysmon-$TargetSysmonVer-64.wpk to $agent"
+                        curl -s -k -X PUT "$WAPIPROTO://$WAPIHOST:55000/agents/upgrade_custom?file_path=/var/ossec/etc/shared/WMC/wpk-repo/install-sysmon-$TargetSysmonVer-64.wpk&installer=run.bat&agents_list=$agent" -H "Authorization: Bearer $TOKEN"
+                        touch /var/ossec/wpk-state/$agent-install-sysmon-$TargetSysmonVer-64.wpk
+                        chown wazuh:wazuh /var/ossec/wpk-state/$agent-install-sysmon-$TargetSysmonVer-64.wpk
+                else
+                        echo "pushing install-sysmon-$TargetSysmonVer-32.wpk to $agent"i
+                        curl -s -k -X PUT "$WAPIPROTO://$WAPIHOST:55000/agents/upgrade_custom?file_path=/var/ossec/etc/shared/WMC/wpk-repo/install-sysmon-$TargetSysmonVer-32.wpk&installer=run.bat&agents_list=$agent" -H "Authorization: Bearer $TOKEN"
+                        touch /var/ossec/wpk-state/$agent-install-sysmon-$TargetSysmonVer-64.wpk
+                        chown wazuh:wazuh /var/ossec/wpk-state/$agent-install-sysmon-$TargetSysmonVer-64.wpk
+                fi
+        fi
+done

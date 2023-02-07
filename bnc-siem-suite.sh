@@ -190,6 +190,11 @@ function tprobe() {
 
 # Uninstallion function
 function uninstallsuite() {
+
+if [ -f /var/ossec/etc/ossec.log ]; then
+	cp /var/ossec/etc/ossec.log /tmp/
+fi
+
 # Shut down and clean out any previous Wazuh or OSSEC agent
 systemctl stop wazuh-agent 2> /dev/null
 systemctl stop ossec-hids-agent 2> /dev/null
@@ -204,7 +209,7 @@ apt-get -y purge wazuh-agent 2> /dev/null
 apt-get -y purge ossec-hids-agent 2> /dev/null
 apt-get -y purge ossec-agent 2> /dev/null
 kill -kill `ps auxw | grep "/var/ossec/bin" | grep -v grep | awk '{print $2}'` 2> /dev/null
-rm -rf /var/ossec /etc/ossec-init.conf 2> /dev/null
+rm -rf /var/ossec 2> /dev/null
 # Clean out any previous Osquery
 dpkg --purge osquery 2> /dev/null
 yum -y erase osquery 2> /dev/null
@@ -223,7 +228,7 @@ if [ -f /etc/nsm/securityonion.conf ]; then
 		if [ $Debug == 1 ]; then echo -e "\n*** This deploy script cannot be used on a system where Security Onion is installed."; fi
         exit 2
 fi
-if [[ `grep -s server /etc/ossec-init.conf` ]]; then
+if [ -f /var/ossec/bin/agent_control ]; then
         if [ $Debug == 1 ]; then echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."; fi
         exit 2
 fi
@@ -246,38 +251,68 @@ if [[ "$OsqueryVer" == "" && "$SkipOsquery" == "0" ]]; then
         exit 2
 fi
 
-# Confirm the self registration and agent connection ports on the manager(s) are responsive.
-# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
-tprobe $WazuhMgr 1514
-tprobe $WazuhRegMgr 1515
+# Determine how old the state file is ( 0 means absent )
+mtime=`stat -c%Y /var/ossec/var/run/wazuh-agentd.state 2> /dev/null`
+if [[ "$mtime" == "" ]]; then
+        mtime=0
+fi
+sfage=$((`date +%s`-$mtime))
 
-# Load Balancer Specific check for actual connection to a Wazuh Manager
-if [[ "$LBprobe" == "1" && -e /var/ossec/bin/agent-auth ]]; then 
-	if [ $Debug == 1 ]; then echo "Performing a load-balancer-aware check via an agent-auth.exe call to confirm manager is truly reachable..."; fi
-	rm /tmp/lbprobe
-        /var/ossec/bin/agent-auth -m $WazuhMgr -p1515 -P bad &> /tmp/lbprobe &
-        sleep 5
-        kill `ps auxw | grep agent-auth | grep -v grep | awk '{print $2}'` 2>/dev/null
-        if [[ `grep "Invalid password" /tmp/lbprobe` ]]; then
-                if [ $Debug == 1 ]; then echo "The Wazuh Manager auth daemon is reachable."; fi
-        else
-                if [ $Debug == 1 ]; then echo "Cannot reach Wazuh Manager auth daemon."; fi
-                exit 2
-        fi
+if [[ ! -f /var/ossec/var/run/wazuh-agentd.state || ! `grep "status='connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` || $sfage -gt 70 ]]; then
+	if [ $Debug == 1 ]; then echo "Agent is clearly not present or not connected to manager.  Testing reachability of manager..."; fi
+	# Confirm the self registration and agent connection ports on the manager(s) are responsive.
+	# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
+	tprobe $WazuhMgr 1514
+	tprobe $WazuhRegMgr 1515
+	# Load Balancer Specific check for actual connection to a Wazuh Manager
+	if [[ "$LBprobe" == "1" && -e /var/ossec/bin/agent-auth ]]; then 
+		if [ $Debug == 1 ]; then echo "Performing a load-balancer-aware check via an agent-auth.exe call to confirm manager is truly reachable..."; fi
+		rm /tmp/lbprobe
+		/var/ossec/bin/agent-auth -m $WazuhMgr -p1515 -P bad &> /tmp/lbprobe &
+		sleep 5
+		kill `ps auxw | grep agent-auth | grep -v grep | awk '{print $2}'` 2>/dev/null
+		if [[ `grep "Invalid password" /tmp/lbprobe` ]]; then
+			if [ $Debug == 1 ]; then echo "The Wazuh Manager auth daemon is reachable."; fi
+		else
+			if [ $Debug == 1 ]; then echo "Cannot reach Wazuh Manager auth daemon."; fi
+			exit 2
+		fi
+	fi
 fi
 
 #
-# Is the agent presently really connected to the Wazuh manager?
+# Is the agent presently really connected to a Wazuh manager (possibly not the right one)?
 #
-if [[ ! `grep "'connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
-        if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to the Wazuh manager."; fi
-                if [ $CheckOnly == 1 ]; then
+if [[ $sfage -lt 70 && `grep "status='connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
+	if [ $Debug == 1 ]; then echo "The Wazuh agent is connected to a Wazuh manager."; fi
+else
+	if [ $sfage -lt 70 ]; then
+		if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to a Wazuh manager, waiting 70 seconds."; fi
+		sleep 70
+		# Recalculate how old the state file is ( 0 means absent )
+		mtime=`stat -c%Y /var/ossec/var/run/wazuh-agentd.state 2> /dev/null`
+		if [[ "$mtime" == "" ]]; then
+			mtime=0
+		fi
+		sfage=$((`date +%s`-$mtime))		
+		if [[ $sfage -lt 70 && `grep "status='connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
+			if [ $Debug == 1 ]; then echo "Now the Wazuh agent is connected to a Wazuh manager."; fi
+		else
+			if [ $Debug == 1 ]; then echo "*** The Wazuh agent is still not connected to a Wazuh manager."; fi
+                	if [ $CheckOnly == 1 ]; then
+	                        exit 1
+	                else
+	                        deploysuite
+	                fi
+		fi
+	else
+		if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to a Wazuh manager."; fi
+               	if [ $CheckOnly == 1 ]; then
                         exit 1
                 else
                         deploysuite
                 fi
-else
-        if [ $Debug == 1 ]; then echo "The Wazuh agent is connected to the Wazuh manager."; fi
+	fi
 fi
 
 #
@@ -334,7 +369,7 @@ fi
 #
 # Is the target version of Wazuh agent installed?
 #
-if [ -f /var/ossec/bin/wazuh-control ] && [[ `/var/ossec/bin/wazuh-control info | grep "\"v$WazuhVer\""` ]] || [[ `grep "\"v$WazuhVer\"" /etc/ossec-init.conf` ]]; then
+if [ -f /var/ossec/bin/wazuh-control ] && [[ `/var/ossec/bin/wazuh-control info | grep "\"v$WazuhVer\""` ]]; then
         if [ $Debug == 1 ]; then echo "The running Wazuh agent appears to be at the desired version ($WazuhVer)."; fi
 else
         if [ $Debug == 1 ]; then echo "*** The running Wazuh agent does not appear to be at the desired version ($WazuhVer)."; fi
@@ -376,7 +411,7 @@ fi
 #
 # Passed!
 #
-if [ $Debug == 1 ]; then echo "All appears current on this system with respect to the Wazuh Linux agent suite."; fi
+if [ $Debug == 1 ]; then echo "No deployment/redeployment appears to be needed."; fi
 exit 0
 }
 
@@ -394,7 +429,7 @@ if [ -f /etc/nsm/securityonion.conf ]; then
         show_usage
         exit 2
 fi
-if [[ `grep server /etc/ossec-init.conf` ]]; then
+if [ -f /var/ossec/bin/agent_control ]; then
         echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."
         show_usage
         exit 2
@@ -510,8 +545,6 @@ if [ $Debug == 1 ]; then
 fi
 
 uninstallsuite
-
-
 
 #
 # Branch between Ubuntu and CentOS for Wazuh agent installation steps
@@ -656,6 +689,8 @@ if [[ `which systemctl 2> /dev/null` ]]; then
 else
         service wazuh-agent restart
 fi
+
+# /var/ossec/custbin/merge-wazuh-conf.sh
 
 echo "Waiting 15 seconds before checking connection status to manager..."
 sleep 15

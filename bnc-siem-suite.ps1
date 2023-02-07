@@ -165,7 +165,7 @@ function checkSuite {
 	     $SkipOsquery=$true
 	}
 	# Force skip Osquery if Windows is 32bit
-	If ( -not ([Environment]::Is64BitProcess) ) {
+	If ( -not ([Environment]::Is64BitOperatingSystem) ) {
 	     Write-Output "Windows is 32bit, so skipping Osquery..."
 	     $SkipOsquery=$true
 	}
@@ -210,9 +210,13 @@ function checkSuite {
 	} else {
 		$StateFile = Get-Content "$PFPATH\ossec-agent\ossec-agent.state" -erroraction 'silentlycontinue'
 	}	
-	if ( -not ($StateFile -match "'connected'" ) ) {
-		if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager." }
-		return
+	if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {
+		if ($Debug) { Write-Output "The Wazuh agent is not connected to the Wazuh manager, waiting 90 seconds." }
+		Start-Sleep -Seconds 90
+	       	if ( -not ($StateFile | Select-String -Pattern "'connected'" -quiet) ) {	
+	        	if ($Debug) { Write-Output "The Wazuh agent is still not connected to the Wazuh manager." }
+			return
+		}	
 	}
 
     #
@@ -355,8 +359,12 @@ function uninstallSuite {
 
 	if ($Debug) { Write-Output "Uninstalling the SIEM suite." }
 	
+	if (Test-Path "$PFPATH\ossec-agent\ossec.log" -PathType leaf) {
+		Copy-Item "$PFPATH\ossec-agent\ossec.log" -Destination "$Env:SystemDrive\Windows\Temp\"
+	}
+	
 	# NuGet Dependency
-	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
+	if ( -not (Get-PackageProvider -ListAvailable -Name NuGet -ErrorAction SilentlyContinue) ) {
 		if ($Debug) { Write-Output "Installing dependency (NuGet) to be able to uninstall other packages..." }
 		if ( $Local -eq $false ) {
 			cd c:\
@@ -404,7 +412,7 @@ function uninstallSuite {
 		$MergedFile = Get-Content "$PFPATH\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
 		$MergedFileName = "$PFPATH\ossec-agent\shared\merged.mg"
 		$CurrentAgentName=(Get-Content "$PFPATH\ossec-agent\client.keys").Split(" ")[1]
-		if ( ($StateFile -match "'connected'") -and ($WazuhMgr -eq $CurrentManager) -and ($CurrentAgentName -eq $WazuhAgentName) ) {
+		if ( ($StateFile | Select-String -Pattern "'connected'" -quiet) -and ($WazuhMgr -eq $CurrentManager) -and ($CurrentAgentName -eq $WazuhAgentName) ) {
 			if ($Debug) { Write-Output "Registration will be recycled unless there is an agent group mismatch." }
 			$MightRecycleRegistration=$true
 			if ($file2 -match "Source\sfile:") {
@@ -440,9 +448,9 @@ function uninstallSuite {
 	# If Sysmon present (and no -SkipSysmon specified), then wipe it all out
 	if ( -not ($SkipSysmon) ) {
 		# Blow away Wazuh-integrated Sysmon directory (used for applying Sysmon config updates)
-    	if ( Test-Path "$PFPATH\sysmon-wazuh" -PathType Container ) {
-            Remove-Item "$PFPATH\sysmon-wazuh" -recurse	
-        }
+		if ( Test-Path "$PFPATH\sysmon-wazuh" -PathType Container ) {
+		    Remove-Item "$PFPATH\sysmon-wazuh" -recurse	
+		}
 		# If Sysmon is partly or fully installed, attempt to remove it with the Sysmon.exe or Sysmon64.exe that it was actually installed with.
 		if ( (Test-Path c:\windows\SysmonDrv.sys -PathType leaf) -or (Test-Path c:\windows\Sysmon.exe -PathType leaf) -or (Test-Path c:\windows\Sysmon64.exe -PathType leaf) ) {
 			if ($Debug) { Write-Output "Removing presently installed Sysmon..." }
@@ -475,7 +483,9 @@ function uninstallSuite {
 	If ( -not ($SkipOsquery) ) {
 		if (Test-Path "c:\Program Files\osquery\osqueryd\osqueryd.exe" -PathType leaf)  {
 			if ($Debug) { Write-Output "Removing Osquery..." }
-			Uninstall-Package -Name "osquery" -erroraction 'silentlycontinue' | out-null
+                        # The osqueryd service is not always stopped during uninstall process and may be left behind causing the script to fail
+			Stop-Service osqueryd | out-null
+                        Uninstall-Package -Name "osquery" -erroraction 'silentlycontinue' | out-null
 			Remove-Item "C:\Progra~1\osquery" -recurse -erroraction 'silentlycontinue'
 		}
 		if (Test-Path "c:\Program Files\osquery\osqueryd\osqueryd.exe" -PathType leaf)  {
@@ -526,7 +536,7 @@ function installSuite {
 		exit 1
 	}
 	if ( ($OsqueryVer -eq $null) -and ( $SkipOsquery -eq $false ) -and ( $OsquerySrc -eq $null ) ) { 
-		write-host "Must use '-OsqueryVer' to specify the password to use for agent registration."
+		write-host "Must use '-OsqueryVer' to specify the target version for Osquery."
 		exit 1
 	}
 	# Force skip Sysmon and Osquery if Windows is older then Win 10 or Win Svr 2012
@@ -536,7 +546,7 @@ function installSuite {
 	     $SkipOsquery=$true
 	}
 	# Force skip Osquery if Windows is 32bit
-	If ( -not ([Environment]::Is64BitProcess) ) {
+	If ( -not ([Environment]::Is64BitOperatingSystem) ) {
 	     Write-Output "Windows is 32bit, so skipping Osquery..."
 	     $SkipOsquery=$true
 	}
@@ -680,14 +690,15 @@ if ($SysmonSrc -eq $null) {
 	if ( ($MightRecycleRegistration) -and ( ($CurrentGroups -eq $WazuhGroups) -or ($SkippedGroups) ) ) { 
 		Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$PFPATH\ossec-agent\client.keys"
 	} else {
-		# Register the agent with the manager (keep existing groups if agent connected and -WazuhGroups not specified)
-		if ($Debug) {  Write-Output "Registering Wazuh Agent with $WazuhRegMgr..." }
-        Remove-Item -Path "$PFPATH\ossec-agent\client.keys"
-		#if ($SkippedGroups) {         
-        #    Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$CurrentGroups", "-A", "$WazuhAgentName" -Wait -WindowStyle 'Hidden'
-		#} else {
+		# Register the agent with the manager
+		# TODO: Keep existing groups if agent connected and -WazuhGroups not specified.
+		Remove-Item -Path "$PFPATH\ossec-agent\client.keys"
+		if ($Debug) {  
+			Write-Output "Registering Wazuh Agent with $WazuhRegMgr..."
+			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName" -Wait
+		} else 	{
 			Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$WazuhRegMgr", "-P", "$WazuhRegPass", "-G", "$WazuhGroups", "-A", "$WazuhAgentName" -Wait -WindowStyle 'Hidden'
-		#}
+		}
 		if ( -not (Test-Path "$PFPATH\ossec-agent\client.keys" -PathType leaf) ) {
 			if ($Debug) {  Write-Output "Wazuh Agent self-registration failed." }
 			exit 1
@@ -754,54 +765,55 @@ sca.remote_commands=1
 	$ConfigToWrite | Out-File -FilePath "$PFPATH/ossec-agent/local_internal_options.conf" -Encoding ASCII
 
 	#
-	# Sysmon
+	# Sysmon (if not skipped)
 	#
 
-	# Create "$PFPATH\sysmon-wazuh" directory if missing
-	if ( -not (Test-Path -LiteralPath "$PFPATH\sysmon-wazuh" -PathType Container) ) { New-Item -Path "$PFPATH\" -Name "sysmon-wazuh" -ItemType "directory" | out-null }
+	if ( $SkipSysmon -eq $false ) {	
 
-	# Download and unzip Sysmon.zip, or unzip it from local directory if "-Local" option specified.
-	# Sysmon must be acquired locally or via download even if "-SkipSysmon" was specified, so that we can use Sysmon.exe to uninstall Sysmon.
-	Remove-Item "$PFPATH\sysmon-wazuh\*" -Force
-	if ( $Local -eq $false ) {
-		if ($Debug) { Write-Output "Downloading and unpacking Sysmon installer..." }
-		$count = 0
-		$success = $false;
-		do{
-			try{
-				if ( $SysmonDLhash -eq $null ) {
-					Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
-				} else {
-					Invoke-WebRequest -Uri $SysmonSrc -Method Get -Headers $headers -OutFile "$env:TEMP\Sysmon.zip"
+		# Create "$PFPATH\sysmon-wazuh" directory if missing
+		if ( -not (Test-Path -LiteralPath "$PFPATH\sysmon-wazuh" -PathType Container) ) { New-Item -Path "$PFPATH\" -Name "sysmon-wazuh" -ItemType "directory" | out-null }
+
+		# Download and unzip Sysmon.zip, or unzip it from local directory if "-Local" option specified.
+		# Sysmon must be acquired locally or via download even if "-SkipSysmon" was specified, so that we can use Sysmon.exe to uninstall Sysmon.
+		Remove-Item "$PFPATH\sysmon-wazuh\*" -Force
+		if ( $Local -eq $false ) {
+			if ($Debug) { Write-Output "Downloading and unpacking Sysmon installer..." }
+			$count = 0
+			$success = $false;
+			do{
+				try{
+					if ( $SysmonDLhash -eq $null ) {
+						Invoke-WebRequest -Uri $SysmonSrc -OutFile "$env:TEMP\Sysmon.zip"
+					} else {
+						Invoke-WebRequest -Uri $SysmonSrc -Method Get -Headers $headers -OutFile "$env:TEMP\Sysmon.zip"
+					}
+					$success = $true
 				}
-				$success = $true
-			}
-			catch{
-				if ($count -lt 5) {
-					if ($Debug) { Write-Output "Download attempt failed.  Will retry 10 seconds." }
-				} else {
-					if ($Debug) { Write-Output "Download attempt still failed.  Giving up and aborting the installation..." }
+				catch{
+					if ($count -lt 5) {
+						if ($Debug) { Write-Output "Download attempt failed.  Will retry 10 seconds." }
+					} else {
+						if ($Debug) { Write-Output "Download attempt still failed.  Giving up and aborting the installation..." }
+						exit 1
+					}
+					Start-sleep -Seconds 10
+				}  
+				$count++    
+			}until($count -eq 6 -or $success)
+			# If a hash was provided then calculate the hash of the downloaded Sysmon.zip and if the hashes don't match then fail.
+			if ( -not ( $SysmonDLhash -eq $null ) ) {
+				$SysmonRealHash=(Get-FileHash "$env:TEMP\Sysmon.zip" -Algorithm SHA256).Hash
+				if ( -not ( $SysmonDLhash -eq $SysmonRealHash ) ) {
+					if ($Debug) { Write-Output "The Sysmon verification hash does not match the downloaded $SysmonSrc." }
 					exit 1
 				}
-				Start-sleep -Seconds 10
-			}  
-			$count++    
-		}until($count -eq 6 -or $success)
-		# If a hash was provided then calculate the hash of the downloaded Sysmon.zip and if the hashes don't match then fail.
-		if ( -not ( $SysmonDLhash -eq $null ) ) {
-			$SysmonRealHash=(Get-FileHash "$env:TEMP\Sysmon.zip" -Algorithm SHA256).Hash
-			if ( -not ( $SysmonDLhash -eq $SysmonRealHash ) ) {
-				if ($Debug) { Write-Output "The Sysmon verification hash does not match the downloaded $SysmonSrc." }
-				exit 1
 			}
+			Microsoft.PowerShell.Archive\Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "$PFPATH\sysmon-wazuh"
+			Remove-Item "$env:TEMP\Sysmon.zip" -Force -erroraction 'silentlycontinue'
+		} else {
+			Microsoft.PowerShell.Archive\Expand-Archive "Sysmon.zip" -DestinationPath "$PFPATH\sysmon-wazuh\"
 		}
-		Microsoft.PowerShell.Archive\Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "$PFPATH\sysmon-wazuh"
-		Remove-Item "$env:TEMP\Sysmon.zip" -Force -erroraction 'silentlycontinue'
-	} else {
-		Microsoft.PowerShell.Archive\Expand-Archive "Sysmon.zip" -DestinationPath "$PFPATH\sysmon-wazuh\"
-	}
 
-	if ( $SkipSysmon -eq $false ) {
 		# Download SwiftOnSecurity config file for Sysmon or confirm it is already locally present if "-Local" option specified.
 		if ( $Local -eq $false ) {
 			# Download the latest SwiftOnSecurityconfig file for Sysmon and write it to Wazuh agent shared directory.
@@ -824,32 +836,30 @@ sca.remote_commands=1
 		} else {	
 			Copy-Item "sysmonconfig.xml" -Destination "C:\"
 		}
-	}
 
-    # If -SysmonVer was specified but the version downloaded or previously provided (-Local) to install does not match it, then fail and bail
-    If ( -not ($SysmonVer -eq $null ) )  {
-		$smver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion)
-		if ( -not ( $smver.Trim() -eq ([String]$SysmonVer).Trim() ) ) {
-			if ($Debug) { Write-Output "Current version of Sysmon to be installed ($smver) differs from what was specified ($SysmonVer)." }
-			exit 1
+		# If -SysmonVer was specified but the version downloaded or previously provided (-Local) to install does not match it, then fail and bail
+		If ( -not ($SysmonVer -eq $null ) )  {
+			$smver=[String]([System.Diagnostics.FileVersionInfo]::GetVersionInfo("$PFPATH\sysmon-wazuh\Sysmon.exe").FileVersion)
+			if ( -not ( $smver.Trim() -eq ([String]$SysmonVer).Trim() ) ) {
+				if ($Debug) { Write-Output "Current version of Sysmon to be installed ($smver) differs from what was specified ($SysmonVer)." }
+				exit 1
+			}
 		}
-    }
 
-	if ( $SkipSysmon -eq $false ) {
 		if ($Debug) {  Write-Output "Installing Sysmon..." }
-		If ([Environment]::Is64BitProcess){
+		If ([Environment]::Is64BitOperatingSystem){
 			if ($Debug) { Write-Output "Using 64 bit installer" }
 			Start-Process -FilePath "$PFPATH\sysmon-wazuh\Sysmon64.exe" -ArgumentList "-i","c:\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
 		}else{
 			if ($Debug) { Write-Output "Using 32 bit installer" }
 			Start-Process -FilePath "$PFPATH\sysmon-wazuh\Sysmon.exe" -ArgumentList "-i","c:\sysmonconfig.xml","-accepteula" -Wait -WindowStyle 'Hidden'
 		}
-	}
 
-	# Confirm Sysmon driver is actually loaded
-	if (-not ( fltmc | findstr -i SysmonDrv )) {
-		if ($Debug) { Write-Output "Installation of Sysmon failed.  Driver not loaded." }
-		exit 1
+		# Confirm Sysmon driver is actually loaded
+		if (-not ( fltmc | findstr -i SysmonDrv )) {
+			if ($Debug) { Write-Output "Installation of Sysmon failed.  Driver not loaded." }
+			exit 1
+		}
 	}
 
 	#
@@ -898,6 +908,13 @@ sca.remote_commands=1
 	# Start up the Wazuh agent service
 	if ($Debug) { Write-Output "Starting up the Wazuh agent..." }
 	Start-Service WazuhSvc
+	
+	if ($Debug) { write-output "Configuring WazuhSvc Windows service to auto-restart after a 15 minute delay if the service fails." }
+	& sc.exe failure wazuhsvc reset=86400 actions=restart/900000 | out-null
+	& sc.exe failureflag wazuhsvc 1 | out-null
+
+	# Do first-time execution of conf.d merge script to build a merged ossec.conf from conf.d files
+	# & "$PFPATH\ossec-agent\custbin\merge-wazuh-conf.ps1"
 
 	# After 15 seconds confirm agent connected to manager
 	if ($Debug) { Write-Output "Pausing for 15 seconds to allow agent to connect to manager..." }
@@ -925,7 +942,7 @@ New-Variable SkippedGroups -value $false -option AllScope
 
 #Set installation path based on 64 vs. 32-bit Windows OS
 $PFPATH="C:\Program Files (x86)"
-If ( -not ([Environment]::Is64BitProcess) ) {
+If ( -not ([Environment]::Is64BitOperatingSystem) ) {
      Write-Output "Changing path variable to C:\Program Files for detected 32-bit Windows OS..."
      $PFPATH="C:\Program Files"
 }

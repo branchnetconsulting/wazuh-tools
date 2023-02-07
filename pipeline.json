@@ -58,11 +58,17 @@
     {
       "set": {
         "field": "source.ip",
+        "value": "{{data.office365.ClientIP}}",
+        "ignore_empty_value": true
+      }
+    },
+    {
+      "set": {
+        "field": "source.ip",
         "value": "{{data.parameters.alert.data.srcip}}",
         "ignore_empty_value": true
       }
     },
-    
     {
       "rename": {
         "field": "data.dstip",
@@ -81,30 +87,9 @@
     {
       "geoip": {
         "field": "source.ip",
-        "target_field": "geoip",
+        "target_field": "source.geo",
         "properties": ["city_name", "country_name", "region_name"],
         "ignore_missing": true,
-        "ignore_failure": true
-      }
-    },
-    {
-      "rename": {
-        "field": "geoip.city_name",
-        "target_field": "source.geo.city_name",
-        "ignore_failure": true
-      }
-    },
-    {
-      "rename": {
-        "field": "geoip.country_name",
-        "target_field": "source.geo.country_name",
-        "ignore_failure": true
-      }
-    },
-    {
-      "rename": {
-        "field": "geoip.region_name",
-        "target_field": "source.geo.region_name",
         "ignore_failure": true
       }
     },
@@ -113,7 +98,7 @@
       "geoip": {
         "database_file": "GeoLite2-ASN.mmdb",
         "field": "source.ip",
-        "target_field": "geoip",
+        "target_field": "source.as",
         "properties": ["ASN", "ORGANIZATION_NAME"],
         "ignore_missing": true,
         "ignore_failure": true
@@ -121,15 +106,8 @@
     },
     {
       "rename": {
-        "field": "geoip.asn",
+        "field": "source.as.asn",
         "target_field": "source.as.number",
-        "ignore_failure": true
-      }
-    },
-    {
-      "rename": {
-        "field": "geoip.organization_name",
-        "target_field": "source.as.organization.name",
         "ignore_failure": true
       }
     },
@@ -137,39 +115,18 @@
     {
       "geoip": {
         "field": "destination.ip",
-        "target_field": "geoip",
+        "target_field": "destination.geo",
         "properties": ["city_name", "country_name", "region_name"],
         "ignore_missing": true,
         "ignore_failure": true
       }
     },
-    {
-      "rename": {
-        "field": "geoip.city_name",
-        "target_field": "destination.geo.city_name",
-        "ignore_failure": true
-      }
-    },
-    {
-      "rename": {
-        "field": "geoip.country_name",
-        "target_field": "destination.geo.country_name",
-        "ignore_failure": true
-      }
-    },
-    {
-      "rename": {
-        "field": "geoip.region_name",
-        "target_field": "destination.geo.region_name",
-        "ignore_failure": true
-      }
-    },
-
+    
     {
       "geoip": {
         "database_file": "GeoLite2-ASN.mmdb",
         "field": "destination.ip",
-        "target_field": "geoip",
+        "target_field": "destination.as",
         "properties": ["ASN", "ORGANIZATION_NAME"],
         "ignore_missing": true,
         "ignore_failure": true
@@ -177,25 +134,38 @@
     },
     {
       "rename": {
-        "field": "geoip.asn",
+        "field": "destination.as.asn",
         "target_field": "destination.as.number",
         "ignore_failure": true
       }
     },
     {
       "rename": {
-        "field": "geoip.organization_name",
+        "field": "destination.as.organization_name",
         "target_field": "destination.as.organization.name",
         "ignore_failure": true
       }
     },
-
+    
     {
       "gsub": {
         "field": "rule.description",
         "pattern": " group [0-9]+$",
         "replacement": "",
         "if" : "ctx.rule?.id == '86601'"
+      }
+    },
+
+    {
+      "date" : {
+        "field" : "data.office365.CreationTime",
+        "target_field" : "timestamp",
+        "formats" : [
+          "yyyy-MM-dd'T'HH:mm:ss"
+        ],
+        "timezone" : "UTC",
+        "ignore_failure" : false,
+        "if" : "ctx.location == 'office365'"
       }
     },
 
