@@ -24,11 +24,6 @@ if ( Test-Path -LiteralPath "$Env:windir\SysmonDrv.sys" ) {
 # Read shared target version number of Sysmon from agent group shared directory
 $TargetSysmonVersion = (Get-Content "$PFPATH\ossec-agent\shared\sysmon-target-version.txt" -TotalCount 1).Trim()
 
-# Report if installed Sysmon is not at the target version.
-if ( $InstalledSysmonVersion -ne $TargetSysmonVersion ) {
-        Write-Host "$TargetSysmonVersion,$InstalledSysmonVersion,SYSMON-WRONG-VERSION" -NoNewline
-}
-
 # Re-hash shared sysmonconfig.xml and compare it to locally stored hash file sysmonconfig.md5.  
 # If the hash file is missing or does not match the re-hashed value, then make Sysmon reload
 # the config and  write the re-hashed value to sysmonconfig.md5.
