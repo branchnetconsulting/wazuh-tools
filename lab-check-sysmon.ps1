@@ -33,7 +33,7 @@ $hashLatest = (Get-FileHash "$PFPATH\ossec-agent\shared\sysmonconfig.xml" -Algor
 if ( $hashInUse -ne $hashLatest ) {
         & $Env:windir\$SysmonFile -c "$PFPATH\ossec-agent\shared\sysmonconfig.xml" | out-null
         $hashLatest | Out-File -FilePath "$PFPATH\ossec-agent\sysmonconfig.md5" -Encoding ASCII
-        Write-Host "$InstalledSysmonVersion,CONFIG-RELOADED-$hashLatest"
+        Write-Host "$InstalledSysmonVersion,CONFIG-RELOADED,$hashLatest"
 } else {
-        Write-Host "$InstalledSysmonVersion,CONFIG-CURRENT-$hashInUse"
+        Write-Host "$InstalledSysmonVersion,CONFIG-CURRENT,$hashInUse"
 }
