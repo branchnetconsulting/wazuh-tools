@@ -43,7 +43,7 @@
 #
 # Optional Parameters:
 #
-# -RegMgr  		The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
+# -Mgr2		        The IP or FQDN of an optional second Wazuh manager for agents to connect to.
 # -AgentName   		Name under which to register this agent in place of locally detected Windows host name.
 # -ExtraGroups  	Additional groups beyond the default groups that are applied by the script, which include: windows, windows-local, 
 #			linux, linux-local, sysmon, sysmon-local, osquery, osquery-local. 
@@ -77,7 +77,7 @@
 # All possible parameters that may be specified for check-only, conditional install, forced install or forced uninstall purposes.
 param ( $Mgr,
 	$RegPass,	
-	$RegMgr,  
+	$Mgr2,  
 	$AgentName = $env:computername, 
 	$ExtraGroups, 
 	$VerDiscAddr,
@@ -282,8 +282,8 @@ function checkAgent {
 	#		
 	# -Mgr			The IP or FQDN of the Wazuh manager for ongoing agent connections. (Required)
 	# -RegPass     		Password for registration with Wazuh manager (put in quotes). (Required)
-	# -RegMgr  		The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
-	# -AgentName   		Name under which to register this agent in place of locally detected Windows host name.
+        # -Mgr2		        The IP or FQDN of an optional second Wazuh manager for agents to connect to.
+        # -AgentName   		Name under which to register this agent in place of locally detected Windows host name.
 	# -ExtraGroups  	Additional groups beyond the default groups that are applied by the script, which include: windows, windows-local, 
 	#			linux, linux-local, sysmon, sysmon-local, osquery, osquery-local. 
 	# -SkipSysmon   	Flag to not signal the Wazuh manager to push managed Sysmon WPK to this system. (Default is to not skip this.)
@@ -410,6 +410,7 @@ function checkAgent {
 	if ($Debug) {
         Write-Output "Mgr: $Mgr"
         Write-Output "RegMgr: $RegMgr"
+	Write-Output "Mgr: $Mgr2"
         Write-Output "RegPass: $RegPass"
         Write-Output "InstallVer: $InstallVer"
         Write-Output "AgentName: $AgentName"
@@ -527,7 +528,7 @@ function installAgent {
 	#		
 	# -Mgr			IP or FQDN of the Wazuh manager for ongoing agent connections. (Required.)
 	# -RegPass		Password for registration with Wazuh manager (put in quotes). (Required.)
-	# -RegMgr  		The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
+	# -Mgr2                 The IP or FQDN of an optional second Wazuh manager for agents to connect to.
 	# -AgentName   		Name under which to register this agent in place of locally detected Windows host name.
 	# -ExtraGroups  	Additional groups beyond the default groups that are applied by the script, which include: windows, windows-local, 
 	# 			linux, linux-local, sysmon, sysmon-local, osquery, osquery-local. 
@@ -713,6 +714,16 @@ function installAgent {
 
 	if ($Debug) {  Write-Output "Writing ossec.conf" }
 	# Write the ossec.conf file
+if ( -not ( $Mgr2 -eq $null ) ) {
+$MgrAdd = @"
+		<server>
+            		<address>$Mgr2</address>
+            		<port>1514</port>
+            		<protocol>tcp</protocol>
+        	</server>
+"@
+}
+	
 $ConfigToWrite = @"
 <!-- Wazuh Modular version 1.0 -->
 <ossec_config>
@@ -720,19 +731,20 @@ $ConfigToWrite = @"
 		<server>
 			<address>$Mgr</address>
 			<port>1514</port>
-            <protocol>tcp</protocol>
+			<protocol>tcp</protocol>
 		</server>
+$MgrAdd
 		<config-profile>$OS</config-profile>
 		<notify_time>10</notify_time>
-        <time-reconnect>60</time-reconnect>
-        <auto_restart>yes</auto_restart>
+		<time-reconnect>60</time-reconnect>
+		<auto_restart>yes</auto_restart>
 		<enrollment>
 			<enabled>no</enabled>
 		</enrollment>
 	</client>
 	<logging>
-        <log_format>plain</log_format>
-    </logging>
+        	<log_format>plain</log_format>
+	</logging>
 	<agent-upgrade>
 		<ca_verification>
 			<enabled>yes</enabled>
@@ -818,6 +830,7 @@ if ( -not ($Uninstall) ) {
 if ($Debug) {
 	Write-Output "Mgr: $Mgr"
 	Write-Output "RegMgr: $RegMgr"
+	Write-Output "Mgr2: $Mgr2"
 	Write-Output "RegPass: $RegPass"
 	Write-Output "InstallVer: $InstallVer"
 	Write-Output "AgentName: $AgentName"
