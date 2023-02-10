@@ -737,7 +737,7 @@ function installAgent() {
 #
 # Dynamically generate ossec.conf
 #
-if [ $Mgr2 != "" ]; then
+if [ "$Mgr2" != "" ]; then
     MgrAdd=`cat << EOF
         <server>
             <address>$Mgr2</address>
