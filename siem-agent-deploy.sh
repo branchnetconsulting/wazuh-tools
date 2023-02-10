@@ -47,7 +47,7 @@
 #
 # Optional Parameters:
 #
-# -RegMgr  			    The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
+# -Mgr2				    The IP or FQDN of an optional second Wazuh manager for agents to connect to.
 # -AgentName   			    Name under which to register this agent in place of locally detected Windows host name.
 # -ExtraGroups  		    Additional groups beyond the default groups that are applied by the script, which include:  
 #				    linux, linux-local, osquery, osquery-local. 
@@ -99,7 +99,7 @@ function check_value() {
 # Named parameter optional default values
 Mgr=
 RegPass=
-RegMgr=
+Mgr2=
 AgentName=`hostname`
 ExtraGroups=
 VerDiscAddr=
@@ -123,9 +123,9 @@ while [ "$1" != "" ]; do
                               check_value $1
                               RegPass=$1
                               ;;
-        -RegMgr )             shift
+        -Mgr2 )               shift
                               check_value $1
-                              RegMgr=$1
+                              Mgr2=$1
                               ;;
         -AgentName )          shift
                               check_value $1
@@ -372,6 +372,7 @@ function checkAgent() {
     #		
     # -Mgr		The IP or FQDN of the Wazuh manager for ongoing agent connections. (Required)
     # -RegPass     	Password for registration with Wazuh manager (put in quotes). (Required)
+    # -Mgr2		The IP or FQDN of an optional second Wazuh manager for agents to connect to.
     # -RegMgr  		The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
     # -AgentName   	Name under which to register this agent in place of locally detected Windows host name.
     # -ExtraGroups  	Additional groups beyond the default groups that are applied by the script, which include: 
@@ -496,6 +497,7 @@ function checkAgent() {
     #
     if [ $Debug == 1 ]; then
         echo -e "\nMgr: $Mgr"
+	echo "Mgr2: $Mgr2"
         echo "RegMgr: $RegMgr"
         echo "RegPass: $RegPass"
         echo "InstallVer: $InstallVer"
@@ -586,18 +588,19 @@ function installAgent() {
     # Relevant script parameters
     #		
     # -Mgr                  IP or FQDN of the Wazuh manager for ongoing agent connections. (Required.)
-    # -RegPass			        Password for registration with Wazuh manager (put in quotes). (Required.)
-    # -RegMgr  			        The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
-    # -AgentName   		      Name under which to register this agent in place of locally detected Windows host name.
-    # -ExtraGroups  		    Additional groups beyond the default groups that are applied by the script, which include:  
-    # 				              linux, linux-local, osquery, osquery-local. 
-    # -VerDiscAddr		      The Version Discover Address where a .txt record has been added with the target version of the Wazuh agent to install.
-    # -InstallVer		        The version of the Wazuh Agent to install.
-    # -DefaultInstallVer 	  Command line paramenter and a preset within the script that is used as a last resort.
-    # -DownloadSource     	Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
-    # -SkipOsquery  		    Flag to not signal the Wazuh manager to push managed Osquery WPK to this system. (Default is to not skip this.)
-    # -Install      		    Flag to skip all checks and force installation
-    # -Debug        		    Flag to show debug output
+    # -RegPass	            Password for registration with Wazuh manager (put in quotes). (Required.)
+    # -Mgr2                 The IP or FQDN of an optional second Wazuh manager for agents to connect to.
+    # -RegMgr  		    The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
+    # -AgentName   	    Name under which to register this agent in place of locally detected Windows host name.
+    # -ExtraGroups  	    Additional groups beyond the default groups that are applied by the script, which include:  
+    # 			    linux, linux-local, osquery, osquery-local. 
+    # -VerDiscAddr	    The Version Discover Address where a .txt record has been added with the target version of the Wazuh agent to install.
+    # -InstallVer	    The version of the Wazuh Agent to install.
+    # -DefaultInstallVer    Command line paramenter and a preset within the script that is used as a last resort.
+    # -DownloadSource       Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
+    # -SkipOsquery  	    Flag to not signal the Wazuh manager to push managed Osquery WPK to this system. (Default is to not skip this.)
+    # -Install      	    Flag to skip all checks and force installation
+    # -Debug        	    Flag to show debug output
 
     if [ -f /var/ossec/bin/agent_control ]; then
         echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."
@@ -734,6 +737,15 @@ function installAgent() {
 #
 # Dynamically generate ossec.conf
 #
+if [ $Mgr2 != "" ]; then
+    MgrAdd=`cat << EOF
+        <server>
+            <address>$Mgr2</address>
+            <port>1514</port>
+            <protocol>tcp</protocol>
+        </server>
+EOF`
+fi
 echo "
 <!-- Wazuh Modular version 1.0 -->
 <ossec_config>
@@ -743,6 +755,7 @@ echo "
             <port>1514</port>
             <protocol>tcp</protocol>
         </server>
+	$MgrAdd
         <config-profile>$OS</config-profile>
         <notify_time>10</notify_time>
         <time-reconnect>60</time-reconnect>
@@ -834,6 +847,7 @@ fi
 if [ $Debug == 1 ]; then
     echo -e "\nMgr: $Mgr"
     echo "RegMgr: $RegMgr"
+    echo "Mgr2: $Mgr2"
     echo "RegPass: $RegPass"
     echo "InstallVer: $InstallVer"
     echo "AgentName: $AgentName"
