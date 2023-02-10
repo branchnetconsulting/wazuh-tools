@@ -755,7 +755,7 @@ echo "
             <port>1514</port>
             <protocol>tcp</protocol>
         </server>
-	$MgrAdd
+$MgrAdd
         <config-profile>$OS</config-profile>
         <notify_time>10</notify_time>
         <time-reconnect>60</time-reconnect>
