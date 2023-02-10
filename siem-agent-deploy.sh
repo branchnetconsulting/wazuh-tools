@@ -42,27 +42,27 @@
 #
 # Required Parameters:
 #
-# -Mgr					        The IP or FQDN of the Wazuh manager for ongoing agent connections.
+# -Mgr				    The IP or FQDN of the Wazuh manager for ongoing agent connections.
 # -RegPass     			    Password for registration with Wazuh manager (put in quotes).
 #
 # Optional Parameters:
 #
-# -RegMgr  				      The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
+# -RegMgr  			    The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
 # -AgentName   			    Name under which to register this agent in place of locally detected Windows host name.
 # -ExtraGroups  		    Additional groups beyond the default groups that are applied by the script, which include:  
-#						            linux, linux-local, osquery, osquery-local. 
+#				    linux, linux-local, osquery, osquery-local. 
 # -VerDiscAddr			    The Version Discovery Address where a .txt record has been added with the target version of the Wazuh agent to install.
-# -InstallVer			      The version of the Wazuh Agent to install.
-# -DefaultInstallVer 	  Command line paramenter and a preset within the script that is used as a last resort.
-# -DownloadSource     	Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
+# -InstallVer			    The version of the Wazuh Agent to install.
+# -DefaultInstallVer 	  	    Command line paramenter and a preset within the script that is used as a last resort.
+# -DownloadSource     	            Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
 # -SkipOsquery  		    Flag to not signal the Wazuh manager to push managed Osquery WPK to this system. (Default is to not skip this.)
 # -Install      		    Flag to skip all checks and force installation
 # -Uninstall    		    Flag to uninstall Wazuh agent only 
 # -CheckOnly    		    Flag to only run checks to see if installation is current or in need of deployment
 # -LBprobe      		    Flag to additionally check for manager connectivity with an agent-auth probe to avoid being fooled by a load balancer that 
-# 						          handshakes even when service down.
+# 				    handshakes even when service down.
 # -Debug        		    Flag to show debug output
-# -help					        Show command line options
+# -help				    Show command line options
 
 # Sample way to fetch and use this script:
 #
@@ -73,7 +73,7 @@
 #
 # Sample command line:
 #
-# ./siem-agent-deploy.sh -Mgr "siem.wycliffe.org" -Mgr "{Manager DNS or IP}" -RegPass "{Your_Password}" -ExtraGroups "{Your_comma_separated_group_list}" -Debug
+# ./siem-agent-deploy.sh -Mgr "siem.wycliffe.org" -RegMgr "{Manager DNS or IP}" -RegPass "{Your_Password}" -ExtraGroups "{Your_comma_separated_group_list}" -Debug
 #
 
 #
@@ -101,7 +101,7 @@ Mgr=
 RegPass=
 RegMgr=
 AgentName=`hostname`
-ExtraGroups="#NOGROUP#"
+ExtraGroups=
 VerDiscAddr=
 InstallVer=
 DefaultInstallVer="4.3.9"
@@ -141,7 +141,7 @@ while [ "$1" != "" ]; do
                                  ExtraGroups="$1"
                               fi
                               ;;
-        -VerDiscAddr )       shift
+        -VerDiscAddr )        shift
                               check_value $1
                               VerDiscAddr="$1"
                               ;;
@@ -200,7 +200,7 @@ function tprobe() {
    echo > /dev/tcp/$tpr_ip/$2 &
    sleep 2
    if [[ `ps auxw | awk '{print $2}' | egrep "^$!"` ]]; then
-       if [ $Debug = 1 ]; then echo "*** Failed to get response from $1 on tcp/$2."; fi
+       if [ $Debug = 1 ]; then echo "Probe failed!"; fi
        kill $!
        exit 2
    fi
@@ -449,7 +449,7 @@ function checkAgent() {
             fi
             sfage=$((`date +%s`-$mtime))		
             if [[ $sfage -lt 70 && `grep "status='connected'" /var/ossec/var/run/wazuh-agentd.state 2> /dev/null` ]]; then
-                if [ $Debug == 1 ]; then echo "Now the Wazuh agent is connected to a Wazuh manager."; fi
+                if [ $Debug == 1 ]; then echo "The Wazuh agent is now connected to a Wazuh manager."; fi
 		            Connected=1
             else
                 if [ $Debug == 1 ]; then echo "*** The Wazuh agent is still not connected to a Wazuh manager."; fi
@@ -457,13 +457,6 @@ function checkAgent() {
         else
 	          if [ $Debug == 1 ]; then echo "*** The Wazuh agent is not connected to a Wazuh manager."; fi
         fi
-    fi
-
-    if [ "$ExtraGroups" == "#NOGROUP#" ]; then
-	      if [ "$SkipOsquery" == "1" ]; then
-            if [ $Debug == 1 ]; then echo "*** -SkipOsquery must always be accompanied with the use of -ExtraGroups."; fi
-            exit 2
-	      fi
     fi
 
     #
@@ -477,9 +470,7 @@ function checkAgent() {
     if [ "$SkipOsquery" == "0" ]; then
         GroupsPrefix="${GroupsPrefix}osquery,osquery-local,"
     fi
-    if [ "$ExtraGroups" != "#NOGROUP#" ]; then
-        GroupsPrefix="${GroupsPrefix}$ExtraGroups"
-    fi
+    GroupsPrefix="${GroupsPrefix}$ExtraGroups"
     TargetGroups=`echo $GroupsPrefix | sed 's/,$//'`
     if [ -f /var/ossec/etc/shared/merged.mg ]; then
         CurrentGroups=`echo \`grep "<\!-- Source file: " /var/ossec/etc/shared/merged.mg | cut -d" " -f4 | cut -d/ -f1 \` | sed 's/ /,/g'`
@@ -515,7 +506,6 @@ function checkAgent() {
         echo "ExtraGroups: $ExtraGroups"
         echo "CorrectGroupPrefix: $CorrectGroupPrefix"
     fi
-
     if [ $Debug == 1 ]; then echo "No deployment/redeployment appears to be needed."; fi
     exit 0
 }
@@ -536,8 +526,6 @@ function uninstallAgent() {
     # If Wazuh agent is already installed and registered, and this is not an explicit uninstallation call, then note if registration may be
     # recyclable, and if so, preserve client.keys and the agent groups list to accomodate that, plus set the $MightRecycleRegistration flag.
     CorrectAgentName="0"
-    RegFileName="/var/ossec/etc/client.keys"
-    ConfigFileName="/var/ossec/etc/ossec.conf"
     if [ "$Uninstall" == "0" ] && [ -s "$RegFileName" ]; then
         # The existing registration will be recyled if:
         #    - the agent is already connected
@@ -561,7 +549,7 @@ function uninstallAgent() {
 	fi
     fi  
 
-    # Stop any previous wazuh agent
+    # Stop any previous  wazuh agent
     systemctl stop wazuh-agent 2> /dev/null
     service wazuh-agent stop 2> /dev/null
 
@@ -802,9 +790,9 @@ echo "
     # Do first-time execution of conf.d merge script to build a merged ossec.conf from conf.d files
     /var/ossec/scripts/merge-wazuh-conf.sh
 
-    # After 15 seconds confirm agent connected to manager
-    if [ $Debug == 1 ]; then echo "Pausing for 15 seconds to allow agent to connect to manager..."; fi
-    sleep 15
+    # After 30 seconds confirm agent connected to manager
+    if [ $Debug == 1 ]; then echo "Pausing for 30 seconds to allow agent to connect to manager..."; fi
+    sleep 30
     if [[ ! `cat /var/ossec/logs/ossec.log | grep "Connected to the server "` ]]; then
         sleep 15
 	if [ $Debug == 1 ]; then echo "Pausing for an additional 15 seconds to allow agent to connect to manager..."; fi
@@ -823,6 +811,9 @@ echo "
 # Main
 #
 
+RegFileName="/var/ossec/etc/client.keys"
+ConfigFileName="/var/ossec/etc/ossec.conf"
+    
 if [ "$CheckOnly" == "1" ] && [ "$Install" == "1" ]; then
     echo -e "\n*** Cannot use -Install in combination with -CheckOnly."
     exit 2
