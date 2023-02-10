@@ -699,9 +699,9 @@ function installAgent() {
 	rm $RegFileName
         if [ $Debug == 1 ]; then echo "Registering Wazuh Agent with $RegMgr..."; fi
         if [ "$CorrectGroupPrefix" == "1" ]; then
-            /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" > /tmp/reg.state
+            /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" &> /tmp/reg.state
         else
-            /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" > /tmp/reg.state
+            /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" &> /tmp/reg.state
 	fi
 	if [ $Debug == 1 ]; then 
             cat /tmp/reg.state 
@@ -710,9 +710,9 @@ function installAgent() {
             if [ $Debug == 1 ]; then echo "Waiting 45 seconds for Manager to discover agent is disconnected before retrying registration..."; fi
             sleep 45
 	    if [ "$CorrectGroupPrefix" == "1" ]; then
-                /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" > /tmp/reg.state
+                /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" &> /tmp/reg.state
             else
-                /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" > /tmp/reg.state
+                /var/ossec/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" &> /tmp/reg.state
             fi
             if [ $Debug == 1 ]; then
                 cat /tmp/reg.state
