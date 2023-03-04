@@ -197,6 +197,21 @@ IFS='' read -r -d '' Script <<"EOL"
 # "Information(10005)	- merge-wazuh-conf: ossec.conf already up to date"
 # "Information(10006)	- merge-wazuh-conf: skipped due to script already running"
 #
+
+# Determine type of OS (Linux vs MacOS)
+if [[ -f /etc/os-release ]]; then
+	OStype="linux"
+	WazPath="$WazPath"
+	STATPARMS="-c%Y"
+elif [[ "`sysctl kern.version 2> /dev/null | grep Darwin`" ]]; then
+	OStype="macos"
+	WazPath="/Library/Ossec"
+	STATPARMS="-f%m"
+else	
+	echo "Unable to determine what OS is running on this system.  Only Linux and MacOS are supported."
+	exit
+fi
+
 # If Wazuh agent conf.d directory is not yet present, then create it and populate it with a 000-base.conf copied from current ossec.conf file.
 if  [ ! -d $WazPath/etc/conf.d ]; then
 	mkdir $WazPath/etc/conf.d 2> /dev/null
@@ -219,7 +234,7 @@ if  [ ! -d $WazPath/etc/conf.d ]; then
 fi
 # If there was a failed ossec.conf remerge attempt less than an hour ago then bail out (failed as in Wazuh agent would not start using latest merged ossec.conf)
 # This is to prevent an infinite loop of remerging, restarting, failing, reverting, and restarting again, caused by bad material in a conf.d file.
-if [ -f $WazPath/etc/ossec.conf-BAD ] && [ $((`date +%s` - `stat -c %Y $WazPath/etc/ossec.conf-BAD`)) -lt 3600 ];then
+if [ -f $WazPath/etc/ossec.conf-BAD ] && [ $((`date +%s` - `stat $STATPARMS $WazPath/etc/ossec.conf-BAD`)) -lt 3600 ];then
 	logger -t "Wazuh-Modular" "Error(10004) - merge-wazuh-conf: exited due to a previous failed ossec.conf remerge attempt less than an hour ago"
 	exit
 fi
@@ -228,14 +243,27 @@ files=`cd $WazPath/etc/conf.d; ls *.conf`
 rm $WazPath/etc/conf.d/config.merged 2> /dev/null
 touch $WazPath/etc/conf.d/config.merged
 for file in $files; do
-	echo -e "<!--\nFrom conf.d/$file\n-->" >> $WazPath/etc/conf.d/config.merged 2> /dev/null
+	echo "" >> $WazPath/etc/conf.d/config.merged 2> /dev/null
+	echo "<!--" >> $WazPath/etc/conf.d/config.merged 2> /dev/null
+	echo "From conf.d/$file" >> $WazPath/etc/conf.d/config.merged 2> /dev/null
+	echo "-->" >> $WazPath/etc/conf.d/config.merged 2> /dev/null
 	cat $WazPath/etc/conf.d/$file >> $WazPath/etc/conf.d/config.merged 2> /dev/null
 	echo "" >> $WazPath/etc/conf.d/config.merged 2> /dev/null
 done
 # If the rebuilt config.merged file is the same (by MD5 hash) as the main ossec.conf then there is nothing more to do.
-hash1=`md5sum $WazPath/etc/conf.d/config.merged | awk '{print $1}'`
-hash2=`md5sum $WazPath/etc/ossec.conf | awk '{print $1}'`
-if [ "$hash1" = "$hash2" ]; then
+
+if [[ $OStype == "linux" ]]; then
+	hash1=`md5sum $WazPath/etc/conf.d/config.merged | awk '{print $1}'`
+	hash2=`md5sum $WazPath/etc/ossec.conf | awk '{print $1}'`
+elif [[ $OStype == "macos" ]]; then
+	hash1=`md5 $WazPath/etc/conf.d/config.merged | awk '{print $4}'`
+	hash2=`md5 $WazPath/etc/ossec.conf | awk '{print $4}'`
+else
+	logger -t "Wazuh-Modular" "Error(10099) - merge-wazuh-conf: unknown local OS"
+	exit
+fi
+
+if [[ "$hash1" == "$hash2" ]]; then
 	#echo "ossec.conf is up to date"
 	logger -t "Wazuh-Modular" "Information(10005) - merge-wazuh-conf: ossec.conf already up to date"
 # However if config.merged is different than ossec.conf, then back up ossec.conf, replace it with config.merged, and restart Wazuh Agent service
@@ -244,7 +272,7 @@ else
 	# If another instance of this script is already running, then exit.
 	# Since after a merge, this script restarts the Wazuh agent and then waits to confirm
 	# the agent comes all the way back up, this will be a common occurrence.
-	if [[ "`ps auxw | grep '/bin/bash scripts/merge-wazuh-conf.sh' | grep -v grep | grep -v " sh -c " | wc -l`" != "2" ]]; then
+	if [[ "`ps auxw | egrep '/bin/bash \.?/?scripts/merge-wazuh-conf.sh' | grep -v grep | grep -v " sh -c " | wc -l`" -gt 2 ]]; then
 		logger -t "Wazuh-Modular" "Information(10006) - merge-wazuh-conf: skipped due to script already running"
 		exit
 	fi
@@ -257,21 +285,63 @@ else
 	fi
 	cp -pr $WazPath/etc/conf.d/config.merged $WazPath/etc/ossec.conf 2> /dev/null
 	chown root:wazuh $WazPath/etc/ossec.conf 2> /dev/null
-	systemctl stop wazuh-agent 2> /dev/null
-	systemctl start wazuh-agent 2> /dev/null
+	
+	# Restart the Wazuh agent with separate stop and start steps (works around some bug).
+	if [[ `which systemctl 2> /dev/null` ]]; then
+		systemctl stop wazuh-agent 
+		systemctl start wazuh-agent 
+	elif [[ `which service 2> /dev/null` ]]; then
+		service wazuh-agent stop
+		service wazuh-agent start
+	elif [[ "$OStype" == "macos" ]]; then
+		$WazPath/bin/wazuh-control stop
+		$WazPath/bin/wazuh-control start
+	else
+		echo "Confused about how to restart Wazuh agent service...  Failing..."
+		return 2
+	fi
+
 	sleep 30
+
+	if [[ "$OStype" == "linux" ]]; then
+		WazEstab=`ss -pn | grep " ESTAB .*:1514 [^0-9]*wazuh-agentd" | wc -l`
+	elif [[ "$OStype" == "macos" ]]; then
+		WazEstab=`netstat -nat | egrep "[.:]1514\s+ESTABLISHED" | wc -l`
+	else
+		echo "Confused about how to restart Wazuh agent service...  Failing..."
+	fi
+
 	# If after replacing ossec.conf and restarting, the Wazuh Agent fails to start, then revert to the backed up ossec.conf, restart, and hopefully recovering the service.
-	if [[ ! `pgrep -x "wazuh-agentd"` ]] || [[ ! `ss -pn | grep " ESTAB .*:1514 [^0-9]*wazuh-agentd"` ]]; then
+	if [[ ! `pgrep -x "wazuh-agentd"` ]] || [[ "$WazEstab" -ne 1 ]]; then
 		# echo "Wazuh Agent service failed to start with the newly merged ossec.conf!  Reverting to backed up ossec.conf..."
 		logger -t "Wazuh-Modular" "Error(10001) - merge-wazuh-conf: New ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..."
 		mv $WazPath/etc/ossec.conf $WazPath/etc/ossec.conf-BAD 2> /dev/null
 		mv $WazPath/etc/ossec.conf-BACKUP $WazPath/etc/ossec.conf 2> /dev/null
 		chown root:wazuh $WazPath/etc/ossec.conf 2> /dev/null
-		systemctl stop wazuh-agent 2> /dev/null
-		systemctl start wazuh-agent 2> /dev/null
+		# Restart the Wazuh agent with separate stop and start steps (works around some bug).
+		if [[ `which systemctl 2> /dev/null` ]]; then
+			systemctl stop wazuh-agent 
+			systemctl start wazuh-agent 
+		elif [[ `which service 2> /dev/null` ]]; then
+			service wazuh-agent stop
+			service wazuh-agent start
+		elif [[ "$OStype" == "macos" ]]; then
+			$WazPath/bin/wazuh-control stop
+			$WazPath/bin/wazuh-control start
+		else
+			echo "Confused about how to restart Wazuh agent service...  Failing..."
+			return 2
+		fi
 		sleep 30
+		if [[ "$OStype" == "linux" ]]; then
+			WazEstab=`ss -pn | grep " ESTAB .*:1514 [^0-9]*wazuh-agentd" | wc -l`
+		elif [[ "$OStype" == "macos" ]]; then
+			WazEstab=`netstat -nat | egrep "[.:]1514\s+ESTABLISHED" | wc -l`
+		else
+			echo "Confused about how to restart Wazuh agent service...  Failing..."
+		fi
 		# Indicate if the service was successfully recovered by reverting ossec.conf.
-		if [[ `pgrep -x "wazuh-agentd"` ]] && [[ `ss -pn | grep " ESTAB .*:1514 [^0-9]*wazuh-agentd"` ]]; then
+		if [[ `pgrep -x "wazuh-agentd"` ]] && [[ "$WazEstab" != 1 ]]; then
 				# echo "Wazuh Agent successfully running with reverted ossec.conf."
 				logger -t "Wazuh-Modular" "Information(10002) - merge-wazuh-conf: reverted ossec.conf and Wazuh agent successfully restarted..."
 		else
@@ -285,6 +355,13 @@ EOL
 echo "$Script" > $WazPath/scripts/merge-wazuh-conf.sh
 chown wazuh:wazuh $WazPath/scripts/merge-wazuh-conf.sh
 chmod +x $WazPath/scripts/merge-wazuh-conf.sh
+
+# As an interim measure, for MacOS, change the merge-wazuh-conf script to echo to stdout instead of log via logger.
+# Once we work out how to have Wazuh collect just "Wazuh-Modular"-tagged logs, this sed step will be removed.
+if [[ $OStype == "macos" ]]; then
+	sed -imerge-fixup 's/logger -t/echo/g' $WazPath/scripts/merge-wazuh-conf.sh
+fi
+
 }
 
 # Checks if agent is in desired state
@@ -310,17 +387,17 @@ function checkAgent() {
 	# -Debug		Flag to show debug output
 
 	if [ "$Mgr" == "" ]; then
-		echo -e "\n*** Must use '-Mgr' to specify the FQDN or IP of the Wazuh manager to which the agent should be or shall be a connected.."
+		echo ""; echo "*** Must use '-Mgr' to specify the FQDN or IP of the Wazuh manager to which the agent should be or shall be a connected.."
 		show_usage
 		return 2
 	fi
 	# If RegMgr not listed, assume it is the same as Mgr.
 	if [ "$RegMgr" == "" ]; then
-		if [ $Debug == 1 ]; then echo -e "\n*** RegMgr was null, so using Mgr for registration."; fi
+		if [ $Debug == 1 ]; then echo ""; echo "*** RegMgr was null, so using Mgr for registration."; fi
 		RegMgr=$Mgr
 	fi
 
-	if [ $Debug == 1 ]; then echo -e "\n*** Checking connection status of agent."; fi
+	if [ $Debug == 1 ]; then echo ""; echo "*** Checking connection status of agent."; fi
 	Connected=0
 
 	# Determine when agent state file last modified ( 0 means absent ), and then calculate how old it is.
@@ -418,7 +495,7 @@ function checkAgent() {
 	fi	
 
 	# Set CorrectGroupPrefix flag is the the actual agent group membership of this agent starts with the target prefix agent group list.
-	if [ $Debug == 1 ]; then echo -e "Current agent groups: $CurrentGroups\nTarget agent groups:  $TargetGroups"; fi
+	if [ $Debug == 1 ]; then echo ""; echo  "Current agent groups: $CurrentGroups"; echo "Target agent groups:  $TargetGroups"; fi
 	if [[ "$CurrentGroups" =~ ^${TargetGroups}* ]]; then
 		if [ $Debug == 1 ]; then echo "*** Expected $TargetGroups matches the prefix in $CurrentGroups."; fi
 		CorrectGroupPrefix=1
@@ -439,8 +516,8 @@ function uninstallAgent() {
 	#		
 	# -Uninstall		Uninstall without checking and without installing thereafter
 	#
-	if [ -f $WazPath/etc/ossec.log ]; then
-		cp -p $WazPath/etc/ossec.log /tmp/
+	if [ -f $LogFileName ]; then
+		cp -p $LogFileName /tmp/
 	fi
 
 	# If Wazuh agent is already installed and registered, and this is not an explicit uninstallation call, then note if registration may be
@@ -495,8 +572,9 @@ function uninstallAgent() {
 		else
 			if [ $Debug == 1 ]; then echo "Wazuh Agent not present..."; fi
 		fi
+		if [ $Debug == 1 ]; then echo "Uninstallation done..."; fi
 	else
-		if [ $Debug == 1 ]; then echo "Uninstallation not needed."; fi
+		if [ $Debug == 1 ]; then echo "Uninstallation not needed..."; fi
 	fi
 }
 
@@ -524,13 +602,13 @@ function installAgent() {
 	# -Debug					Flag to show debug output
 
 	if [ "$Mgr" == "" ]; then
-		echo -e "\n*** Mgr variable must be used to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
+		echo ""; echo "*** Mgr variable must be used to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
 		show_usage
 		return 2
 	fi
 
 	if [ "$RegPass" == "" ]; then
-		echo -e "\n*** WazuhRegPass variable must be used to specify the password to use for agent registration."
+		echo ""; echo "*** WazuhRegPass variable must be used to specify the password to use for agent registration."
 		show_usage
 		return 2
 	fi
@@ -539,14 +617,14 @@ function installAgent() {
 		RegMgr="$Mgr"
 	fi
 
-	if [ "$VerDiscAddr" != "" ]; then
-		InstallVer=`dig -t txt $VerDiscAddr +short | sed 's/"//g'`
-	fi
-
+	# Attempt install only if forced or agent not connected.
 	if [ "$Install" == "1" ] || [ "$Connected" == "0" ]; then
 		# If InstallVer is not discovered or set as a parameter, use the DefaultInstaller value either set on command line or is hard-coded in script.
-	if [ "$InstallVer" == "" ]; then
-		if [ $Debug == 1 ]; then echo "InstallVer was null, so using DefaultInstallVer value, if present from command line"; fi
+		if [ "$VerDiscAddr" != "" ]; then
+			InstallVer=`dig -t txt $VerDiscAddr +short | sed 's/"//g'`
+		fi
+		if [ "$InstallVer" == "" ]; then
+			if [ $Debug == 1 ]; then echo "InstallVer was null, so using DefaultInstallVer value, if present from command line"; fi
 			InstallVer=$DefaultInstallVer
 		fi
 
@@ -622,7 +700,8 @@ function installAgent() {
 	service wazuh-agent stop 2> /dev/null
 	/Library/Ossec/bin/wazuh-control stop 2> /dev/null
 	if [ "$MightRecycleRegistration" == "1" ] && [ "$Connected" == "1" ] && [ "$CorrectGroupPrefix" == "1" ]; then
-		cp -p /tmp/client.keys.bnc $WazPath/etc/client.keys 2> /dev/null
+		if [ $Debug == 1 ]; then echo "Restoring backup of client.keys"; fi
+		cp -p /tmp/client.keys.bnc $RegFileName 2> /dev/null
 	else
 		# Register the agent with the manager
 		rm $RegFileName
@@ -631,22 +710,20 @@ function installAgent() {
 			$WazPath/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" &> /tmp/reg.state
 		else
 			$WazPath/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" &> /tmp/reg.state
-	fi
-	if [ $Debug == 1 ]; then 
-		cat /tmp/reg.state 
+		fi
+		if [ $Debug == 1 ]; then 
+			cat /tmp/reg.state 
+		fi
 	fi
 	if [[ `grep "Duplicate agent" /tmp/reg.state` ]]; then 
 		if [ $Debug == 1 ]; then echo "Waiting 45 seconds for Manager to discover agent is disconnected before retrying registration..."; fi
 		sleep 45
 		if [ "$CorrectGroupPrefix" == "1" ]; then
 				$WazPath/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$CurrentGroups" -A "$AgentName" &> /tmp/reg.state
-			else
-				$WazPath/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" &> /tmp/reg.state
-			fi
-			if [ $Debug == 1 ]; then
-				cat /tmp/reg.state
-			fi
+		else
+			$WazPath/bin/agent-auth -m "$RegMgr" -P "$RegPass" -G "$TargetGroups" -A "$AgentName" &> /tmp/reg.state
 		fi
+		if [ $Debug == 1 ]; then cat /tmp/reg.state; fi
 		if [ ! -s "$RegFileName" ]; then
 			cp -p /tmp/client.keys.bnc $RegFileName 2> /dev/null
 			cp -p /tmp/ossec.conf.bnc $ConfigFileName 2> /dev/null
@@ -654,9 +731,14 @@ function installAgent() {
 				systemctl daemon-reload 2> /dev/null
 				systemctl enable wazuh-agent 2> /dev/null
 				systemctl start wazuh-agent
-			else
+			elif [[ `which service 2> /dev/null` ]]; then
 				chkconfig wazuh-agent on 2> /dev/null
 				service wazuh-agent start
+			elif [[ "$OStype" == "macos" ]]; then
+				$WazPath/bin/wazuh-control start
+			else
+				if [ $Debug == 1 ]; then echo "Confused about how to start Wazuh agent service...  Failing..."; fi
+				return 2
 			fi
 			if [ $Debug == 1 ]; then echo "Registration failed.  Reverted to previous known working client.keys and restarted Wazuh..."; fi
 			return 2	
@@ -685,7 +767,7 @@ EOF`
 			<protocol>tcp</protocol>
 		</server>
 $MgrAdd
-		<config-profile>$OS</config-profile>
+		<config-profile>$CFG_PROFILE</config-profile>
 		<notify_time>10</notify_time>
 		<time-reconnect>60</time-reconnect>
 		<auto_restart>yes</auto_restart>
@@ -717,16 +799,20 @@ $MgrAdd
 	#
 
 	# Start up the Wazuh agent service
-
 	if [ $Debug == 1 ]; then echo "Starting up the Wazuh agent..."; fi
 	# Restart the Wazuh agent
 	if [[ `which systemctl 2> /dev/null` ]]; then
 		systemctl daemon-reload 2> /dev/null
 		systemctl enable wazuh-agent 2> /dev/null
 		systemctl start wazuh-agent 
-	else
+	elif [[ `which service 2> /dev/null` ]]; then
 		chkconfig wazuh-agent on 2> /dev/null
 		service wazuh-agent start 
+	elif [[ "$OStype" == "macos" ]]; then
+		$WazPath/bin/wazuh-control start
+	else
+		if [ $Debug == 1 ]; then echo "Confused about how to start Wazuh agent service...  Failing..."; fi
+		return 2
 	fi
 
 	# Do first-time execution of conf.d merge script to build a merged ossec.conf from conf.d files
@@ -735,10 +821,10 @@ $MgrAdd
 	# After 30 seconds confirm agent connected to manager
 	if [ $Debug == 1 ]; then echo "Pausing for 30 seconds to allow agent to connect to manager..."; fi
 	sleep 30
-	if [[ ! `cat $WazPath/logs/ossec.log | grep "Connected to the server "` ]]; then
+	if [[ ! `cat $LogFileName | grep "Connected to the server "` ]]; then
 		sleep 15
 		if [ $Debug == 1 ]; then echo "Pausing for an additional 15 seconds to allow agent to connect to manager..."; fi
-		if [[ ! `cat $WazPath/logs/ossec.log | grep "Connected to the server "` ]]; then
+		if [[ ! `cat $LogFileName | grep "Connected to the server "` ]]; then
 			if [ $Debug == 1 ]; then echo "This agent FAILED to connect to the Wazuh manager."; fi
 			return 2
 		fi
@@ -861,7 +947,7 @@ fi
 
 # Bail if Wazuh Manager is installed here.
 if [ -f $WazPath/bin/agent_control ]; then
-	echo -e "\n*** This deploy script cannot be used on a system where Wazuh manager is already installed."
+	echo ""; echo "*** This deploy script cannot be used on a system where Wazuh manager is already installed."
 	show_usage
 	exit 2
 fi
@@ -885,10 +971,10 @@ fi
 
 RegFileName="$WazPath/etc/client.keys"
 ConfigFileName="$WazPath/etc/ossec.conf"
-LogFileName="$WazPath/log/ossec.log"
+LogFileName="$WazPath/logs/ossec.log"
 	
 if [ "$CheckOnly" == "1" ] && [ "$Install" == "1" ]; then
-	echo -e "\n*** Cannot use -Install in combination with -CheckOnly."
+	echo ""; echo "*** Cannot use -Install in combination with -CheckOnly."
 	exit 2
 fi
 
@@ -900,8 +986,10 @@ fi
 
 # Otherwise do checkAgent and exit with code 2 if the same was received from the function called.
 checkAgent
+checkAgentResult="$?"
 if [ $Debug == 1 ]; then
-	echo -e "\nMgr: $Mgr"
+	echo ""
+	echo "Mgr: $Mgr"
 	echo "Mgr2: $Mgr2"
 	echo "RegMgr: $RegMgr"
 	echo "RegPass: $RegPass"
@@ -918,12 +1006,12 @@ if [ $Debug == 1 ]; then
 	echo "RegFileName: $RegFileName"
 	echo "ConfigFileName: $ConfigFileName"
 fi
-if [[ "$?" == 2 ]]; then
+if [[ "$checkAgentResult" == 2 ]]; then
 	exit 2
 fi
 
 # Is a (re)deploy recommended?  If so, then if -CheckOnly, just exit 1 to indicate that.  Otherwise commence the uninstall and install sequence and exit with a code indicating the results.
-if [ "$Install" == "1" ] || [ "$Connected" == 0 ] || [ "$CorrectGroupPrefix" == 0 ]; then
+if [ "$Install" == 1 ] || [ "$Connected" == 0 ] || [ "$CorrectGroupPrefix" == 0 ]; then
 	# If all we are doing is a check, then the check must have indicated a install/reinstall was needed, so return an exit code of 1 now.
 	if [ "$CheckOnly" == 1 ]; then
 		if [ $Debug == 1 ]; then echo "The checkAgent function has determined that deployment/redeployment is needed."; fi
