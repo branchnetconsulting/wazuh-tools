@@ -934,7 +934,7 @@ fi
 # Determine type of OS (Linux vs MacOS)
 if [[ -f /etc/os-release ]]; then
 	OStype="linux"
-	WazPath="$WazPath"
+	WazPath="/var/ossec"
 	STATPARMS="-c%Y"
 elif [[ "`sysctl kern.version 2> /dev/null | grep Darwin`" ]]; then
 	OStype="macos"
