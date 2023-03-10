@@ -225,5 +225,11 @@
     <if_sid>110050</if_sid>
     <description>Sysmon 1: Process creation - No Parent</description>
   </rule>
+
+  <rule id="110200" level="3">
+    <if_sid>530</if_sid>
+    <match>check-sysmon</match>
+    <description>Sysmon check</description>
+  </rule>
   
 </group>
