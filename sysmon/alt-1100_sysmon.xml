@@ -135,6 +135,14 @@
     <group>sysmon_event_15,</group>
   </rule>
 
+  <rule id="110009" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^16$</field>
+    <description>Sysmon 16: ServiceConfigurationChange</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_16,</group>
+  </rule>
+  
   <rule id="110010" level="3">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^17$</field>
