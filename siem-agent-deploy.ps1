@@ -76,13 +76,14 @@
 
 # All possible parameters that may be specified for check-only, conditional install, forced install or forced uninstall purposes.
 param ( $Mgr,
+	$RegMgr,
 	$RegPass,	
 	$Mgr2,  
 	$AgentName = $env:computername, 
 	$ExtraGroups, 
-	$VerDiscAddr,
-	$InstallVer,
-	$DefaultInstallVer = "4.3.9",
+	$global:VerDiscAddr,
+	$global:InstallVer,
+	$global:DefaultInstallVer = "4.3.9",
 	$DownloadSource,
 	[switch]$SkipSysmon=$false, 
 	[switch]$SkipOsquery=$false,
@@ -90,8 +91,23 @@ param ( $Mgr,
 	[switch]$Uninstall=$false,
 	[switch]$CheckOnly=$false,
 	[switch]$LBprobe=$false,
+	[switch]$Help,
 	[switch]$Debug=$false
 );
+
+function show_usage {
+     Write-Host "Command syntax:"
+     Write-Host "    [-Mgr" -NoNewline; Write-Host "    WAZUH_MANAGER]" -ForegroundColor Green
+     Write-Host "    [-RegMgr" -NoNewline; Write-Host "    WAZUH_REGISTRATION_MANAGER]" -ForegroundColor Green
+     Write-Host "    [-RegPass" -NoNewline; Write-Host "    WAZUH_REGISTRATION_PASSWORD]" -ForegroundColor Green
+     Write-Host "    [-DefaultInstallVer" -NoNewline; Write-Host "    DEFAULT_WAZUH_VERSION]" -ForegroundColor Green
+     Write-Host "    [-DownloadSource" -NoNewline; Write-Host "    WAZUH_AGENT_DOWNLOAD_URL]" -ForegroundColor Green
+     Write-Host "    [-AgentName" -NoNewline; Write-Host "    WAZUH_AGENT_NAME_OVERRIDE]" -ForegroundColor Green
+     Write-Host "    [-ExtraGroups" -NoNewline; Write-Host "    LIST_OF_EXTRA_GROUPS]" -ForegroundColor Green
+     Write-Host "    [-VerDiscAddr" -NoNewline; Write-Host "    VERSION_DISCOVERY_ADDRESS]" -ForegroundColor Green
+     "    [-SkipSysmon]","    [-SkipOsquery]","    [-Install]","    [-Uninstall]","    [-CheckOnly]","    [-Debug]" | Write-Host
+     Write-Host "    ./siem-agent-deploy.sh -Mgr" -NoNewline;Write-Host -ForegroundColor Green ' "siem.company.org"' -NoNewline;Write-Host " -RegPass" -NoNewline; Write-Host -ForegroundColor Green ' "h58fg3FS###12"' -NoNewline; Write-Host " -DefaultInstallVer" -NoNewline; Write-Host -ForegroundColor Green ' "4.3.9"' -NoNewline; Write-Host " -ExtraGroups"  -NoNewline; Write-Host -ForegroundColor Green ' "server,office"'
+}
 
 # 
 # Probe a target FQDN/IP on a target tcp port and if no response is received or the FQDN cannot be resolved, then fail and bail with an exit 
@@ -106,17 +122,19 @@ function tprobe {
 		$IPBIG=([System.Net.Dns]::GetHostEntry($tp_host)).AddressList.IPAddressToString
 		if ( $IPBIG -eq "" ) {	
 			if ($Debug) { Write-Output "Failed to resolve IP for $tp_host" }
-			exit 2
+			$global:result = "2"
+			return
 		}
 	}
 	$tcpClient = New-Object System.Net.Sockets.TcpClient
 	$connection = $tcpClient.ConnectAsync($tp_host, $tp_port).Wait(1000)
 	if ($connection) {
 		if ($Debug) { Write-Output "Success!" }
+		$global:result = "0"
 	}
 	else {
 		if ($Debug) { Write-Output "Probe failed!" }
-		exit 2
+		$global:result = "2"
 	}
 }
 
@@ -270,12 +288,11 @@ New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\scripts" -erroraction 
 $ScriptToWrite | Out-File -FilePath "$PFPATH\ossec-agent\scripts\merge-wazuh-conf.ps1" -Encoding "UTF8"
 }
 
-#
-# Check if Wazuh agent deployment is in the target state.  If this cannot be determined due to an invalid call on failed probe of the Wazuh 
-# manager, fail and bail with exit code 2.
-# If no install/reinstall appears to be needed, then bail with an exit code of 0.
-# If a installation/reinstallation is called for, then simply return.
-#
+# Checks if agent is in desired state
+# return values
+#	0 - no failure, but pass back Connected flag and CorrectGroupPrefix value to inform next steps to be taken.  
+#		Discovering a need to (re)deploy on account of lack of contact with managr or incorrect agent group membership, is a finding, not a failure.
+#	2 - any failure like bad parms, probe failure, unsupported OS
 function checkAgent {
 
 	# Relevant script parameters
@@ -295,26 +312,33 @@ function checkAgent {
 
 	if ($Mgr -eq $null) { 
 		if ($Debug) { Write-Output "Must use '-Mgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection." }
-		exit 2
-	}
-	# If RegMgr not listed, assume it is the same as Mgr.
-	if ($RegMgr -eq $null) { 
-		if ($Debug) { Write-Output "RegMgr was null, so using Mgr for registration." }
-		$RegMgr = $Mgr
+		show_usage
+		$global:result = "2"
+		return
 	}
 	
 	if ($Debug) { Write-Output "Checking connection status of agent." }
 	$global:Connected = $false
-	#Get agent connect status from state file.
+	
+	# Probe manager ports to confirm it is really reachable.
+	# If we are not forcing an install (-Install) and it is fully evident the agent is presently connected to a manager, then no manager probes are necessary.  Otherwise perform them.
 	$StateFile = Get-Item -Path "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction SilentlyContinue
 	if ( ( -not ($Install) ) -and (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
-		if ($Debug) { Write-Output "Agent is connected to a manager." }
+		if ($Debug) { Write-Output "Agent is connected to a manager. Skipping probing of manager..." }
 	} else {
-		if ($Debug) { Write-Output "Probing to see if the manager is reachable..." }	
 		# Confirm the self registration and agent connection ports on the manager(s) are responsive.  
 		# If either are not, then (re)deployment is not feasible, so return an exit code of 2 so as to not trigger the attempt of such.
-		tprobe $Mgr 1514
-		tprobe $RegMgr 1515
+		if ($Debug) { Write-Output "Probing to see if the manager is reachable..." }	
+		tprobe $Mgr 1514 
+		if ( "$result" -eq "2" ){
+			$global:result = "2"
+			return
+		}
+		tprobe $RegMgr 1515 
+		if ( "$result" -eq "2" ){
+			$global:result = "2"
+			return
+		}
 		# If -LBprobe flag set, then additionally confirm the manager is reachable by intentionally attempting an agent-auth with a bad 
 		# password to see if "Invalid password" is in the output, which would probe a real Wazuh registration service is reachable on port 
 		# 1515.
@@ -322,42 +346,47 @@ function checkAgent {
 			if ($Debug) { Write-Output "Performing a load-balancer-aware check via an agent-auth.exe call to confirm manager is truly reachable..." }
 			Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
 			Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "badpass" -Wait -WindowStyle 'Hidden' -redirectstandarderror "agent-auth-test-probe"
-			if (  ( -not ( Test-Path -LiteralPath "agent-auth-test-probe" ) ) -or ( -not ( Get-Content "agent-auth-test-probe" | select-String "Invalid password" ) ) ) {
+			if ( ( Test-Path -LiteralPath "agent-auth-test-probe" ) -or ( Get-Content "agent-auth-test-probe" | select-String "Invalid password" ) ) {
+				Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
+				if ($Debug) { Write-Output "LBprobe check succeeded.  Manager is truly reachable." }
+			} else {
 				Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
 				if ($Debug) { Write-Output "LBprobe check failed.  Manager is not truly reachable." }
-				exit 2
-			}
-			Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
-			if ($Debug) { Write-Output "LBprobe check succeeded.  Manager is truly reachable." }
+				$global:result = "2"
+				return
+            }
 		}
 	}
 
 	#
-	# Is the agent presently really connected to a Wazuh manager?
+	# Is the agent presently really connected to a Wazuh manager?  If not, wait a little over a minute and check again.
+	# Set the "Connected" flag if success at 1st or 2nd check.
 	#
 	if ( (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
 		if ($Debug) { Write-Output "The Wazuh agent is connected to a Wazuh manager." }
 		$global:Connected = $true
 	} else {
 		if ( $StateFile.LastWriteTime -gt (Get-Date).AddMinutes(-10) ) {
-			if ($Debug) { Write-Output "Waiting 70 seconds to see if Wazuh agent is only temporarily disconnected from manager." }
+			if ($Debug) { Write-Output "*** Waiting 70 seconds to see if Wazuh agent is only temporarily disconnected from manager." }
 			Start-Sleep -Seconds 70
 			$StateFile = Get-Item -Path "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction SilentlyContinue
 			if ( (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
 				if ($Debug) { Write-Output "The Wazuh agent is now connected to a Wazuh manager." }
 				$global:Connected = $true
 			} else {
-				if ($Debug) { Write-Output "The Wazuh agent is still not connected to a Wazuh manager." }
+				if ($Debug) { Write-Output "*** The Wazuh agent is still not connected to a Wazuh manager." }
 			}
 		} else {
-			if ($Debug) { Write-Output "The Wazuh agent is not connected to a Wazuh manager." }
+			if ($Debug) { Write-Output "*** The Wazuh agent is not connected to a Wazuh manager." }
 		}
 	}
 	
 	#
 	# Is the agent group prefix correct?
+	# The prefix starts with dynamically determined group names followed by ExtraGroups if specified.  
+	# The prefix must match, but additional agent groups found after the prefix in the actual membership list are fine.
 	#
-	$global:CorrectGroupPrefix = $false
+	
 	# Force skip Sysmon and Osquery if Windows is older then Win 10 or Win Svr 2012
 	if ( [int]((Get-CimInstance Win32_OperatingSystem).BuildNumber) -lt 9200 ) {
 	     Write-Output "Windows older than 10/2012, so skipping Sysmon and Osquery..."
@@ -370,7 +399,7 @@ function checkAgent {
 	     $SkipOsquery=$true
 	}
 
-	# Blend standard/dynamic groups with custom groups
+	# Establish target agent group list prefix
 	$GroupsPrefix = "windows,windows-local,"
 	if ( $SkipOsquery -eq $false ) {
 		$GroupsPrefix = $GroupsPrefix+"osquery,osquery-local,"
@@ -381,6 +410,7 @@ function checkAgent {
 	$GroupsPrefix = $GroupsPrefix+$ExtraGroups
 	$global:TargetGroups = $GroupsPrefix.TrimEnd(",")
 
+	# Enumerate actual list of agent groups this agent is membered into based on section headers in merged.mg
 	If (Test-Path "$PFPATH\ossec-agent\shared\merged.mg") {	
 		$file2 = Get-Content "$PFPATH\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'	
 		if ($file2 -match "Source\sfile:") {
@@ -392,36 +422,18 @@ function checkAgent {
 	} else {
 		$global:CurrentGroups="#NONE#"
 	}
-	if ($Debug) { Write-Output "Current agent group membership: $CurrentGroups" }
-	if ($Debug) { Write-Output "Target agent group membership:  $TargetGroups" }
+	
+	# Set CorrectGroupPrefix flag if the actual agent group membership of this agent starts with the target prefix agent group list.
 	if ( $CurrentGroups -like "$TargetGroups*" ) {
 		if ($Debug) { Write-Output "Expected $TargetGroups matches the prefix in $CurrentGroups." }
 		$global:CorrectGroupPrefix = $true
 	} else {
 		if ($Debug) { Write-Output "Expected $TargetGroups is not at the start of $CurrentGroups." }
+		$global:CorrectGroupPrefix = $false
 	}
 	
-	# Bail on the check if the agent is not connected to the manager or group membership prefix is not correct.
-	if  ( -not ( $CorrectGroupPrefix -eq $true ) -or ($Install) -or ( -not ( $Connected -eq $true ) )) {
-		return
-	}
-
-	# All relevant tests passed, so return a success code.
-	if ($Debug) {
-        Write-Output "Mgr: $Mgr"
-        Write-Output "RegMgr: $RegMgr"
-	Write-Output "Mgr: $Mgr2"
-        Write-Output "RegPass: $RegPass"
-        Write-Output "InstallVer: $InstallVer"
-        Write-Output "AgentName: $AgentName"
-        Write-Output "DownloadSource: $DownloadSource"
-        Write-Output "SkipOsquery: $SkipOsquery"
-        Write-Output "Connected: $Connected"
-        Write-Output "ExtraGroups: $ExtraGroups"
-        Write-Output "CorrectGroupPrefix: $CorrectGroupPrefix"
-    }
-	if ($Debug) { Write-Output "No deployment/redeployment appears to be needed." }
-	exit 0
+	$global:result = "0"
+	return
 }
 
 # 
@@ -455,7 +467,8 @@ function uninstallAgent {
 						if ($Debug) { Write-Output "Download attempt failed.  Will retry 10 seconds." }
 					} else {
 						if ($Debug) { Write-Output "Download attempt still failed.  Giving up and aborting the installation..." }
-						exit 2
+						$global:result = "2"
+						return						
 					}
 					Start-sleep -Seconds 10
 				}  
@@ -497,14 +510,13 @@ function uninstallAgent {
 	}
 
 	# If Wazuh agent service is running, stop it.  Otherwise uninstall will fail.
-	if ( Get-Service | findstr -i " Wazuh " | findstr -i "Running" ) {
-		if ($Debug) { Write-Output "Stopping current Wazuh Agent service..." }
-		Stop-Service WazuhSvc
-	}
+	if ($Debug) { Write-Output "Stopping current Wazuh Agent service..." }
+	Stop-Service WazuhSvc -erroraction 'silentlycontinue'
+
 
 	# If Wazuh agent already installed and the -Uninstall flag is set or Wazuh agent is not connected to a manager, blow it away.
 	if ( ($Install) -or ($Uninstall) -or ($Connected -eq $false)) {
-		if ( (Test-Path "$PFPATH\ossec-agent\wazuh-agent.exe" -PathType leaf) -or (Test-Path '$PFPATH\ossec-agent\ossec-agent.exe' -PathType leaf) ) {
+		if (Test-Path "$PFPATH\ossec-agent\wazuh-agent.exe" -PathType leaf) {
 			if ($Debug) { Write-Output "Uninstalling existing Wazuh Agent..." }
 			Uninstall-Package -Name "Wazuh Agent" -erroraction 'silentlycontinue' | out-null
 			Remove-Item "$PFPATH\ossec-agent" -recurse
@@ -514,63 +526,63 @@ function uninstallAgent {
 		if (Test-Path "$PFPATH\ossec-agent" -PathType Container) {
 		Remove-Item "$PFPATH\ossec-agent" -recurse -force
 		}
+		if ($Debug) { Write-Output "Uninstallation done..." }
 	} else {
-		if ($Debug) { Write-Output "Uninstallation not needed." }
+		if ($Debug) { Write-Output "Uninstallation not needed..." }
 	}	
 }
 
 #
-# Re-register agent and re-install/install Wazuh Agent if needed, recycling an existing registration if possible otherwise re-registering it.
+# Re-register agent and re-install/install Wazuh Agent if needed, recycling an existing registration if possible, otherwise re-registering it.
 #
+# Deploy function
 function installAgent {
 
 	# Relevant script parameters
 	#		
-	# -Mgr			IP or FQDN of the Wazuh manager for ongoing agent connections. (Required.)
-	# -RegPass		Password for registration with Wazuh manager (put in quotes). (Required.)
-	# -Mgr2                 The IP or FQDN of an optional second Wazuh manager for agents to connect to.
-	# -AgentName   		Name under which to register this agent in place of locally detected Windows host name.
-	# -ExtraGroups  	Additional groups beyond the default groups that are applied by the script, which include: windows, windows-local, 
-	# 			linux, linux-local, sysmon, sysmon-local, osquery, osquery-local. 
-	# -VerDiscAddr		The Version Discover Address where a .txt record has been added with the target version of the Wazuh agent to
-	#			install.
-	# -InstallVer		The version of the Wazuh Agent to install.
-	# -DefaultInstallVer 	Command line paramenter and a preset within the script that is used as a last resort.
-	# -DownloadSource     	Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
-	# -SkipSysmon   	Flag to not signal the Wazuh manager to push managed Sysmon WPK to this system. (Default is to not skip this.)
-	# -SkipOsquery  	Flag to not signal the Wazuh manager to push managed Osquery WPK to this system. (Default is to not skip this.)
-	# -Install      	Flag to skip all checks and force installation
-	# -Local		Flag used when a host is not allowed to reach the internet
-	# -Debug        	Flag to show debug output
+	# -Mgr				IP or FQDN of the Wazuh manager for ongoing agent connections. (Required.)
+	# -RegPass			Password for registration with Wazuh manager (put in quotes). (Required.)
+	# -Mgr2				The IP or FQDN of an optional second Wazuh manager for agents to connect to.
+	# -RegMgr  			The IP or FQDN of the Wazuh manager for agent registration connection (defaults to -Mgr if not specified)
+	# -AgentName   			Name under which to register this agent in place of locally detected Windows host name.
+	# -ExtraGroups  		Additional groups beyond the default groups that are applied by the script, which include: windows, windows-local, 
+	# 				linux, linux-local, sysmon, sysmon-local, osquery, osquery-local. 
+	# -VerDiscAddr			The Version Discover Address where a .txt record has been added with the target version of the Wazuh agent to
+	#				install.
+	# -InstallVer			The version of the Wazuh Agent to install.
+	# -DefaultInstallVer 		Command line paramenter and a preset within the script that is used as a last resort.
+	# -DownloadSource   		Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
+	# -SkipSysmon   		Flag to not signal the Wazuh manager to push managed Sysmon WPK to this system. (Default is to not skip this.)
+	# -SkipOsquery  		Flag to not signal the Wazuh manager to push managed Osquery WPK to this system. (Default is to not skip this.)
+	# -Install      		Flag to skip all checks and force installation
+	# -Local			Flag used when a host is not allowed to reach the internet
+	# -Debug        		Flag to show debug output
 	
 	if ( !($PSVersionTable.PSVersion.Major) -ge 5 ) {
-		if ($Debug) { write-host "PowerShell 5.0 or higher is required by this script." }
-		exit 2
+		if ($Debug) { write-host "*** PowerShell 5.0 or higher is required by this script." }
+		$global:result = "2"
+		return
 	}
 	
-	if ($Mgr -eq $null) { 
-		write-host "Must use '-Mgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
-		exit 2
-	}
-	if ($RegPass -eq $null) { 
-		write-host "Must use '-RegPass' to specify the password to use for agent registration."
-		exit 2
-	}
-
-	if ($RegMgr -eq $null) { 
-		$RegMgr = $Mgr
+	if ($Mgr -eq $null -or $RegPass -eq $null) { 
+		if ( $Mgr -eq $null ) {
+		write-host "*** Must use '-Mgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection"
+		} else {
+		write-host "*** Must use '-RegPass' to specify the password to use for agent registration."
+		}
+		show_usage
+		$global:result = "2"
+		return
 	}
 
-	if ( -not ($VerDiscAddr -eq $null) ) {
-		$InstallVer = (Resolve-DnsName -Type txt -name $VerDiscAddr -ErrorAction SilentlyContinue).Strings
-	}
-	
 	if ( ($Install) -or ( -not ($Connected) ) ) {
-		# If InstallVer is not discovered or set as a parameter, use the DefaultInstaller value either set on command line or is hard-coded in
-		# script. 
+		# If InstallVer is not discovered or set as a parameter, use the DefaultInstaller value either set on command line or is hard-coded in script.
+		if ( -not ($VerDiscAddr -eq $null) ) {
+			$global:InstallVer = (Resolve-DnsName -Type txt -name $global:VerDiscAddr -ErrorAction SilentlyContinue).Strings
+		}
 		if ($InstallVer -eq $null) { 
 			if ($Debug) { Write-Output "InstallVer was null, so using DefaultInstallVer value, if present from command line" }
-			$InstallVer = $DefaultInstallVer
+			$global:InstallVer = $DefaultInstallVer
 		}
 		
 		if ($DownloadSource -eq $null) { 
@@ -582,16 +594,19 @@ function installAgent {
 		if ($Local) {
 			if ( -not (Test-Path -LiteralPath "bnc-deploy.zip") ) {
 				if ($Debug) { Write-Output "Option '-Local' specified but no 'bnc-deploy.zip' file was found in current directory.  Giving up and aborting the installation..." }
-				exit 2
+				$global:result = "2"
+				return
 			}
 			Microsoft.PowerShell.Archive\Expand-Archive "bnc-deploy.zip" -Force -DestinationPath .
 			if ( -not (Test-Path -LiteralPath "nuget.zip") ) {
 				if ($Debug) { Write-Output "Option '-Local' specified but no 'nuget.zip' file was found in current directory.  Giving up and aborting the installation..." }
-				exit 2
+				$global:result = "2"
+				return
 			}
 			if ( -not (Test-Path -LiteralPath "wazuh-agent.msi") ) {
 				if ($Debug) { Write-Output "Option '-Local' specified but no 'wazuh-agent.msi' file was found in current directory.  Giving up and aborting the installation..." }
-				exit 2
+				$global:result = "2"
+				return
 			}
 		}
 
@@ -604,7 +619,8 @@ function installAgent {
 			Remove-Variable tcpClient
 			if ( -not $connection ) {
 				if ($Debug) { Write-Output "Unable to open web connections to the Internet according to test against https://www.google.com`nYou may need to use the -Local option." }
-				exit 2
+				$global:result = "2"
+				return
 			}
 		}
 
@@ -628,7 +644,8 @@ function installAgent {
 						if ($Debug) { Write-Output "Download attempt failed.  Will retry 10 seconds." }
 					} else {
 						if ($Debug) { Write-Output "Download attempt still failed.  Giving up and aborting the installation..." }
-						exit 2
+						$global:result = "2"
+						return
 					}
 					Start-sleep -Seconds 10
 				}  
@@ -643,15 +660,15 @@ function installAgent {
 			rm .\wazuh-agent.msi
 		}
 	
-	# Create ossec-agent\scripts and write the merge-wazuh-conf.ps1 file to it, and write bnc_wpk_root.pem file
-	writePEMfile
-	writeMergeScript
+		# Create ossec-agent\scripts and write the merge-wazuh-conf.ps1 file to it, and write bnc_wpk_root.pem file
+		writePEMfile
+		writeMergeScript
     }
 	
+	# If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
 	if ($Debug) { Write-Output "Stopping Wazuh agent to register and adjust config..." }
 	Stop-Service WazuhSvc
 	Remove-Item -Path "$PFPATH\ossec-agent\ossec.log" -erroraction silentlycontinue
-	# If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
 	if ( ( $MightRecycleRegistration ) -and ( $Connected ) -and ( $CorrectGroupPrefix ) ) { 
 		Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$RegFileName"
 	} else {
@@ -665,7 +682,7 @@ function installAgent {
 		}
 		if ($Debug) { type "$env:TEMP\reg.state" }
 		$file = Get-Content "$env:TEMP\reg.state" -erroraction 'silentlycontinue'
-		if ($file -match "Duplicate name") {
+		if ($file -match "Duplicate agent name") {
 			if ($Debug) { Write-Output "Waiting 45 seconds for Manager to discover agent is disconnected before retrying registration..." }
 			Start-Sleep 45
 			if ($CorrectGroupPrefix) {
@@ -673,7 +690,6 @@ function installAgent {
 	                } else {
 			    Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$TargetGroups", "-A", "$AgentName" -Wait -RedirectStandardError "$env:TEMP\reg.state"
 		        }
-			$file = Get-Content "$env:TEMP\reg.state" -erroraction 'silentlycontinue'	
 			if ($Debug) { type "$env:TEMP\reg.state" }
 		}
 		if ( ( -not (Test-Path "$PFPATH\ossec-agent\client.keys" -PathType leaf) )  -or ( -not (Get-Item $RegFileName).length -gt 0)   ) {
@@ -681,7 +697,8 @@ function installAgent {
 			Copy-Item "$env:TEMP\ossec.conf.bnc" -Destination "$ConfigFileName" -erroraction silentlycontinue
 			Start-Service WazuhSvc
 			if ($Debug) {  Write-Output "Registration failed.  Reverted to previous known working client.keys and restarted Wazuh..." }
-			exit 2
+			$global:result = "2"
+			return
 		}
 	}
 
@@ -712,8 +729,10 @@ function installAgent {
 		default { $OS = "WindowsUnknown"}
 	}
 
-	if ($Debug) {  Write-Output "Writing ossec.conf" }
-	# Write the ossec.conf file
+	if ($Debug) {  Write-Output "Dynamically generating ossec.conf" }
+	#
+	# Dynamically generate ossec.conf
+	#
 if ( -not ( $Mgr2 -eq $null ) ) {
 $MgrAdd = @"
 		<server>
@@ -787,19 +806,26 @@ $MgrAdd
 		$file = Get-Content "$PFPATH\ossec-agent\ossec.log" -erroraction 'silentlycontinue'
 		if ( -not ($file -match "Connected to the server ") ) {
 			if ($Debug) { Write-Output "This agent FAILED to connect to the Wazuh manager." }
-			exit 2
+			$global:result = "2"
+			return
 		}
 	}
 
 	if ($Debug) { Write-Output "This agent has successfully connected to the Wazuh manager!" }
 	if ( $Debug -and ( -not ( $SkipSysmon  ) ) ) { Write-Output "Sysmon should be automatically provisioned/reprovisioned in an hour or less as needed." }
 	if ( $Debug -and ( -not ( $SkipOsquery ) ) ) { Write-Output "Osquery should be automatically provisioned/reprovisioned in an hour or less as needed." }
-	exit 0
+		$global:result = "0"
+		return
 }
 
 #
 # Main
 #
+
+If ( $Help -eq $true ) {
+	show_usage
+	exit 2
+}
 
 New-EventLog -LogName 'Application' -Source "Wazuh-Modular" -ErrorAction 'silentlycontinue'
 
@@ -815,47 +841,71 @@ If ( -not ([Environment]::Is64BitOperatingSystem) ) {
 
 $RegFileName = "$PFPATH\ossec-agent\client.keys"
 $ConfigFileName="$PFPATH\ossec-agent\ossec.conf"
-	
+
+Write-Output ""
+
+# If RegMgr not listed, assume it is the same as Mgr.
+if ($RegMgr -eq $null) { 
+	if ($Debug) { Write-Output "RegMgr was null, so using Mgr for registration." }
+	$RegMgr = $Mgr
+}
+
 if ( $CheckOnly -and $Install ) {
 	Write-Output "Cannot use -Install in combination with -CheckOnly."
 	exit 2
 }
 
-# Check if install/reinstall is called for unless an uninstall is being forced with -Uninstall checkAgent will bail unless an 
-# install/reinstall is called for.
-if ( -not ($Uninstall) ) {
-	checkAgent
+# If forced uninstall (-Uninstall) then just do that end exit with the return code from the function called.
+if ( $Uninstall ) {
+	uninstallAgent
+	exit $result
 }
 
+# Check if install/reinstall is called for unless an uninstall is being forced with -Uninstall checkAgent will bail unless an 
+# install/reinstall is called for.
+checkAgent
+if ( "$result" -eq "2" ) {
+	exit 2
+}
 if ($Debug) {
+	Write-Output ""
 	Write-Output "Mgr: $Mgr"
-	Write-Output "RegMgr: $RegMgr"
 	Write-Output "Mgr2: $Mgr2"
+	Write-Output "RegMgr: $RegMgr"
 	Write-Output "RegPass: $RegPass"
 	Write-Output "InstallVer: $InstallVer"
 	Write-Output "AgentName: $AgentName"
 	Write-Output "DownloadSource: $DownloadSource"
+	Write-Output "SkipSysmon: $SkipSysmon"
 	Write-Output "SkipOsquery: $SkipOsquery"
 	Write-Output "Connected: $Connected"
 	Write-Output "ExtraGroups: $ExtraGroups"
 	Write-Output "CorrectGroupPrefix: $CorrectGroupPrefix"
+	Write-Output "RegFileName: $RegFileName"
+	Write-Output "ConfigFileName: $ConfigFileName"
+	Write-Output ""
 }
 
-# If all we are doing is a check, then the check must have indicated a install/reinstall was needed, so return an exit code of 1 now.
-if ( $CheckOnly ) {
-	Write-Output "The checkAgent function has determined that deployment/redeployment is needed."
-	exit 1
+
+# Is a (re)deploy recommended?  If so, then if -CheckOnly, just exit 1 to indicate that.  Otherwise commence the uninstall and install sequence 
+# and exit with a code indicating the results.
+if ( $Install -or ( -not ($Connected ) ) -or ( -not ($CorrectGroupPrefix ) ) ) {
+	# If all we are doing is a check, then the check must have indicated a install/reinstall was needed, so return an exit code of 1 now.
+	if ( $CheckOnly ) {
+		if ($Debug) { Write-Output "The checkAgent function has determined that deployment/redeployment is needed." }
+		exit 1
+	} else {
+		uninstallAgent
+		if ( "$result" -eq "2" ) {
+			exit 2
+		}
+		installAgent
+		if ( "result" -eq "2" ) {
+			exit 2
+		}
+		exit 0
+	}
 }
 
-# Conditionally uninstall the Wazuh Agent whether or not a fresh installation is to follow.  Uninstallation is skipped if the Wazuh Agent is 
-# connected and the group prefix is correct.
-uninstallAgent
-
-# Continue to the installation phase unless this was just a -Uninstall call to the script.  Fail and bail with exit code 2 if cannot 
-# install/deploy completely
-if ( -not ( $Uninstall ) ) {
-	installAgent
-}
-
-# Uninstall or uninstall & install process must have succeeded, so close down with code 0.
+Write-Output "No deployment/redeployment appears to be needed."
 exit 0
