@@ -451,7 +451,7 @@ function uninstallAgent {
 		Copy-Item "$PFPATH\ossec-agent\ossec.log" -Destination "$Env:SystemDrive\Windows\Temp\"
 	}
 	
-	# NuGet Dependency
+	# NuGet Dependency if not -Local context
 	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies\nuget" -PathType Container) ) {
 		if ($Debug) { Write-Output "Installing dependency (NuGet) to be able to uninstall other packages..." }
 		if ( $Local -eq $false ) {
@@ -475,13 +475,7 @@ function uninstallAgent {
 				}  
 				$count++    
 			}until($count -eq 6 -or $success)
-		} else {
-			if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies" -PathType Container ) ) {
-				New-Item -ItemType "directory" -Path "C:\Program Files\PackageManagement\ProviderAssemblies"
-			}
-			Microsoft.PowerShell.Archive\Expand-Archive "nuget.zip" -DestinationPath "C:\Program Files\PackageManagement\ProviderAssemblies\"
-			Import-PackageProvider -Name NuGet
-		}
+		} 
 	}
 	
 	# If Wazuh agent is already installed and registered, and this is not an explicit uninstallation call, then note if registration may be 
@@ -589,26 +583,6 @@ function installAgent {
 		if ($DownloadSource -eq $null) { 
 			$MajorVer = $InstallVer.ToCharArray()[0]
 			$DownloadSource = "https://packages.wazuh.com/$MajorVer.x/windows/wazuh-agent-$InstallVer-1.msi"
-		}
-
-		# If "-Local" option selected, confirm the agent-deploy.zip is present, unzip it, and confirm all required files were extracted from it.
-		if ($Local) {
-			if ( -not (Test-Path -LiteralPath "agent-deploy.zip") ) {
-				if ($Debug) { Write-Output "Option '-Local' specified but no 'agent-deploy.zip' file was found in current directory.  Giving up and aborting the installation..." }
-				$global:result = "2"
-				return
-			}
-			Microsoft.PowerShell.Archive\Expand-Archive "agent-deploy.zip" -Force -DestinationPath .
-			if ( -not (Test-Path -LiteralPath "nuget.zip") ) {
-				if ($Debug) { Write-Output "Option '-Local' specified but no 'nuget.zip' file was found in current directory.  Giving up and aborting the installation..." }
-				$global:result = "2"
-				return
-			}
-			if ( -not (Test-Path -LiteralPath "wazuh-agent.msi") ) {
-				if ($Debug) { Write-Output "Option '-Local' specified but no 'wazuh-agent.msi' file was found in current directory.  Giving up and aborting the installation..." }
-				$global:result = "2"
-				return
-			}
 		}
 
 		# If -Local not specified, then confirm that web requests to the Internet are allowed for this host before proceeding
@@ -856,6 +830,31 @@ if ($RegMgr -eq $null) {
 if ( $CheckOnly -and $Install ) {
 	Write-Output "Cannot use -Install in combination with -CheckOnly."
 	exit 2
+}
+
+# If "-Local" option selected, confirm the agent-deploy.zip is present, unzip it, and confirm all required files were extracted from it.
+if ($Local) {
+	if ( -not (Test-Path -LiteralPath "agent-deploy.zip") ) {
+		if ($Debug) { Write-Output "Option '-Local' specified but no 'agent-deploy.zip' file was found in current directory.  Giving up and aborting the installation..." }
+		$global:result = "2"
+		return
+	}
+	Microsoft.PowerShell.Archive\Expand-Archive "agent-deploy.zip" -Force -DestinationPath .
+	if ( -not (Test-Path -LiteralPath "nuget.zip") ) {
+		if ($Debug) { Write-Output "Option '-Local' specified but no 'nuget.zip' file was found in current directory.  Giving up and aborting the installation..." }
+		$global:result = "2"
+		return
+	}
+	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies" -PathType Container ) ) {
+		New-Item -ItemType "directory" -Path "C:\Program Files\PackageManagement\ProviderAssemblies"
+	}
+	Microsoft.PowerShell.Archive\Expand-Archive "nuget.zip" -DestinationPath "C:\Program Files\PackageManagement\ProviderAssemblies\"
+	Import-PackageProvider -Name NuGet
+	if ( -not (Test-Path -LiteralPath "wazuh-agent.msi") ) {
+		if ($Debug) { Write-Output "Option '-Local' specified but no 'wazuh-agent.msi' file was found in current directory.  Giving up and aborting the installation..." }
+		$global:result = "2"
+		return
+	}
 }
 
 # If forced uninstall (-Uninstall) then just do that end exit with the return code from the function called.
