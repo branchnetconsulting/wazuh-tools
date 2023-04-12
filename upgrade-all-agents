@@ -14,7 +14,7 @@
 # You could call this script from cron on your standalone or master node Wazuh manager one or more times per day to ensure agents are staying up to date.
 #
 
-. /root/.siem-esauth
+. /root/.wazuh-api
 TOKEN=$(curl -sS -u $WAPIUSER:$WAPIPASS -k -X POST "$WAPIPROTO://$WAPIHOST:55000/security/user/authenticate?raw=true" 2>/dev/null)
 curl -k -X PUT "$WAPIPROTO://$WAPIHOST:55000/agents/upgrade?agents_list=all" -H  "Authorization: Bearer $TOKEN" 2> /dev/null | jq
 echo "Intitated Wazuh upgrade for agents $IDLIST."
