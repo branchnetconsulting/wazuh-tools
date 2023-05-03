@@ -1,0 +1,46 @@
+#!/bin/bash
+DAYS=$1
+RULE=$2
+VERBOSE=$3
+
+function show_usage() {
+        printf "Command syntax:\n       easimulate DAYS RULE_FILE_NAME [verbose]\n\n"
+        printf "Examples:\n     easimulate 1 some_cool_rule.yaml\n      easimulate 7 another_cool_rule.yaml verbose\n\n"
+}
+
+echo ""
+
+if [[ "$DAYS" == "" ]]; then
+        show_usage
+        exit
+fi
+
+if [[ "$2" == "" || "$4" != "" ]]; then
+        echo -e "Wrong number of parameters.\n"
+        show_usage
+        exit
+fi
+
+if [[ ! `echo $DAYS | egrep "^[1-9][0-9]*$"`  ]]; then
+        echo -e "DAYS must be a positive integer representing how far back to start the simulation.\n"
+        show_usage
+        exit
+fi
+
+if [[ ! -f "/etc/elastalert/rules/$RULE" ]]; then
+        echo -e "Rule file $RULE is not present in /etc/elastalert/rules/.\n"
+        show_usage
+        exit
+fi
+
+if [[ "$VERBOSE" == "verbose" ]]; then
+        docker exec -it elastalert /usr/local/bin/elastalert-test-rule rules/$RULE --days $DAYS
+else
+        docker exec -it elastalert /usr/local/bin/elastalert-test-rule rules/$RULE --days $DAYS > ~/.easimulate.log
+        if [[ `grep "^elastalert_status" ~/.easimulate.log` ]]; then
+                grep "^elastalert_status" ~/.easimulate.log |  sed "s/.*'matches': \([0-9]\+\),.*/Over the past $DAYS day(s), there would have been \1 matches on rule $RULE./"
+        else
+                echo "Simulation failure due to bad rule or other problem with ElastAlert2 itself.  Inspect ~/.easimulate.log for details."
+        fi
+fi
+echo ""
