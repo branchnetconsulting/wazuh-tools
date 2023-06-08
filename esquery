@@ -1,0 +1,399 @@
+#!/bin/bash
+
+TMPDIR=$(mktemp -d -t esquery-XXXXXXXX)
+# Confirm temp dir created properly as it will be recursively deleted upon exit.
+if [[ ! `echo "$TMPDIR" | grep "/tmp/esquery-"` ]]; then
+	echo "Unexpected temp directory generation failure!"
+	exit
+fi
+
+function bail_out() {
+	rm -rf $TMPDIR
+	exit
+}
+
+function show_usage() {
+   echo -e '\nUsage syntax:
+   esquery -IndexPattern IDX [ -CredsFile CFILE ] [ -QueryBody 'QBODY' ] [ -QueryBodyFile QBFILE ] [ -QueryLine 'QLINE' ] [ -QueryLineFile QLFILE ] [ -StartTime STIME ] [ -EndTime ETIME ] [ -Fields FLIST ] [ -CSV ] [ -SkipHeader] [ -SortList "SLIST" ] [ -PageSize PSIZE ] [ -MaxRecords MRECS ] [ -Debug ]
+where
+   IDX is one or more comma separated index names or index patterns like:
+      *:wazuh-alerts-*
+      *:so-ids-*
+      indexA,indexB
+   CFILE is the filename of dot-callable credentials file that must at least define ESPASS, and generally should define all of ESUSER, ESPASS, ESPROTO, ESHOST, and ESPORT.
+   QBODY is the QueryDSL-format search filter to use
+      i.e. -QueryBody '\''{ "query_string": { "query": "ssl.server_name: *.org AND NOT destination.geo.country_name: \"United States\"" } }'\''
+   QBFILE is the name of a file containing the QueryDSL criteria body to use, like these where the the default is:
+      {"match_all":{}}
+   and the following is a multiline example QueryDSL body
+      {
+        "query_string": {
+          "query": "ssl.server_name: *.com AND NOT destination.geo.country_name: \"United States\""
+        }
+      }
+   QLINE is the queryline-format search criteria to use
+      i.e. -QueryLine '\''ssl.server_name: *.org AND destination.geo.country_name: \"United States\"'\''
+   QLFILE is the name of a file containing a queryline-format query, like
+      ssl.server_name: *.org AND destination.geo.country_name: "United States"
+   STIME is starting absolute or relative time for query - default is now-1h.
+      now-14h				(14 hours ago)
+      now-10m				(10 minutes ago)
+      2022-07-06T16:46:53.084Z		(UTC time)
+      2022-07-06T18:00:53.084-0400	(EDT time zone)
+   ETIME is ending absolute or relative time for query - default is now.
+   FLIST is a CSV list (no spaces) of field names to limit the results to in place of returning all of _source.
+      .field1,.fruit.type,.fruit.color,.very.very.deep.field.name
+   -CSV causes output to be in CSV format.  Only works in conjunction with -Fields.  Default output is JSON format with or without use of -Fields.
+   -SkipHeader skips the output of the CSV header line that is included by default when -Fields is used.
+   SLIST is a CSV list (no spaces) of colon-delimited pairs of field name and sort direction (asc or desc) for ordering query results, with a default of:
+      @timestamp:asc
+   PSIZE is number of records to pull per page of query results, with a default of
+      5000
+   MRECS is the maximum number of records to actually output to stdout, which also roughly determines the maximum number of pages to pull.  Default is:
+      100000
+   -Debug enables debug output.\n'
+   bail_out
+}
+
+function check_value() {
+   if [[ "$1" == "" || "$1" == "-"* ]]; then
+   	show_usage
+   fi
+}
+
+# Named parameter optional default values
+IndexPattern=""
+CSV=0
+SkipHeader=0
+SortList='@timestamp:asc'
+PageSize=5000
+MaxRecords=100000
+Debug=0
+StartTime=now-1h
+EndTime=now
+
+if [ "$1" == "" ]; then
+	show_usage
+fi
+while [ "$1" != "" ]; do
+   case $1 in
+      -IndexPattern )  shift
+                       check_value $1
+                       IndexPattern=$1
+                       ;;
+      -CredsFile)      shift
+                       check_value $1
+                       CredsFile=$1
+                       ;;
+      -QueryBody)      shift
+                       check_value $1
+                       QueryBody=$1
+                       ;;
+      -QueryBodyFile ) shift
+                       check_value $1
+                       QueryBodyFile=$1
+                       ;;
+      -QueryLine )     shift
+                       check_value $1
+                       QueryLine=$1
+                       ;;
+      -QueryLineFile ) shift
+                       check_value $1
+                       QueryLineFile=$1
+                       ;;
+      -StartTime )     shift
+                       check_value $1
+                       StartTime=$1
+                       ;;
+      -EndTime )       shift
+                       check_value $1
+                       EndTime=$1
+                       ;;
+      -Fields )        shift
+                       check_value $1
+                       Fields=$1
+                       ;;
+      -CSV )           # no shift
+                       CSV=1
+                       ;;
+      -SkipHeader )    # no shift
+                       SkipHeader=1
+                       ;;
+      -SortList )      shift
+                       check_value $1
+                       SortList=$1
+                       ;;
+      -PageSize )      shift
+                       check_value $1
+                       PageSize=$1
+                       ;;
+      -MaxRecords )    shift
+                       check_value $1
+                       MaxRecords=$1
+                       ;;
+      -Debug )         # no shift
+                       Debug=1
+                       ;;
+      -help )          show_usage
+                       ;;
+      * )              show_usage
+   esac
+   shift
+done
+
+# Dot-call the credentials file if specified, bark if no such file, confirm ESPASS defined and provide defaults for the rest as needed.
+if [ "$CredsFile" != "" ]; then
+	if [ ! -f "$CredsFile" ]; then
+		echo -e "\nMissing -CredsFile $CredsFile."
+		show_usage
+	fi
+	set -a
+	. $CredsFile
+	set +a
+else
+	if [ "$ESPASS" == "" ]; then
+	        echo -e "\nMissing or incomplete Elasticsearch credentials. Use -CredsFile to provide a dot-callable script to define ESUSER, ESPASS, ESPROTO, ESHOST, and ESPORT.\n"
+	        show_usage
+	fi
+	if [ "$ESUSER" == "" ]; then
+	        ESPROTO=elastic
+	fi
+	if [ "$ESPROTO" == "" ]; then
+	        ESPROTO=https
+	fi
+	if [ "$ESHOST" == "" ]; then
+	        ESHOST=127.0.0.1
+	fi
+	if [ "$ESPORT" == "" ]; then
+	        ESPORT=9200
+	fi
+fi
+
+# Confirm Elasticsearch can be accessed successfully
+curl --insecure -u $ESUSER:$ESPASS "$ESPROTO://$ESHOST:$ESPORT?pretty" &> $TMPDIR/esprobe
+if [[ ! `grep "cluster_name" $TMPDIR/esprobe` ]]; then
+	echo -e "\nFailed to access Elasticsearch...\n"
+	cat $TMPDIR/esprobe
+	bail_out
+fi
+
+# Default to using a match_all QueryBody if no -Query*File setting specified
+if [ "$QueryBodyFile" == "" -a "$QueryLineFile" == "" -a "$QueryBody" == "" -a "$QueryLine" == "" ]; then
+	QueryBody='{ "match_all": {} }'
+fi
+
+if [ "$QueryBody" != "" -o "$QueryBodyFile" != "" ] && [ "$QueryLine" != "" -o "$QueryLineFile" != "" ]; then
+	echo -e "\nYou can not use -QueryBody/-QueryBodyFile and -QueryLine/-QueryLineFile at the same time."
+	show_usage
+fi
+
+if [ "$QueryBody" != "" -a "$QueryBodyFile" != "" ]; then
+        echo -e "\nYou can not use -QueryBody and -QueryBodyFile at the same time."
+        show_usage
+fi
+
+if [ "$QueryLine" != "" -a "$QueryLineFile" != "" ]; then
+        echo -e "\nYou can not use -QueryLine and -QueryLineFile at the same time."
+        show_usage
+fi
+
+if [ "$QueryLineFile" != "" ]; then
+	if [ ! -f $QueryLineFile ]; then
+		echo -e \n"-QueryLineFile $QueryLineFile not found."
+		bail_out
+	fi
+	cp $QueryLineFile $TMPDIR/QueryLine
+	# escape any double quotes in the QueryLineFile
+	sed -i 's/"/\\"/g' $TMPDIR/QueryLine
+	QueryLine=`cat $TMPDIR/QueryLine`
+	QueryBody='{ "query_string": { "query": "'$QueryLine'" } }'
+fi
+
+if [ "$QueryLine" != "" ]; then
+	QueryBody='{ "query_string": { "query": "'$QueryLine'" } }'
+fi
+
+if [ "$CSV" == "1" -a "$Fields" == "" ]; then
+	echo -e "\n-CSV can only be used in conjunction with -Fields."
+	show_usage
+fi
+
+# Wrap QueryBody into larger body that includes time range filter
+QueryBody=`echo '{ "bool": { "must": ['$QueryBody'], "filter": [ { "range" : { "@timestamp" : { "gte": "'$StartTime'", "lte": "'$EndTime'" } } } ] } }'`
+
+SLIST=""
+for LINE in `echo $SortList | sed 's/,/ /g'`; do 
+	if [[ ! `echo $LINE | grep -P '^[^: \t]+:(asc|desc)$'` ]]; then
+		echo -e "\nBad -SortList format."
+		show_usage
+	fi
+	SLIST="$SLIST`echo $LINE | sed 's/^\([^:]\+\):\([^:]\+\)$/{"\1":"\2"},/g'`"
+done
+SortBody="[ `echo $SLIST | sed 's/.$//'` ]"
+
+if [ "$Fields" != "" ]; then
+	FLIST=""
+	for LINE in `echo $Fields | sed 's/,/ /g'`; do
+	        if [[ ! `echo $LINE | grep -P '^[^ \t]+$'` ]]; then
+	                echo -e "\nBad -Fields format."
+	                show_usage
+	        fi
+	        FLIST="$FLIST`echo $LINE | sed 's/\(.*\)/"\1",/g'`"
+		echo $LINE >> $TMPDIR/Fields
+	done
+	FLIST=`echo $FLIST | sed 's/.$//'`
+	FieldsBody='
+	"_source": [
+	    "@timestamp",
+	    '$FLIST' 
+	  ],
+	'
+	FieldsHeader=`cat $TMPDIR/Fields | sed 's/\(.*\)/"\1"/g'`
+	FieldsHeader=`echo $FieldsHeader | sed 's/ /,/g'`
+	FormatFields=`echo $Fields | sed 's/\./"\."/g;s/^/."/;s/$/"/;s/,/",."/g'` 
+fi
+
+if [ "$IndexPattern" == "" ]; then
+	echo -e "\nAn index pattern to query must be specified with the -IndexPattern parameter. This can be like 'myindex' or 'alerts-*' or 'thisIndex,thatIndex'.\n" 1>&2
+	bail_out
+fi
+
+# Calculate the max number of pages to pull from page size and max records settings
+PageLimit=$(($MaxRecords/$PageSize+1))
+
+# Get a new PID ID
+PIT_ID=`curl -X POST -s --insecure -u $ESUSER:''$ESPASS'' "$ESPROTO://$ESHOST:$ESPORT/$IndexPattern/_pit?keep_alive=5m" | jq .id | sed 's/"//g'`
+
+# Query for initial page of results, generating the body then executing the curl
+echo  '{
+   "size": '$PageSize',
+   "query": '$QueryBody',
+   "sort": '$SortBody',
+   '$FieldsBody'
+   "pit": {
+      "id":  "'$PIT_ID'",
+      "keep_alive": "5m"  
+   }
+}'  > $TMPDIR/body.json
+
+PageCount=1
+
+if [ "$Debug" == "1" ]; then 
+	echo -e "\nQuery to execute against index(es):'$IndexPattern'" 1>&2
+	cat $TMPDIR/body.json 1>&2
+	echo -e "\nNo more than $PageLimit $PageSize-record page(s) will be loaded, and no more than $MaxRecords records will be returned.\n" 1>&2
+fi
+
+if [ "$Fields" != "" ]; then
+	curl -X GET -s --insecure -u $ESUSER:''$ESPASS'' "$ESPROTO://$ESHOST:$ESPORT/_search?filter_path=hits.hits._source,hits.hits.sort,pit_id" -H 'Content-Type: application/json' -d "@$TMPDIR/body.json" > $TMPDIR/results.json
+	if [[ ! `grep -m1 '"hits' $TMPDIR/results.json` ]]; then
+		if [ "$Debug" == "1" ]; then echo "No match"; fi
+		bail_out
+	fi
+	# extract updated PIT ID
+	PIT_ID=`jq . $TMPDIR/results.json | jq .pit_id | sed 's/"//g'`
+	# extract result records and start accumulating the inner result records in $TMPDIR/results_full.json
+	jq --sort-keys -c .hits.hits[]._source $TMPDIR/results.json > $TMPDIR/results2.json
+	if [ "$CSV" == "1" ]; then
+		cat $TMPDIR/results2.json | jq '['$FormatFields'] | @csv' | sed 's/\\"/"/g;s/^"//;s/"$//' > $TMPDIR/results_full.json	
+	else
+		cat $TMPDIR/results2.json > $TMPDIR/results_full.json
+	fi
+else
+	curl -X GET -s --insecure -u $ESUSER:''$ESPASS'' "$ESPROTO://$ESHOST:$ESPORT/_search" -H 'Content-Type: application/json' -d "@$TMPDIR/body.json" > $TMPDIR/results.json
+	if [[ ! `grep -m1 '"hits' $TMPDIR/results.json` ]]; then
+		if [ "$Debug" == "1" ]; then echo "No match"; fi
+		bail_out
+	fi
+	# extract updated PIT ID
+	PIT_ID=`jq . $TMPDIR/results.json | jq .pit_id | sed 's/"//g'`
+	# extract result records and start accumulating the inner result records in $TMPDIR/results_full.json
+	jq -c .hits.hits[] $TMPDIR/results.json > $TMPDIR/results2.json
+	jq -c ._source $TMPDIR/results2.json > $TMPDIR/results_full.json	
+fi
+
+# extract updated PIT ID
+PIT_ID=`jq . $TMPDIR/results.json | jq .pit_id | sed 's/"//g'`
+
+if [ "$Debug" == "1" ]; then 
+	echo "Loaded page $PageCount of results - `cat $TMPDIR/results2.json | wc -l` records." 1>&2
+	#jq -c ._source $TMPDIR/results2.json 1>&2
+fi
+
+# extract the "sort" section of the last record in the page, and generate a "search_after" section from it
+SEARCH_AFTER="\"search_after\" : `tail -n1 $TMPDIR/results.json | jq -c .hits.hits[].sort | tail -n1 | jq .`,"
+
+# Go after subsequent pages as long as the previous results were not empty
+while [ "`cat $TMPDIR/results2.json | wc -l`" != "0" -a $PageCount -lt $PageLimit ]; do
+
+	# Query for next page of results, generating the body then executing the curl
+	echo '
+	{
+	   "size": '$PageSize',
+           "query": '$QueryBody',
+           "sort": '$SortBody',
+           '$FieldsBody'
+	   '$SEARCH_AFTER'
+	   "pit": {
+	      "id":  "'$PIT_ID'",
+              "keep_alive": "5m"
+	   }
+	}
+	' > $TMPDIR/body.json
+
+	if [ "$Fields" != "" ]; then
+		curl -X GET -s --insecure -u $ESUSER:''$ESPASS'' "$ESPROTO://$ESHOST:$ESPORT/_search?filter_path=hits.hits._source,hits.hits.sort,pit_id" -H 'Content-Type: application/json' -d "@$TMPDIR/body.json" > $TMPDIR/results.json
+		if [[ ! `grep -m1 '"hits' $TMPDIR/results.json` ]]; then
+			break
+		fi
+		# extract updated PIT ID
+		PIT_ID=`jq . $TMPDIR/results.json | jq .pit_id | sed 's/"//g'`
+		# extract result records and continue accumulating the inner result records in $TMPDIR/results_full.json
+		jq --sort-keys -c .hits.hits[]._source $TMPDIR/results.json > $TMPDIR/results2.json
+		if [ "$CSV" == "1" ]; then
+			cat $TMPDIR/results2.json | jq '['$FormatFields'] | @csv' | sed 's/\\"/"/g;s/^"//;s/"$//' >> $TMPDIR/results_full.json	
+		else
+			cat $TMPDIR/results2.json >> $TMPDIR/results_full.json
+		fi
+	else
+		curl -X GET -s --insecure -u $ESUSER:''$ESPASS'' "$ESPROTO://$ESHOST:$ESPORT/_search" -H 'Content-Type: application/json' -d "@$TMPDIR/body.json" > $TMPDIR/results.json
+		if [[ ! `grep -m1 '"hits' $TMPDIR/results.json` ]]; then
+			break
+		fi
+		# extract updated PIT ID
+		PIT_ID=`jq . $TMPDIR/results.json | jq .pit_id | sed 's/"//g'`
+		# extract result records and continue accumulating the inner result records in $TMPDIR/results_full.json
+		jq -c .hits.hits[] $TMPDIR/results.json > $TMPDIR/results2.json
+		jq -c ._source $TMPDIR/results2.json >> $TMPDIR/results_full.json
+	fi
+
+	
+	# extract the "sort" section of the last record in the page, and generate a "search_after" section from it
+	SEARCH_AFTER="\"search_after\" : `tail -n1 $TMPDIR/results.json | jq -c .hits.hits[].sort | tail -n1 | jq .`,"
+	
+	PageCount=$(($PageCount+1))
+	if [ "$Debug" == "1" ]; then
+		echo "Loaded page $PageCount of results - `cat $TMPDIR/results2.json | wc -l` records." 1>&2
+		#jq -c ._source $TMPDIR/results2.json 1>&2
+	fi
+
+done
+
+# Build body for PID_ID deletion, generating the body then executing the curl
+echo  '{
+   "id": "'$PIT_ID'"
+}
+'  > $TMPDIR/pid.json
+
+curl -X DELETE -s --insecure -u $ESUSER:''$ESPASS'' "$ESPROTO://$ESHOST:$ESPORT/_pit" -H 'Content-Type: application/json' -d "@$TMPDIR/pid.json" > /dev/null
+
+if [ "$Debug" == "1" ]; then echo -e "\nFull result set:\n" 1>&2; fi
+if [ "$Fields" != "" -a "$SkipHeader" == "0" -a "$CSV" == "1" ]; then
+	echo $FieldsHeader;
+fi
+head -n $MaxRecords $TMPDIR/results_full.json
+if [ "$Debug" == "1" ]; then
+	echo -e "\nTemp directory: $TMPDIR\n" 1>&2
+else
+	bail_out
+fi
