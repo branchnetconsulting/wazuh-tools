@@ -1,0 +1,58 @@
+#!/bin/bash
+
+#
+# dropcount-analysisd
+#
+# Track Wazuh manager analysisd event drops.
+#
+# The /var/ossec/var/run/wazuh-analysisd.state file where wazuh-analysisd natively reports event drops only contains
+# the count for the last 5 seconds by default.  This script polls that file every 5 seconds and maintains an accumulating counter
+# which it updates to disk every minute (/var/ossec/var/run/analysisd.drops)
+# and also writes an hourly log update to /var/ossec/logs/dropcount-analysisd.log.
+#
+
+if [ ! -f /var/ossec/var/run/analysisd.drops ]; then
+        echo 0 > /var/ossec/var/run/analysisd.drops
+fi
+if [ ! -f /var/ossec/var/run/analysisd.rcvd ]; then
+        echo 0 > /var/ossec/var/run/analysisd.rcvd
+fi
+if [ ! -f /var/ossec/var/run/analysisd.drops.hourly ]; then
+        echo 0 > /var/ossec/var/run/analysisd.drops.hourly
+fi
+if [ ! -f /var/ossec/var/run/analysisd.rcvd.hourly ]; then
+        echo 0 > /var/ossec/var/run/analysisd.rcvd.hourly
+fi
+
+TDROPS=`cat /var/ossec/var/run/analysisd.drops`
+TRCVD=`cat /var/ossec/var/run/analysisd.rcvd`
+i=0
+
+while true; do
+        if [ -f /var/ossec/var/run/wazuh-analysisd.state ]; then
+                LDROPS=`cat /var/ossec/var/run/wazuh-analysisd.state | grep "events_dropped" | cut -d\' -f2`
+                LRCVD=`cat /var/ossec/var/run/wazuh-analysisd.state | grep "events_received" | cut -d\' -f2`
+        else
+                LDROPS=0
+                LRCVD=0
+        fi
+        ((TDROPS=$TDROPS+$LDROPS))
+        ((TRCVD=$TRCVD+$LRCVD))
+        sleep 5
+        ((mod=$i%12))
+        if [ $mod == 0 ]; then
+                #echo "Write to file $TDROPS"
+                echo $TDROPS > /var/ossec/var/run/analysisd.drops
+                echo $TRCVD > /var/ossec/var/run/analysisd.rcvd
+        fi
+        ((mod=$i%720))
+        if [ $mod == 0 ]; then
+                #echo "Write hourly to file $TDROPS"
+                ((DROPSDELTA=`cat /var/ossec/var/run/analysisd.drops`-`cat /var/ossec/var/run/analysisd.drops.hourly`))
+                ((RCVDDELTA=`cat /var/ossec/var/run/analysisd.rcvd`-`cat /var/ossec/var/run/analysisd.rcvd.hourly`))
+                date +"%c - Total $TDROPS drops of $TRCVD events received.  Last hour $DROPSDELTA drops of $RCVDDELTA events received." >> /var/ossec/logs/dropcount-analysisd.log
+                cat /var/ossec/var/run/analysisd.drops > /var/ossec/var/run/analysisd.drops.hourly
+                cat /var/ossec/var/run/analysisd.rcvd > /var/ossec/var/run/analysisd.rcvd.hourly
+        fi
+        ((i=$i+1))
+done

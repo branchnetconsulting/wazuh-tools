@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#
+# /usr/local/bin/upgrade-all-agents
+#
+# Initiate upgrade of all candidate Wazuh agents to match the version running on the Wazuh manager.
+# Requires file /root/.wazuh-api to exist containing Wazuh API info and credentials, like this
+#
+# WAPIUSER=wazuh
+# WAPIPASS=jkdhfsdkjlhfkjs
+# WAPIPROTO=https
+# WAPIHOST=127.0.0.1
+#
+# You could call this script from cron on your standalone or master node Wazuh manager one or more times per day to ensure agents are staying up to date.
+#
+
+. /root/.wazuh-api
+TOKEN=$(curl -sS -u $WAPIUSER:$WAPIPASS -k -X POST "$WAPIPROTO://$WAPIHOST:55000/security/user/authenticate?raw=true" 2>/dev/null)
+curl -k -X PUT "$WAPIPROTO://$WAPIHOST:55000/agents/upgrade?agents_list=all" -H  "Authorization: Bearer $TOKEN" 2> /dev/null | jq
+echo "Intitated Wazuh upgrade for agents $IDLIST."
