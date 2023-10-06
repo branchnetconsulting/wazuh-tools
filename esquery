@@ -14,7 +14,7 @@ function bail_out() {
 
 function show_usage() {
    echo -e '\nUsage syntax:
-   esquery -IndexPattern IDX [ -CredsFile CFILE ] [ -QueryBody 'QBODY' ] [ -QueryBodyFile QBFILE ] [ -QueryLine 'QLINE' ] [ -QueryLineFile QLFILE ] [ -StartTime STIME ] [ -EndTime ETIME ] [ -Fields FLIST ] [ -CSV ] [ -SkipHeader] [ -SortList "SLIST" ] [ -PageSize PSIZE ] [ -MaxRecords MRECS ] [ -Debug ]
+   esquery -IndexPattern IDX [ -CredsFile CFILE ] [ -QueryBody 'QBODY' ] [ -QueryBodyFile QBFILE ] [ -QueryLine 'QLINE' ] [ -QueryLineFile QLFILE ] [ -StartTime STIME ] [ -EndTime ETIME ] [ -IngestTime ] [ -Fields FLIST ] [ -CSV ] [ -SkipHeader] [ -SortList "SLIST" ] [ -PageSize PSIZE ] [ -MaxRecords MRECS ] [ -Debug ]
 where
    IDX is one or more comma separated index names or index patterns like:
       *:wazuh-alerts-*
@@ -71,6 +71,7 @@ MaxRecords=100000
 Debug=0
 StartTime=now-1h
 EndTime=now
+IngestTime=0
 
 if [ "$1" == "" ]; then
 	show_usage
@@ -109,6 +110,9 @@ while [ "$1" != "" ]; do
                        check_value $1
                        EndTime=$1
                        ;;
+      -IngestTime )    # no shift
+                       IngestTime=1
+                       ;;
       -Fields )        shift
                        check_value $1
                        Fields=$1
@@ -140,6 +144,12 @@ while [ "$1" != "" ]; do
    esac
    shift
 done
+
+if [ "$IngestTime" == "1" ]; then
+	TimeField="@timestamp"
+else
+	TimeField="event.ingested"
+fi
 
 # Dot-call the credentials file if specified, bark if no such file, confirm ESPASS defined and provide defaults for the rest as needed.
 if [ "$CredsFile" != "" ]; then
@@ -219,7 +229,7 @@ if [ "$CSV" == "1" -a "$Fields" == "" ]; then
 fi
 
 # Wrap QueryBody into larger body that includes time range filter
-QueryBody=`echo '{ "bool": { "must": ['$QueryBody'], "filter": [ { "range" : { "@timestamp" : { "gte": "'$StartTime'", "lte": "'$EndTime'" } } } ] } }'`
+QueryBody=`echo '{ "bool": { "must": ['$QueryBody'], "filter": [ { "range" : { "'$TimeField'" : { "gte": "'$StartTime'", "lte": "'$EndTime'" } } } ] } }'`
 
 SLIST=""
 for LINE in `echo $SortList | sed 's/,/ /g'`; do 
