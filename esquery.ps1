@@ -2,6 +2,7 @@
 [CmdletBinding(SupportsShouldProcess=$true)]
 param (
   [string]$IndexPattern  = "",
+  [switch]$IngestTime    = $false,
   [string]$Fields        = "",
   [switch]$CSV           = $false,
   [switch]$JSON          = $false,
@@ -189,6 +190,7 @@ if ($CSV -And $Fields -eq ""){
 }
 
 # Wrap QueryBody into larger body that includes time range filter
+$FilterRangeField = If ($IngestTime) {"event.ingest_time"} Else {"@timestamp"}
 $QueryBody = @{
     "bool" = @{
         "must" = @(
@@ -197,7 +199,7 @@ $QueryBody = @{
         "filter" = @(
             @{
                 "range" = @{
-                    "@timestamp" = @{
+                    $FilterRangeField = @{
                         "gte" = $StartTime
                         "lte" = $EndTime
                     }
