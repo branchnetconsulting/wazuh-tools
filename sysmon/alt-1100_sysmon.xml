@@ -135,92 +135,115 @@
     <group>sysmon_event_15,</group>
   </rule>
 
-  <rule id="110009" level="3">
+  <rule id="61644" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^16$</field>
-    <description>Sysmon 16: ServiceConfigurationChange</description>
-    <options>no_full_log</options>
+    <description>Sysmon - Event 16: ConfigEvent (Sysmon configuration changed)</description>
     <group>sysmon_event_16,</group>
   </rule>
-  
-  <rule id="110010" level="3">
+
+  <rule id="61645" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^17$</field>
-    <description>Sysmon 17: PipeEvent (Pipe Created)</description>
+    <description>Sysmon - Event 17: PipeEvent (Pipe Created)</description>
     <options>no_full_log</options>
     <group>sysmon_event_17,</group>
   </rule>
 
-  <rule id="110011" level="3">
+  <rule id="61646" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^18$</field>
-    <description>Sysmon 18: PipeEvent (Pipe Connected)</description>
+    <description>Sysmon - Event 18: PipeEvent (Pipe Connected)</description>
     <options>no_full_log</options>
     <group>sysmon_event_18,</group>
   </rule>
 
-  <rule id="110012" level="3">
+  <rule id="61647" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^19$</field>
-    <description>Sysmon 19: WmiEvent (WmiEventFilter activity detected)</description>
+    <description>Sysmon - Event 19: WmiEvent (WmiEventFilter activity detected)</description>
     <options>no_full_log</options>
     <group>sysmon_event_19,</group>
   </rule>
 
-  <rule id="110013" level="3">
+  <rule id="61648" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^20$</field>
-    <description>Sysmon 20: WmiEvent (WmiEventConsumer activity detected)</description>
+    <description>Sysmon - Event 20: WmiEvent (WmiEventConsumer activity detected)</description>
     <options>no_full_log</options>
     <group>sysmon_event_20,</group>
   </rule>
 
-  <rule id="110014" level="3">
+  <rule id="61649" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^21$</field>
-    <description>Sysmon 21: WmiEvent (WmiEventConsumerToFilter activity detected)</description>
+    <description>Sysmon - Event ID 21: WmiEvent (WmiEventConsumerToFilter activity detected)</description>
     <options>no_full_log</options>
     <group>sysmon_event_21,</group>
   </rule>
 
-  <rule id="110015" level="3">
+  <rule id="61650" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^22$</field>
-    <description>Sysmon 22: DNSEvent (DNS query)</description>
+    <description>Sysmon - Event ID 22: DNSEvent (DNS query)</description>
     <options>no_full_log</options>
     <group>sysmon_event_22,</group>
   </rule>
 
-  <rule id="110016" level="3">
+  <rule id="61651" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^23$</field>
-    <description>Sysmon 23: FileDeleteArchived</description>
+    <description>Sysmon - Event ID 23: FileDeleteArchivedEvent (File deletion detected and file archived)</description>
     <options>no_full_log</options>
     <group>sysmon_event_23,</group>
   </rule>
 
-  <rule id="110017" level="3">
+  <rule id="61652" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^24$</field>
-    <description>Sysmon 24: ClipboardChange</description>
+    <description>Sysmon - Event ID 24: ClipboardEvent (Clipboard change detected)</description>
     <options>no_full_log</options>
     <group>sysmon_event_24,</group>
   </rule>
 
-  <rule id="110018" level="3">
+  <rule id="61653" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^25$</field>
-    <description>Sysmon 25: ProcessTampering</description>
+    <description>Sysmon - Event ID 25: ProcessTampering (Process tampering detected)</description>
     <options>no_full_log</options>
     <group>sysmon_event_25,</group>
   </rule>
 
-  <rule id="110019" level="3">
+  <rule id="61654" level="3" overwrite="yes">
     <if_sid>61600</if_sid>
     <field name="win.system.eventID">^26$</field>
-    <description>Sysmon 26: FileDeleteDetected</description>
+    <description>Sysmon - Event ID 26: FileDeleteEvent (File deletion detected)</description>
     <options>no_full_log</options>
     <group>sysmon_event_26,</group>
+  </rule>
+
+  <rule id="61655" level="3" overwrite="yes">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^255$</field>
+    <description>Sysmon - Event ID 255: ErrorEvent (Sysmon error)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_255,</group>
+  </rule>
+
+  <rule id="110020" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^27$</field>
+    <description>Sysmon - Event ID 27: FileBlockExecutableEvent (Blocking creation of an executatble file)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_27,</group>
+  </rule>
+
+  <rule id="110021" level="3">
+    <if_sid>61600</if_sid>
+    <field name="win.system.eventID">^28$</field>
+    <description>Sysmon - Event ID 28: FileBlockShreddingEvent (Blocking shredding of a file)</description>
+    <options>no_full_log</options>
+    <group>sysmon_event_28,</group>
   </rule>
 
   <rule id="110050" level="0">
