@@ -75,6 +75,7 @@
 #
 
 # All possible parameters that may be specified for check-only, conditional install, forced install or forced uninstall purposes.
+
 param ( $Mgr,
 	$RegMgr,
 	$RegPass,	
@@ -82,7 +83,7 @@ param ( $Mgr,
 	$AgentName = $env:computername, 
 	$ExtraGroups, 
 	$global:VerDiscAddr,
-	$global:InstallVer,
+	$InstallVer,
 	$global:DefaultInstallVer = "4.3.9",
 	$DownloadSource,
 	[switch]$SkipSysmon=$false, 
@@ -573,11 +574,11 @@ function installAgent {
 	if ( ($Install) -or ( -not ($Connected) ) ) {
 		# If InstallVer is not discovered or set as a parameter, use the DefaultInstaller value either set on command line or is hard-coded in script.
 		if ( -not ($VerDiscAddr -eq $null) ) {
-			$global:InstallVer = (Resolve-DnsName -Type txt -name $global:VerDiscAddr -ErrorAction SilentlyContinue).Strings
+			$InstallVer = (Resolve-DnsName -Type txt -name $global:VerDiscAddr -ErrorAction SilentlyContinue).Strings
 		}
 		if ($InstallVer -eq $null) { 
 			if ($Debug) { Write-Output "InstallVer was null, so using DefaultInstallVer value, if present from command line" }
-			$global:InstallVer = $DefaultInstallVer
+			$InstallVer = $DefaultInstallVer
 		}
 		
 		if ($DownloadSource -eq $null) { 
