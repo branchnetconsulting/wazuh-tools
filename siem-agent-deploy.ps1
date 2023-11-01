@@ -287,6 +287,10 @@ if ($hash1 -eq $hash2) {
 }
 '@
 New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\scripts" -erroraction 'silentlycontinue' | out-null
+while ( -not ( Test-Path "$PFPATH\ossec-agent\scripts" -PathType Container ) ) {
+   sleep 1
+   Write-Output "directory missing, pausing..."
+}
 $ScriptToWrite | Out-File -FilePath "$PFPATH\ossec-agent\scripts\merge-wazuh-conf.ps1" -Encoding "UTF8"
 }
 
