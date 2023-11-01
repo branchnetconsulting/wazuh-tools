@@ -46,6 +46,10 @@ If ([Environment]::Is64BitOperatingSystem) {
 # If Wazuh agent conf.d directory is not yet present, then create it and populate it with a 000-base.conf copied from current ossec.conf file.
 if ( -not (Test-Path -LiteralPath "$PFPATH\ossec-agent\conf.d" -PathType Container ) ) {
     New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\conf.d" | out-null
+    while ( -not ( Test-Path "$PFPATH\ossec-agent\conf.d" -PathType Container ) ) {
+	    sleep 1
+ 	    Write-Output "directory missing, pausing..."
+    }
     Copy-Item "$PFPATH\ossec-agent\ossec.conf" "$PFPATH\ossec-agent\conf.d\000-base.conf"
     # If the newly generated 000-base.conf (from old ossec.conf) is missing the merge-wazuh-conf command section, then append it now.
     $baseFile = Get-Content "$PFPATH/ossec-agent/conf.d/000-base.conf" -erroraction 'silentlycontinue'
