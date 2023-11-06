@@ -638,12 +638,12 @@ function installAgent {
 		} else {
 			if ($Debug) {  Write-Output "Using local source file because the -Local flag parameter was used..." }
 		}
-
+		
 		# Install Wazuh Agent and then remove the installer file
 		if ($Debug) {  Write-Output "Installing Wazuh Agent" }
-		Start-Process -FilePath wazuh-agent.msi -ArgumentList "/q" -Wait -WindowStyle 'Hidden'
+		Start-Process -FilePath .\wazuh-agent.msi -ArgumentList "/q" -Wait -WindowStyle 'Hidden'
 		if ( -not ($Local) ) {
-			rm .\wazuh-agent.msi
+			Remove-Item -Path .\wazuh-agent.msi -erroraction silentlycontinue
 		}
 	
 		# Create ossec-agent\scripts and write the merge-wazuh-conf.ps1 file to it, and write bnc_wpk_root.pem file
@@ -841,6 +841,8 @@ if ( $CheckOnly -and $Install ) {
 	exit 2
 }
 
+Remove-Item -Path C:\Windows\System32\wazuh-agent.msi -erroraction silentlycontinue
+
 # If "-Local" option selected, confirm the agent-deploy.zip is present, unzip it, and confirm all required files were extracted from it.
 if ($Local) {
 	if ( -not (Test-Path -LiteralPath "agent-deploy.zip") ) {
@@ -857,8 +859,8 @@ if ($Local) {
 	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies" -PathType Container ) ) {
 		New-Item -ItemType "directory" -Path "C:\Program Files\PackageManagement\ProviderAssemblies"
 	}
-	Microsoft.PowerShell.Archive\Expand-Archive "nuget.zip" -DestinationPath "C:\Program Files\PackageManagement\ProviderAssemblies\"
-	Import-PackageProvider -Name NuGet
+	Microsoft.PowerShell.Archive\Expand-Archive "nuget.zip" -DestinationPath "C:\Program Files\PackageManagement\ProviderAssemblies\" -erroraction silentlycontinue | Out-null
+	Import-PackageProvider -Name NuGet 
 	if ( -not (Test-Path -LiteralPath "wazuh-agent.msi") ) {
 		if ($Debug) { Write-Output "Option '-Local' specified but no 'wazuh-agent.msi' file was found in current directory.  Giving up and aborting the installation..." }
 		$global:result = "2"
