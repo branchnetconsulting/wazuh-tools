@@ -641,7 +641,7 @@ function installAgent {
 
 		# Install Wazuh Agent and then remove the installer file
 		if ($Debug) {  Write-Output "Installing Wazuh Agent" }
-		Start-Process -FilePath wazuh-agent.msi -ArgumentList "/q" -Wait -WindowStyle 'Hidden'
+		Start-Process -FilePath .\wazuh-agent.msi -ArgumentList "/q" -Wait -WindowStyle 'Hidden'
 		if ( -not ($Local) ) {
 			rm .\wazuh-agent.msi
 		}
