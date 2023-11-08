@@ -798,6 +798,7 @@ $MgrAdd
 	}
 
 	if ($Debug) { Write-Output "This agent has successfully connected to the Wazuh manager!" }
+ 	Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10994 -EntryType Error -Message "siem-agent-deploy.ps1: Deployed Wazuh agent using script version $DEPLOY_VERSION" -Category 0
 	if ( $Debug -and ( -not ( $SkipSysmon  ) ) ) { Write-Output "Sysmon should be automatically provisioned/reprovisioned in an hour or less as needed." }
 	if ( $Debug -and ( -not ( $SkipOsquery ) ) ) { Write-Output "Osquery should be automatically provisioned/reprovisioned in an hour or less as needed." }
 		$global:result = "0"
@@ -807,6 +808,8 @@ $MgrAdd
 #
 # Main
 #
+
+$DEPLOY_VERSION=10
 
 If ( $Help -eq $true ) {
 	show_usage
