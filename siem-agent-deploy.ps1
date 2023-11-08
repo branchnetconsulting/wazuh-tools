@@ -1,5 +1,7 @@
 #
 # siem-agent-deploy.ps1
+# Version 10 
+# last material change 11/8/2023
 #
 # This script is for checking and/or installing the Wazuh agent on Windows systems.  It can directly install or uninstall it, conditionally 
 # install it, or simply check to see if installation/reinstallation is needed.  The Wazuh agent for Windows presently includes Wazuh agent 
