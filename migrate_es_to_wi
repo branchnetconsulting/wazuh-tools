@@ -19,7 +19,10 @@
 #     reindex.ssl.verification_mode: none
 #
 #   The jq pacakge must be installed.
-# 
+#
+#   Populate the Elasticsearch and Wazuh Indexer access details below with correct details and ensure both can be reached from
+#   where the script will be executed.
+#
 
 # Elasticsearch access details
 SRCUSER=
