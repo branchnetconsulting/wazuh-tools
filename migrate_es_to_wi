@@ -2,14 +2,14 @@
 
 #
 # migrate_es_to_wi
-# Tool to assist in migrating stored indexes in Wazuh SIEMs backed by Elastic Stack 7.x, from Elasticsearch over to Wazuh Indexer
+# This tool to assists with migrating stored indexes in Wazuh SIEMs from Elastic Stack 7.x over to Wazuh Indexer.
 #
 # by Kevin Branch
 # Branch Network Consulting, LLC
 #
 # Prerequisites:
 #
-# 	If your Elasticsearch ingest node pipeline(s) replace the [timestamp] field (normally just ingest time) with more accurate
+#   If your Elasticsearch ingest node pipeline(s) replace the [timestamp] field (normally just ingest time) with more accurate
 #   time source(s) coming from the body of qualifying events, like EventChannel or cloud provider log pulls, 
 #   then temporarily disable this correction of [timestamp] so it is purely assigned ingest time, while migration is in progress.
 #   Otherwise migration may get tripped up my writing of records to yesterday's index (or older).
@@ -18,7 +18,7 @@
 #     reindex.remote.whitelist: "127.0.0.1:9200"
 #     reindex.ssl.verification_mode: none
 #
-#	  The jq pacakge must be installed.
+#   The jq pacakge must be installed.
 # 
 
 # Elasticsearch access details
