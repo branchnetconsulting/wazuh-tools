@@ -1,0 +1,127 @@
+#!/bin/bash
+
+#
+# migrate_es_to_wi
+# Tool to assist in migrating stored indexes in Wazuh SIEMs backed by Elastic Stack 7.x, from Elasticsearch over to Wazuh Indexer
+#
+# by Kevin Branch
+# Branch Network Consulting, LLC
+#
+# Prerequisites:
+#
+# 	If your Elasticsearch ingest node pipeline(s) replace the [timestamp] field (normally just ingest time) with more accurate
+#   time source(s) coming from the body of qualifying events, like EventChannel or cloud provider log pulls, 
+#   then temporarily disable this correction of [timestamp] so it is purely assigned ingest time, while migration is in progress.
+#   Otherwise migration may get tripped up my writing of records to yesterday's index (or older).
+#
+#   Add something like this to /etc/wazuh-indexer/opensearch.yml and restart wazuh-indexer service, to accomodate reindexing.
+#     reindex.remote.whitelist: "127.0.0.1:9200"
+#     reindex.ssl.verification_mode: none
+#
+#	  The jq pacakge must be installed.
+# 
+
+# Elasticsearch access details
+SRCUSER=
+SRCPASS=
+SRCHOST=
+SRCPORT=9200
+
+# Wazuh Indexer access details
+DSTUSER=
+DSTPASS=
+DSTHOST=
+DSTPORT=9201
+
+# Establish the pattern of source indexes to be migrated, also definining pattern of such indexes to exclude.
+# The example below picks up all wazuh-a* source indices and removes from the list any that end with today's daily date stamp.
+INCLUDES="wazuh-a*"
+EXCLUDES="\-`date +%Y.%m.%d`$"
+
+# Set to yes to cause deletion of pre-existing target indexes if source and dest record counts already match.  
+# Set to no to skip over them.
+OVERWRITE_IF_BROKEN=yes
+
+# Set to yes to close the reindexed index on the Wazuh Indexer side upon completion of a verified successful reindex
+# This is to conserve Wazuh Indexer memory resources which may be tight while running temporarily in parallel to Elasticsearch
+CLOSE_ON_SUCCESS=yes
+
+SRC_LIST=`curl -s --insecure -u $SRCUSER:$SRCPASS "https://$SRCHOST:$SRCPORT/_cat/indices/$INCLUDES" | awk '{print $3}' | sort | grep -v "$EXCLUDES"`
+DST_LIST=`curl -s --insecure -u $DSTUSER:$DSTPASS "https://$DSTHOST:$DSTPORT/_cat/indices/$INCLUDES" | awk '{print $3}' | sort | grep -v "$EXCLUDES"`
+echo -e "Migration candidates in Elasticsearch: \n$SRC_LIST\n"
+echo -e "Possibly already migrated to Wazuh Indexer: \n$DST_LIST"
+
+for IDX in $SRC_LIST; do
+
+	echo -e "\nAssessing $IDX"
+
+	# Handle cases where the source index already exists on the target side.
+	if [[ `echo $DST_LIST | egrep "(^| )$IDX( |$)"` ]]; then
+		echo "This is already in Wazuh Indexer"; 
+		SRC_COUNT=`curl -s --insecure -u $SRCUSER:$SRCPASS "https://$SRCHOST:$SRCPORT/$IDX/_count" | jq .count`
+		DST_COUNT=`curl -s --insecure -u $DSTUSER:$DSTPASS "https://$DSTHOST:$DSTPORT/$IDX/_count" | jq .count`
+		if [[ "$SRC_COUNT" == "$DST_COUNT" ]]; then
+			echo "Source/target record counts match.  This index is apparently already migrated.  Skipping..."
+			continue
+		else
+			if [[ "$OVERWRITE_IF_BROKEN" == "no" ]]; then
+				echo "Source/target record counts do not match.  Skipping migration because OVERWRITE_IF_BROKEN is not set."
+				continue	
+			else
+				echo "Source/target record counts do not match.  Deleting target index because OVERWRITE_IF_BROKEN is set."
+				curl -X DELETE -s --insecure -u $DSTUSER:$DSTPASS "https://$DSTHOST:$DSTPORT/$IDX"| jq .
+			fi
+		fi
+	fi
+
+	# Make source index readonly
+	echo "Switching source index to readonly state."
+	curl -X PUT -s --insecure -u $SRCUSER:$SRCPASS "https://$SRCHOST:$SRCPORT/$IDX/_block/write" | jq .
+	
+	# Kick off the reindex
+	echo "Migrating $IDX from Elasticsearch to Wazuh Indexer"
+	curl -X POST -s --insecure -u $DSTUSER:$DSTPASS "https://$DSTHOST:$DSTPORT/_reindex?wait_for_completion=true" -HContent-Type:application/json -d'{
+	  "source": {
+		"remote": {
+		  "host": "https://'$SRCHOST':'$SRCPORT'",
+		  "username": "'$SRCUSER'",
+		  "password": "'$SRCPASS'"
+		},
+		"index": "'$IDX'"
+	  },
+	  "dest": {
+		"index": "'$IDX'"
+	  }
+	}' | jq .
+
+	# Fetch source and dest records count post reindex
+	
+	echo "Verifying success of migration..."
+	curl -X POST -s --insecure -u $DSTUSER:$DSTPASS "https://$DSTHOST:$DSTPORT/$IDX/_flush" | jq .
+	SRC_COUNT=`curl -s --insecure -u $SRCUSER:$SRCPASS "https://$SRCHOST:$SRCPORT/$IDX/_count" | jq .count`
+	DST_COUNT=`curl -s --insecure -u $DSTUSER:$DSTPASS "https://$DSTHOST:$DSTPORT/$IDX/_count" | jq .count`
+	FAILCOUNT=0
+	while [[ $FAILCOUNT -lt 6 ]]; do
+		if [[ "$SRC_COUNT" == "$DST_COUNT" ]] ; then
+			break
+		else
+			FAILCOUNT=$(($FAILCOUNT+1))
+			sleep 10
+			SRC_COUNT=`curl -s --insecure -u $SRCUSER:$SRCPASS "https://$SRCHOST:$SRCPORT/$IDX/_count" | jq .count`
+			DST_COUNT=`curl -s --insecure -u $DSTUSER:$DSTPASS "https://$DSTHOST:$DSTPORT/$IDX/_count" | jq .count`
+		fi
+	done
+		
+	# If counts match, declare success, delete from src, and conditionally (if CLOSE_ON_SUCCESS) close on target
+	if [[ "$SRC_COUNT" == "$DST_COUNT" ]] && [[ "$SRC_COUNT" != "null" ]]; then
+		echo "Index migration successful!  Record counts match between source and target.  Deleting index from Elasticsearch."
+		curl -X DELETE -s --insecure -u $SRCUSER:$SRCPASS "https://$SRCHOST:$SRCPORT/$IDX" | jq .
+		if [[ "$CLOSE_ON_SUCCESS" == "no" ]]; then
+			echo "Closing index on Wazuh Indexer side because CLOSE_ON_SUCCESS is set."
+			curl -X POST -s --insecure -u $DSTUSER:$DSTPASS "https://$DSTHOST:$DSTPORT/$IDX/_close" | jq .
+		fi
+	else
+		echo "Index migration failed!  Source record count is $SRC_COUNT, but target record count is $DST_COUNT."
+	fi
+	
+done
