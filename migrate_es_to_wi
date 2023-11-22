@@ -2,10 +2,10 @@
 
 #
 # migrate_es_to_wi
-# This tool to assists with migrating stored indexes in Wazuh SIEMs from Elastic Stack 7.x over to Wazuh Indexer.
-#
 # by Kevin Branch
 # Branch Network Consulting, LLC
+#
+# This tool assists with migrating stored indexes in Wazuh SIEMs from Elastic Stack 7.x over to Wazuh Indexer.
 #
 # Prerequisites:
 #
