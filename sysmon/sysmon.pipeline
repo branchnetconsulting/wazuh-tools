@@ -1,0 +1,528 @@
+  {
+    "description" : "1520_sysmon.bnc",
+    "processors" : [
+      {
+        "script" : {
+          "description" : "Derive Sysmon eventName value from eventID",
+          "source" : "if ( ctx.data.win.system.eventID == '1' ) { ctx.data.win.system.eventName = 'ProcessCreate' } else if ( ctx.data.win.system.eventID == '2' ) { ctx.data.win.system.eventName = 'FileCreateTime' } else if ( ctx.data.win.system.eventID == '3' ) { ctx.data.win.system.eventName = 'NetworkConnect' } else if ( ctx.data.win.system.eventID == '4' ) { ctx.data.win.system.eventName = 'SysmonStateChange' } else if ( ctx.data.win.system.eventID == '5' ) { ctx.data.win.system.eventName = 'ProcessTerminate' } else if ( ctx.data.win.system.eventID == '6' ) { ctx.data.win.system.eventName = 'DriverLoad' } else if ( ctx.data.win.system.eventID == '7' ) { ctx.data.win.system.eventName = 'ImageLoad' } else if ( ctx.data.win.system.eventID == '8' ) { ctx.data.win.system.eventName = 'CreateRemoteThread' } else if ( ctx.data.win.system.eventID == '9' ) { ctx.data.win.system.eventName = 'RawAccessRead' } else if ( ctx.data.win.system.eventID == '10' ) { ctx.data.win.system.eventName = 'ProcessAccess' } else if ( ctx.data.win.system.eventID == '11' ) { ctx.data.win.system.eventName = 'FileCreate' } else if ( ctx.data.win.system.eventID == '12' ) { ctx.data.win.system.eventName = 'RegistryAddDelete' } else if ( ctx.data.win.system.eventID == '13' ) { ctx.data.win.system.eventName = 'RegistrySet' } else if ( ctx.data.win.system.eventID == '14' ) { ctx.data.win.system.eventName = 'RegistryRename' } else if ( ctx.data.win.system.eventID == '15' ) { ctx.data.win.system.eventName = 'FileCreateStreamHash' } else if ( ctx.data.win.system.eventID == '16' ) { ctx.data.win.system.eventName = 'SysmonConfigChange' } else if ( ctx.data.win.system.eventID == '17' ) { ctx.data.win.system.eventName = 'PipeCreate' } else if ( ctx.data.win.system.eventID == '18' ) { ctx.data.win.system.eventName = 'PipeConnect' } else if ( ctx.data.win.system.eventID == '19' ) { ctx.data.win.system.eventName = 'WmiFilter' } else if ( ctx.data.win.system.eventID == '20' ) { ctx.data.win.system.eventName = 'WmiConsumer' } else if ( ctx.data.win.system.eventID == '21' ) { ctx.data.win.system.eventName = 'WmiConsumerFilter' } else if ( ctx.data.win.system.eventID == '22' ) { ctx.data.win.system.eventName = 'DNSQuery' } else if ( ctx.data.win.system.eventID == '23' ) { ctx.data.win.system.eventName = 'FileDeleteArchived' } else if ( ctx.data.win.system.eventID == '24' ) { ctx.data.win.system.eventName = 'ClipboardChange' } else if ( ctx.data.win.system.eventID == '25' ) { ctx.data.win.system.eventName = 'ProcessTampering' } else if ( ctx.data.win.system.eventID == '26' ) { ctx.data.win.system.eventName = 'FileDeleteDetected' } else if ( ctx.data.win.system.eventID == '255' ) { ctx.data.win.system.eventName = 'SysmonError' } else { ctx.data.win.system.eventName = 'Unknown' }",
+          "lang" : "painless",
+          "ignore_failure" : true,
+          "tag": "sysmon_eventID_to_eventName"
+        }
+      },
+      {
+        "set" : {
+          "description": "Normalize data.win.eventdata.sourcePort to source.port",
+          "field" : "source.port",
+          "value" : "{{data.win.eventdata.sourcePort}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.sourcePort != null",
+          "tag": "data.win.eventdata.sourcePort>source.port"
+        }
+      },
+      {
+        "set" : {
+          "description": "Normalize data.win.eventdata.sourceHostname to source.host",
+          "field" : "source.host",
+          "value" : "{{data.win.eventdata.sourceHostname}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.sourceHostname != null",
+          "tag": "data.win.eventdata.sourceHostname>source.host"
+        }
+      },
+      {
+        "set" : {
+          "description": "Normalize data.win.eventdata.destinationPort to destination.port",
+          "field" : "destination.port",
+          "value" : "{{data.win.eventdata.destinationPort}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.destinationPort != null",
+          "tag": "data.win.eventdata.destinationPort>destination.port"
+        }
+      },
+      {
+        "set" : {
+          "description": "Normalize data.win.eventdata.destinationHostname to destination.host",
+          "field" : "destination.host",
+          "value" : "{{data.win.eventdata.destinationHostname}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.destinationHostname != null",
+          "tag": "data.win.eventdata.destinationHostname>destination.host"
+        }
+      },
+      {
+        "set" : {
+          "description": "Normalize to data.win.eventdata.destinationPortName to network.protocol",
+          "field" : "network.protocol",
+          "value" : "{{data.win.eventdata.destinationPortName}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.destinationPortName != null",
+          "tag": "data.win.eventdata.destinationPortName>network.protocol"
+        }
+      },
+      {
+        "set" : {
+          "description": "Normalize to data.win.eventdata.protocol to network.transport",
+          "field" : "network.transport",
+          "value" : "{{data.win.eventdata.protocol}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.protocol != null",
+          "tag": "data.win.eventdata.protocol>network.transport"
+        }
+      },
+      {
+        "gsub" : {
+          "description" : "must convert backslash to forwardslash before mutate splitting or grokking",
+          "field" : "data.win.eventdata.user",
+          "pattern" : "\\\\",
+          "replacement" : "/",
+          "if" : "ctx.data?.win?.eventdata?.user != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "pre-grok_gsub_sysmon_user.name"
+        }
+      },
+      {
+        "grok" : {
+          "description" : "Parse out user name",
+          "field" : "data.win.eventdata.user",
+          "patterns" : [
+            "([^/]+)?//%{GREEDYDATA:user.name}"
+          ],
+          "if" : "ctx.data?.win?.eventdata?.user != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "grok_sysmon_user.name"
+        }
+      },
+          { "lowercase": { "field": "source.host", "ignore_failure": true } },
+          { "lowercase": { "field": "destination.host", "ignore_failure": true } },
+          { "lowercase": { "field": "network.protocol", "ignore_failure": true } },
+          { "lowercase": { "field": "user.name", "ignore_failure": true } },
+      {
+        "remove": {
+          "field": "data.win.eventdata.sourcePort",
+          "ignore_missing": true,
+          "ignore_failure": true
+        }
+      },
+      {
+        "remove": {
+          "field": "data.win.eventdata.sourceHostname",
+          "ignore_missing": true,
+          "ignore_failure": true
+        }
+      },
+      {
+        "remove": {
+          "field": "data.win.eventdata.destinationPort",
+          "ignore_missing": true,
+          "ignore_failure": true
+        }
+      },
+      {
+        "remove": {
+          "field": "data.win.eventdata.destinationHostname",
+          "ignore_missing": true,
+          "ignore_failure": true
+        }
+      },
+      {
+        "remove": {
+          "field": "data.win.eventdata.destinationPortName",
+          "ignore_missing": true,
+          "ignore_failure": true
+        }
+      },
+      {
+        "remove": {
+          "field": "data.win.eventdata.user",
+          "ignore_missing": true,
+          "ignore_failure": true
+        }
+      },
+      {
+        "grok" : {
+          "description" : "Parse Windows eventdata hashes into separate fields",
+          "field" : "data.win.eventdata.hashes",
+          "patterns" : [
+            "MD5=%{BASE16NUM:hash.md5},SHA256=%{BASE16NUM:hash.sha256},IMPHASH=%{BASE16NUM:hash.imp}"
+          ],
+          "if" : "ctx.data?.win?.eventdata?.hashes != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "grok_sysmon_hash_parse"
+        }
+      },
+      { "lowercase": { "field": "hash.md5", "ignore_failure": true } },
+      { "lowercase": { "field": "hash.sha256", "ignore_failure": true } },
+      { "lowercase": { "field": "hash.imp", "ignore_failure": true } },
+      {
+        "grok" : {
+          "description" : "Parse filename from image",
+          "field" : "data.win.eventdata.image",
+          "patterns" : [
+            ".*\\\\%{GREEDYDATA:data.win.eventdata.imageFileName}"
+          ],
+          "if" : "ctx.data?.win?.eventdata?.image != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "grok_sysmon_imageFileName"
+        }
+      },
+      {
+        "grok" : {
+          "description" : "Parse filename from parentImage",
+          "field" : "data.win.eventdata.parentImage",
+          "patterns" : [
+            ".*\\\\%{GREEDYDATA:data.win.eventdata.parentImageFileName}"
+          ],
+          "if" : "ctx.data?.win?.eventdata?.parentImage != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "grok_sysmon_parentImage"
+        }
+      },
+      {
+        "set" : {
+          "description" : "Set sysmon.eventName to value of win.system.eventName",
+          "field" : "sysmon.eventName",
+          "value" : "{{data.win.system.eventName}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.system?.eventName != null",
+          "tag" : "copy_sysmon_eventName"
+        }
+      },
+      {
+        "set" : {
+          "description" : "Set win.system.eventName to value of win.eventdata.eventType",
+          "field" : "sysmon.eventName",
+          "value" : "Registry{{data.win.eventdata.eventType}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.system?.eventName != null && ctx.data?.win?.eventdata?.eventType != null && ctx.data?.win?.system?.eventName.contains('Registry')",
+          "tag" : "enrich_sysmon_12_eventName"
+        }
+      },
+      {
+        "grok" : {
+          "description" : "Parse data.win.eventdata.ruleName",
+          "field" : "data.win.eventdata.ruleName",
+          "patterns" : [
+            "^%{WORD}%{JAVALOGMESSAGE}=%{GREEDYDATA:data.win.eventdata.ruleName}$"
+          ],
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.ruleName != null && ctx.data?.win?.eventdata?.ruleName.contains('technique')",
+          "tag" : "grok_sysmon_12_ruleName"
+        }
+      },
+      {
+        "set" : {
+          "description" : "Change ruleName to System Binary Proxy Execution: Control Panel when it shows up as rundll32.exe",
+          "field" : "data.win.eventdata.ruleName",
+          "value" : "System Binary Proxy Execution: Control Panel",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.ruleName == 'rundll32.exe'",
+          "tag" : "sysmon_fix_ruleName_rundll32.exe"
+        }
+      },
+      {
+        "set" : {
+          "description" : "Create data.win.eventdata.processGuids field for all process GUIDs",
+          "field" : "data.win.eventdata.processGuids",
+          "value" : "{{data.win.eventdata.processGuid}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.processGuid != null",
+          "tag" : "cp_process_Guid_to_Guids"
+        }
+      },
+      {
+        "append" : {
+          "description" : "Copy data.win.eventdata.parentProcessGuid to data.win.eventdata.processGuids field",
+          "field" : "data.win.eventdata.processGuids",
+          "value" : "{{data.win.eventdata.parentProcessGuid}}",
+          "allow_duplicates" : false,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.parentProcessGuid != null",
+          "tag" : "cp_parentProcess_Guid_to_Guids"
+        }
+      },
+      {
+        "set" : {
+          "description" : "Create data.win.eventdata.processId field for all process Ids",
+          "field" : "data.win.eventdata.processIds",
+          "value" : "{{data.win.eventdata.processId}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.processId != null",
+          "tag" : "cp_processId_to_Ids"
+        }
+      },
+      {
+        "append" : {
+          "description" : "Copy data.win.eventdata.parentProcessId to data.win.eventdata.processIds field",
+          "field" : "data.win.eventdata.processIds",
+          "value" : "{{data.win.eventdata.parentProcessId}}",
+          "allow_duplicates" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.parentProcessId != null",
+          "tag" : "cp_parentProcessId_to_Ids"
+        }
+      },
+      {
+        "grok" : {
+          "description" : "Parse filename from targetFilename",
+          "field" : "data.win.eventdata.targetFilename",
+          "patterns" : [
+            ".*\\\\%{GREEDYDATA:data.win.eventdata.targetShortFileName}"
+          ],
+          "if" : "ctx.data?.win?.eventdata?.targetFilename != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true
+        }
+      },
+      {
+        "grok" : {
+          "description" : "Parse filename from data.win.eventdata.imageLoaded",
+          "field" : "data.win.eventdata.imageLoaded",
+          "patterns" : [
+            ".*\\\\%{GREEDYDATA:data.win.eventdata.imageLoadedFileName}"
+          ],
+          "if" : "ctx.data?.win?.eventdata?.imageLoaded != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true
+        }
+      },
+      {
+        "set" : {
+          "description" : "Create sysmon.image field from data.win.eventdata.image",
+          "field" : "sysmon.image",
+          "value" : "{{data.win.eventdata.image}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.image != null",
+          "tag" : "create_sysmon.image"
+        }
+      },
+      {
+        "set" : {
+          "description" : "Create sysmon.image field from data.win.eventdata.imageLoaded",
+          "field" : "sysmon.image",
+          "value" : "{{data.win.eventdata.imageLoaded}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.imageLoaded != null",
+          "tag" : "create_sysmon.image"
+        }
+      },
+      {
+        "grok" : {
+          "description" : "Parse filename from sysmon.image",
+          "field" : "sysmon.image",
+          "patterns" : [
+            ".*\\\\%{GREEDYDATA:sysmon.imageFileName}"
+          ],
+          "if" : "ctx.sysmon?.image != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true
+        }
+      },
+      {
+        "set" : {
+          "description" : "Create sysmon.sourceImage field from data.win.eventdata.sourceImage",
+          "field" : "sysmon.sourceImage",
+          "value" : "{{data.win.eventdata.sourceImage}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.sourceImage != null",
+          "tag" : "create_sysmon.sourceImage"
+        }
+      },
+      {
+        "grok" : {
+          "description" : "Parse filename from sysmon.sourceImage",
+          "field" : "sysmon.sourceImage",
+          "patterns" : [
+            ".*\\\\%{GREEDYDATA:sysmon.sourceImageFileName}"
+          ],
+          "if" : "ctx.sysmon?.sourceImage != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "create_sysmon.sourceImageFileName"
+        }
+      },
+      {
+        "set" : {
+          "description" : "Create sysmon.targetImage field from data.win.eventdata.targetImage",
+          "field" : "sysmon.targetImage",
+          "value" : "{{data.win.eventdata.targetImage}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.targetImage != null",
+          "tag" : "create_sysmon.targetImage"
+        }
+      },
+      {
+        "grok" : {
+          "description" : "Parse filename from sysmon.targetImage",
+          "field" : "sysmon.targetImage",
+          "patterns" : [
+            ".*\\\\%{GREEDYDATA:sysmon.targetImageFileName}"
+          ],
+          "if" : "ctx.sysmon?.targetImage != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "create_sysmon.sourceImageFileName"
+        }
+      },
+      {
+        "grok" : {
+          "description" : "Parse filename from data.win.eventdata.parentImage to sysmon.parentImageFileName",
+          "field" : "data.win.eventdata.parentImage",
+          "patterns" : [
+            ".*\\\\%{GREEDYDATA:sysmon.parentImageFileName}"
+          ],
+          "if" : "ctx.data?.win?.eventdata?.parentImage != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true
+        }
+      },
+      {
+        "set" : {
+          "description" : "Create process.name field from data.win.eventdata.processName",
+          "field" : "process.name",
+          "value" : "{{data.win.eventdata.processName}}",
+          "ignore_empty_value" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.data?.win?.eventdata?.processName != null",
+          "tag" : "create_process.name"
+        }
+      },
+      {
+        "set" : {
+          "description" : "Set process.pid to value of data.win.eventdata.processId",
+          "field" : "process.pid",
+          "value" : "{{data.win.eventdata.processId}}",
+          "ignore_failure" : true,
+          "ignore_empty_value" : true,
+          "if" : "ctx.data?.win?.eventdata?.processId != null",
+          "tag" : "set_process_pid_sysmon"
+        }
+      },
+      {
+        "set" : {
+          "description" : "Set process.parent.pid to value of data.win.eventdata.parentProcessId",
+          "field" : "process.parent.pid",
+          "value" : "{{data.win.eventdata.parentProcessId}}",
+          "ignore_failure" : true,
+          "ignore_empty_value" : true,
+          "if" : "ctx.data?.win?.eventdata?.parentProcessId != null",
+          "tag" : "set_process_parent_pid_sysmon"
+        }
+      },
+      {
+        "set" : {
+          "description" : "Set dns.query.name from data.win.eventdata.queryNameTLD",
+          "field" : "dns.query.name",
+          "value" : "{{data.win.eventdata.queryName}}",
+          "ignore_failure" : true,
+          "ignore_empty_value" : true,
+          "if" : "ctx.data?.win?.eventdata?.queryName != null",
+          "tag" : "set_dns.query.name"
+        }
+      },
+      {
+        "gsub": {
+          "description": "Populate dns.registered_domain from dns.query.name",
+          "field": "dns.query.name",
+          "target_field": "dns.highest_registered_domain",
+          "pattern": ".*\\.([^.]+\\.[^.]+)",
+          "replacement": "$1",
+          "ignore_missing": true,
+          "if" : "ctx.dns?.query?.name != null",
+          "ignore_failure": false
+        }
+      },
+      {
+        "gsub" : {
+          "description" : "Strip non-IP info from query result",
+          "field" : "data.win.eventdata.queryResults",
+          "target_field" : "dns.query.results",
+          "pattern" : "type:[^;]+;",
+          "replacement" : "",
+          "if" : "ctx.data?.win?.eventdata?.queryResults != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "sysmon_queryResult_gsub_remove_extra"
+        }
+      },
+      {
+        "gsub" : {
+          "description" : "Strip IPv6 header info from query result",
+          "field" : "dns.query.results",
+          "pattern" : "::ffff:",
+          "replacement" : "",
+          "if" : "ctx.dns?.query?.results != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "sysmon_queryResult_gsub_strip_ipv6_header"
+        }
+      },
+      {
+        "gsub" : {
+          "description" : "Replace delimeter from query result",
+          "field" : "dns.query.results",
+          "pattern" : ";",
+          "replacement" : ", ",
+          "if" : "ctx.dns?.query?.results != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "sysmon_queryResult_gsub_replace_delimiter"
+        }
+      },
+      {
+        "gsub" : {
+          "description" : "Remove final comma from query result",
+          "field" : "dns.query.results",
+          "pattern" : ", $",
+          "replacement" : "",
+          "if" : "ctx.dns?.query?.results != null",
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "tag" : "sysmon_queryResult_gsub_remove_final_comma"
+        }
+      },
+      {
+        "split": {
+          "description" : "Split query results into an array",
+          "field": "dns.query.results",
+          "separator": ", ",
+          "preserve_trailing": false,
+          "ignore_missing" : true,
+          "ignore_failure" : true,
+          "if" : "ctx.dns?.query?.results != null",
+          "tag" : "sysmon_queryResult_convert_to_array"
+        }
+      },
+      { "remove": { "field": "dns.top_level_domain", "ignore_failure": true } },
+      { "remove": { "field": "dns.parent_domain", "ignore_failure": true } },
+      { "remove": { "field": "dns.query_without_tld", "ignore_failure": true } }
+    ],
+    "on_failure" : [
+      {
+        "drop" : {
+           "tag" : "1520_pipeline_failure_drop"
+        }
+      }
+    ]
+  }
