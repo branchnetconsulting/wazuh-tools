@@ -1,5 +1,5 @@
   {
-    "description" : "1520_sysmon.bnc",
+    "description" : "sysmon pipeline",
     "processors" : [
       {
         "script" : {
