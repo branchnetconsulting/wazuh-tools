@@ -5,7 +5,7 @@
 # by Kevin Branch (@BlueWolfNinja)
 # Branch Network Consulting, LLC
 #
-# Run as root on each individual Wazuh manager to dump summary of FIM state for all agents and managers, including count of monitored files and byte count used in FIM state db.
+# Run as root on each individual Wazuh manager to dump a summary of FIM state for all agents and managers, including count of monitored files, monitored registry objects, and byte count used in FIM state db.
 # Generic output requires no parameters.
 # For CSV output format, call it like this:
 #    fim-state-summary csv
@@ -18,13 +18,15 @@ for DB in `ls -1 /var/ossec/queue/db/???.db`; do
         else
                 N=`grep "^$ID " /var/ossec/etc/client.keys | awk '{print $2}'`
         fi
-        C=`sqlite3 $DB "select count(*) from fim_entry;"`
+        FC=`sqlite3 $DB "select count(*) from fim_entry where type == 'file';"`
+        RC=`sqlite3 $DB "select count(*) from fim_entry where type like 'registry%';"`
         B=`sqlite3 $DB "SELECT SUM("pgsize") FROM "dbstat" WHERE name='fim_entry';"`
         if [[ "$1" == "csv" ]]; then
-                echo $ID,$N,$C,$B
+                echo $ID,$N,$FC,$RC,$B
         else
                 echo $N - $ID
-                echo $C files monitored
+                echo $FC files monitored
+                echo $RC registry entries monitored
                 echo $B bytes consumed by FIM state
                 echo ""
         fi
