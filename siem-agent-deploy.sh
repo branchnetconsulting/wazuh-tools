@@ -635,7 +635,12 @@ function installAgent() {
 			elif [ "$PkgType" == "rpm" ]; then
 				DownloadSource="https://packages.wazuh.com/$MajorVer.x/yum/wazuh-agent-$InstallVer-1.x86_64.rpm"
 			elif [ "$PkgType" == "pkg" ]; then
-				DownloadSource="https://packages.wazuh.com/$MajorVer.x/macos/wazuh-agent-$InstallVer-1.pkg"
+   				if [[ `uname -m | grep arm64` ]]; then
+       					MacArch="arm64"
+	   			else
+       					MacArch="intel64"
+	   			fi
+				DownloadSource="https://packages.wazuh.com/$MajorVer.x/macos/wazuh-agent-$InstallVer-1.$MacArch.pkg"
 			fi
 		fi
 
