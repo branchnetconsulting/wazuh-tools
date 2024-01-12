@@ -1,0 +1,150 @@
+<group name="sophos,bnc,">
+
+  <rule id="102000" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="datastream">^event$</field>
+    <description>Sophos Event</description>
+  </rule>
+
+  <rule id="102001" level="0">
+    <if_sid>102000</if_sid>
+    <field name="name">^Restore failed: </field>
+    <description>Sophos Restore Failed Noise</description>
+  </rule>
+
+  <rule id="102002" level="12">
+    <if_sid>102000</if_sid>
+    <field name="type">Threat::</field>
+    <description>Sophos Threat Detected</description>
+  </rule>
+
+  <rule id="102004" level="5">
+    <if_sid>102002</if_sid>
+    <field name="type">Threat::CleanedUp|Threat::PuaCleanedUp</field>
+    <description>Sophos Threat CleanedUp</description>
+  </rule>
+
+  <rule id="102006" level="12">
+    <if_sid>102002</if_sid>
+    <field name="type">Threat::PuaDetected</field>
+    <description>Sophos PUA Threat Detected</description>
+  </rule>
+
+  <rule id="102008" level="12">
+    <if_sid>102002</if_sid>
+    <field name="type">Threat::IpsInboundDetection</field>
+    <description>Sophos IPS Threat Detected</description>
+  </rule>
+
+  <rule id="102010" level="12">
+    <if_sid>102002</if_sid>
+    <field name="type">Threat::Dismissed|Threat::PuaDismissed</field>
+    <description>Sophos Threat Dismissed</description>
+  </rule>
+
+  <rule id="102012" level="12">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::CorePuaDetected</field>
+    <field name="group">^PUA$</field>
+    <description>Sophos PUA Detected</description>
+  </rule>
+
+  <rule id="102014" level="5">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::WebControlViolation</field>
+    <description>Sophos Web Control Violation</description>
+  </rule>
+
+  <rule id="102016" level="10">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::WindowsFIrewall::Blocked</field>
+    <description>Sophos App Block by Windows Firewall</description>
+  </rule>
+
+  <rule id="102018" level="10">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::UpdateRebootRequired</field>
+    <description>Sophos Update is Waiting for Reboot</description>
+  </rule>
+
+  <rule id="102020" level="1">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::UpdateSuccess</field>
+    <description>Sophos Update Success</description>
+  </rule>
+
+  <rule id="102022" level="10">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::ServiceNotRunning</field>
+    <description>Sophos One or more Sophos Services Not Running</description>
+  </rule>
+
+  <rule id="102024" level="1">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::ServiceRestored</field>
+    <description>Sophos Service(s) Restored</description>
+  </rule>
+
+  <rule id="102026" level="10">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::UpdateFailure</field>
+    <description>Sophos Update Failed</description>
+  </rule>
+
+  <rule id="102028" level="12">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::CorePuaCleanFailed</field>
+    <description>Sophos Manaul PUA Cleanup Required</description>
+  </rule>
+
+  <rule id="102029" level="12">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::CoreCleanFailed</field>
+    <description>Sophos Manaul Malware Cleanup Required</description>
+  </rule>
+
+  <rule id="102030" level="10">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::NotProtected</field>
+    <description>Sophos Installation Not Successful</description>
+  </rule>
+
+  <rule id="102032" level="12">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::CoreReboot|Endpoint::CorePuaReboot</field>
+    <field name="group">^MALWARE$|^PUA$</field>
+    <description>Sophos Device Reboot Required to Complete Cleanup</description>
+  </rule>
+
+  <rule id="102034" level="0">
+    <if_sid>102014</if_sid>
+    <field name="name">translate.google.com</field>
+    <description>Sophos Google translate Block</description>
+  </rule>
+
+  <rule id="102040" level="5">
+    <if_sid>102000</if_sid>
+    <field name="name">Peripheral allowed: error</field>
+    <description>Sophos Peripheral Device Allowed</description>
+  </rule>
+
+  <rule id="102042" level="15">
+    <if_sid>102000</if_sid>
+    <field name="name">malicious behavior detected</field>
+    <group>rt_alert,</group>
+    <description>Sophos Need Immediate Action - Probably Malware Detected on Device</description>
+  </rule>
+
+  <rule id="102044" level="10">
+    <if_sid>102000</if_sid>
+    <field name="type">Endpoint::HmpaExploitPrevented</field>
+    <description>Sophos Exploit Prevented</description>
+  </rule>
+
+  <rule id="102046" level="0">
+    <if_sid>102000</if_sid>
+    <field name="type">Event::Endpoint::Device::AlertedOnly</field>
+    <description>Sophos Peripheral Allowed</description>
+  </rule>
+
+</group>
