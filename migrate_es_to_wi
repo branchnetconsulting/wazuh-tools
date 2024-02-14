@@ -122,7 +122,7 @@ for IDX in $SRC_LIST; do
 			        fi
 				continue	
 			else
-				echo "Source/target record counts do not match.  Deleting target index because OVERWRITE_IF_BROKEN is set."
+				echo "Source/target record counts do not match ($SRC_COUNT vs $DST_COUNT).  Deleting target index because OVERWRITE_IF_BROKEN is set."
 				curl -X DELETE -s --insecure -u $DSTUSER:$DSTPASS "https://$DSTHOST:$DSTPORT/$IDX"| jq .
 			fi
 		fi
