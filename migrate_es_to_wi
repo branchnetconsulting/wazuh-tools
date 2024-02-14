@@ -115,7 +115,7 @@ for IDX in $SRC_LIST; do
 			continue
 		else
 			if [[ "$OVERWRITE_IF_BROKEN" == "no" ]]; then
-				echo "Source/target record counts do not match.  Skipping migration because OVERWRITE_IF_BROKEN is not set."
+				echo "Source/target record counts do not match ($SRC_COUNT vs $DST_COUNT). Skipping migration because OVERWRITE_IF_BROKEN is not set."
         			if [[ "$DST_STATE" == "close" ]]; then
 		        	        echo "Closing target index since it was originally in a closed state..."
 	        	        	curl -X POST -s --insecure -u $DSTUSER:$DSTPASS "https://$DSTHOST:$DSTPORT/$IDX/_close" | jq .
