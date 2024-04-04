@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#
+# check-vd-cve
+# by Kevin Branch - @BlueWolfNinja - www.branchnetconsulting.com
+#
+# Look up a CVE in a Wazuh manager's Vulnerability Detection database to see what scenarios your SIEM is watching for that would match that CVE.
+#
+# This has been tested to work with Wazuh versions 4.4 through 4.7.
+# When 4.8 is released, this may have to be revised because the vulnerability detection facility is undergoing major changes with that release.
+#
+# root@wazuh-manager:~# check-vd-cve CVE-2024-3094
+# CVE-2024-3094|FOCAL||liblzma5|less than|5.2.4-1ubuntu1.1
+# CVE-2024-3094|FOCAL||xz-utils|less than|5.2.4-1ubuntu1.1
+# CVE-2024-3094|FOCAL||xzdec|less than|5.2.4-1ubuntu1.1
+#
+  
+if [[ ! `which sqlite3` ]]; then
+        echo "\nThis script requires sqlite3.  Install it and try again.\n"
+        exit
+fi
+
+if [[ "$1" == "" ]]; then
+        echo -e "\nYou must supply a CVE, like this:\n   check-vd-cve CVE-2024-3094\n"
+        exit
+fi
+
+CVE=$1
+sqlite3 /var/ossec/queue/vulnerabilities/cve.db 'SELECT VULNERABILITIES.CVEID,VULNERABILITIES.TARGET,VULNERABILITIES.TARGET_MINOR,VARIABLES.VALUE,VULNERABILITIES.OPERATION,VULNERABILITIES.OPERATION_VALUE FROM VULNERABILITIES JOIN VARIABLES ON VULNERABILITIES.PACKAGE=VARIABLES.VID WHERE CVEID="'$CVE'";'
