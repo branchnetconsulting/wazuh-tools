@@ -816,7 +816,7 @@ $MgrAdd
 # Main
 #
 
-$DEPLOY_VERSION=10
+$DEPLOY_VERSION=10.1
 
 If ( $Help -eq $true ) {
 	show_usage
