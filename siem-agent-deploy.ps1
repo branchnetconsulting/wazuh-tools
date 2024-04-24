@@ -1,6 +1,11 @@
 #
 # siem-agent-deploy.ps1
-# Version 10 
+# Version 10.1
+# Changes in this Version
+# -----------------------
+# Default Wazuh Version Change
+#
+# -----------------------
 # last material change 11/8/2023
 #
 # This script is for checking and/or installing the Wazuh agent on Windows systems.  It can directly install or uninstall it, conditionally 
@@ -67,7 +72,7 @@
 #
 # Sample command line:
 #
-# PowerShell.exe -ExecutionPolicy Bypass -File .\siem-agent-deploy.ps1 -InstallVer "4.3.9" -Mgr "{Manager DNS or IP}" -RegPass "{Your_Password}" -ExtraGroups "{Your_comma_separated_group_list}" -Debug
+# PowerShell.exe -ExecutionPolicy Bypass -File .\siem-agent-deploy.ps1 -InstallVer "4.5.4" -Mgr "{Manager DNS or IP}" -RegPass "{Your_Password}" -ExtraGroups "{Your_comma_separated_group_list}" -Debug
 #
 
 #
@@ -86,7 +91,7 @@ param ( $Mgr,
 	$ExtraGroups, 
 	$global:VerDiscAddr,
 	$InstallVer,
-	$global:DefaultInstallVer = "4.3.9",
+	$global:DefaultInstallVer = "4.5.4",
 	$DownloadSource,
 	[switch]$SkipSysmon=$false, 
 	[switch]$SkipOsquery=$false,
@@ -110,7 +115,7 @@ function show_usage {
      Write-Host "    [-ExtraGroups" -NoNewline; Write-Host "    LIST_OF_EXTRA_GROUPS]" -ForegroundColor Green
      Write-Host "    [-VerDiscAddr" -NoNewline; Write-Host "    VERSION_DISCOVERY_ADDRESS]" -ForegroundColor Green
      "    [-SkipSysmon]","    [-SkipOsquery]","    [-Install]","    [-Uninstall]","    [-CheckOnly]","    [-Local]","    [-Debug]" | Write-Host
-     Write-Host "    ./siem-agent-deploy.sh -Mgr" -NoNewline;Write-Host -ForegroundColor Green ' "siem.company.org"' -NoNewline;Write-Host " -RegPass" -NoNewline; Write-Host -ForegroundColor Green ' "h58fg3FS###12"' -NoNewline; Write-Host " -DefaultInstallVer" -NoNewline; Write-Host -ForegroundColor Green ' "4.3.9"' -NoNewline; Write-Host " -ExtraGroups"  -NoNewline; Write-Host -ForegroundColor Green ' "server,office"'
+     Write-Host "    ./siem-agent-deploy.sh -Mgr" -NoNewline;Write-Host -ForegroundColor Green ' "siem.company.org"' -NoNewline;Write-Host " -RegPass" -NoNewline; Write-Host -ForegroundColor Green ' "h58fg3FS###12"' -NoNewline; Write-Host " -DefaultInstallVer" -NoNewline; Write-Host -ForegroundColor Green ' "4.5.4"' -NoNewline; Write-Host " -ExtraGroups"  -NoNewline; Write-Host -ForegroundColor Green ' "server,office"'
 }
 
 # 
