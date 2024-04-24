@@ -4,19 +4,19 @@
 # show-wazuh-rule [rule_id]
 # by Kevin Branch, and greatly improved by Facundo Orsi
 #
-# Use this to find and display the full Wazuh rule identified by rule_id.  It will search through both stock and custom rules.
+# Use this to find and display the full Wazuh rule identified by rule_id.  It wi                                                                                                                                                             ll search through both stock and custom rules.
 #
 
 echo
 
 ID=$1
-FILES=`grep  "id=\"$ID\"" /var/ossec/ruleset/rules/*.xml /var/ossec/etc/rules/*.xml -l`
+FILES=`grep  "id=\"$ID\"" /var/ossec/ruleset/rules/*.xml /var/ossec/etc/rules/*.                                                                                                                                                             xml -l`
 
 if [ ! -z "$FILES" ];then
         for F in $FILES; do
         echo $F":"
         echo
-        grep  -Pzo "^.*<rule id=\"$ID\" .*(.|\n)*?</rule>" $F -h
+        grep -Pzo "[ |\t]*<rule id=\"$ID\" .*(.|\n)*?</rule>" $F -h
         echo -ne "\n"
    done
 else
