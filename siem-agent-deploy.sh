@@ -3,6 +3,16 @@
 #
 # siem-agent-deploy.sh
 #
+# Version 10.1
+# Changes in this version
+# -----------------------
+#
+# Updated default Wazuh Version to 4.5.4
+# Typo fixes
+#
+# -----------------------
+# 
+#
 # This script is for checking and/or installing the Wazuh agent on Linux/MacOs systems.  It can directly install or uninstall it, conditionally 
 # install it, or simply check to see if installation/reinstallation is needed.  The Wazuh agent for Linux/MacOS presently includes Wazuh agent 
 # integrated for centralized configuration and reporting via the Wazuh manager.  It also defaults to signalling to the Wazuh manager to push 
@@ -40,27 +50,30 @@
 # Is the agent presently really connected to the Wazuh manager?
 # Is the agent currently a member of all intended Wazuh agent groups?
 #
-# Parameters:
+# Required Parameters:
 #
-# -Mgr					The IP or FQDN of the Wazuh manager for ongoing agent connections.
-# -Mgr2					The IP or FQDN of an optional second Wazuh manager for agents to connect to.
-# -RegMgr				Specific manager to register with
-# -RegPass	 			Password for registration with Wazuh manager (put in quotes).
+# -Mgr				The IP or FQDN of the Wazuh manager for ongoing agent connections.
+# -RegPass     			Password for registration with Wazuh manager (put in quotes).
+#
+# Optional Parameters:
+#
+# -Mgr2				The IP or FQDN of an optional second Wazuh manager for agents to connect to.
+# -RegMgr			Specific manager to register with
 # -AgentName			Name under which to register this agent in place of locally detected Windows host name.
 # -ExtraGroups  		Additional groups beyond the default groups that are applied by the script, which include:  
-#						linux, linux-local, osquery, osquery-local. 
+#				linux, linux-local, osquery, osquery-local. 
 # -VerDiscAddr			The Version Discovery Address where a .txt record has been added with the target version of the Wazuh agent to install.
 # -InstallVer			The version of the Wazuh Agent to install.
-# -DefaultInstallVer 	Command line paramenter and a preset within the script that is used as a last resort.
+# -DefaultInstallVer 		Command line paramenter and a preset within the script that is used as a last resort.
 # -DownloadSource	 	Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
 # -SkipOsquery  		Flag to not signal the Wazuh manager to push managed Osquery WPK to this system. (Default is to not skip this.)
-# -Install				Flag to skip all checks and force installation
+# -Install			Flag to skip all checks and force installation
 # -Uninstall			Flag to uninstall Wazuh agent only 
 # -CheckOnly			Flag to only run checks to see if installation is current or in need of deployment
-# -LBprobe				Flag to additionally check for manager connectivity with an agent-auth probe to avoid being fooled by a load balancer that 
-# 						handshakes even when service down.
-# -Debug				Flag to show debug output
-# -help					Show command line options
+# -LBprobe			Flag to additionally check for manager connectivity with an agent-auth probe to avoid being fooled by a load balancer that 
+# 				handshakes even when service down.
+# -Debug			Flag to show debug output
+# -help				Show command line options
 
 # Sample way to fetch and use this script:
 #
@@ -79,7 +92,7 @@ function show_usage() {
 	LBLU='\033[1;34m'
 	NC='\033[0m'
 	printf "\nCommand syntax:\n	$0 \n	[-Mgr ${LBLU}WAZUH_MANAGER${NC}]\n	[-RegMgr ${LBLU}WAZUH_REGISTRATION_MANAGER${NC}]\n	[-RegPass \"${LBLU}WAZUH_REGISTRATION_PASSWORD${NC}]\"\n	[-DefaultInstallVer ${LBLU}DEFAULT_WAZUH_VERSION${NC}]\n	[-DownloadSource ${LBLU}WAZUH_AGENT_DOWNLOAD_URL${NC}]\n	[-AgentName ${LBLU}WAZUH_AGENT_NAME_OVERRIDE${NC}]\n	[-ExtraGroups ${LBLU}LIST_OF_EXTRA_GROUPS${NC}]\n	[-VerDiscAddr ${LBLU}VERSION_DISCOVERY_ADDRESS${NC}]\n	[-SkipOsquery]\n	[-Install]\n	[-Uninstall]\n	[-CheckOnly]\n	[-Debug]\n	[-help]\n\n"
-	printf "Example:\n	$0 -Mgr ${LBLU}siem.company.org${NC} -RegPass ${LBLU}\"h58fg3FS###12\"${NC} -DefaultInstallVer ${LBLU}4.3.9${NC} -ExtraGroups ${LBLU}server,office${NC}\n\n"
+	printf "Example:\n	$0 -Mgr ${LBLU}siem.company.org${NC} -RegPass ${LBLU}\"h58fg3FS###12\"${NC} -DefaultInstallVer ${LBLU}4.5.4${NC} -ExtraGroups ${LBLU}server,office${NC}\n\n"
 }
 
 function check_value() {
@@ -373,18 +386,18 @@ function checkAgent() {
 
 	# Relevant script parameters
 	#		
-	# -Mgr			The IP or FQDN of the Wazuh manager for ongoing agent connections. (Required)
-	# -RegPass		Password for registration with Wazuh manager (put in quotes). (Required)
-	# -Mgr2			The IP or FQDN of an optional second Wazuh manager for agents to connect to.
-	# -RegMgr		The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
+	# -Mgr		The IP or FQDN of the Wazuh manager for ongoing agent connections. (Required)
+	# -RegPass	Password for registration with Wazuh manager (put in quotes). (Required)
+	# -Mgr2		The IP or FQDN of an optional second Wazuh manager for agents to connect to.
+	# -RegMgr	The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
 	# -AgentName	Name under which to register this agent in place of locally detected Windows host name.
 	# -ExtraGroups 	Additional groups beyond the default groups that are applied by the script, which include: 
-	#				linux, linux-local, osquery, osquery-local. 
+	#		linux, linux-local, osquery, osquery-local. 
 	# -SkipOsquery	Flag to not signal the Wazuh manager to push managed Osquery WPK to this system. (Default is to not skip this.)
 	# -CheckOnly	Flag to only run checks to see if installation is current or in need of deployment
-	# -LBprobe		Flag to additionally check for manager connectivity with an agent-auth probe to avoid being fooled by a load balancer 
-	#				that handshakes even when service down.
-	# -Debug		Flag to show debug output
+	# -LBprobe	Flag to additionally check for manager connectivity with an agent-auth probe to avoid being fooled by a load balancer 
+	#		that handshakes even when service down.
+	# -Debug	Flag to show debug output
 
 	if [ "$Mgr" == "" ]; then
 		echo ""; echo "*** Must use '-Mgr' to specify the FQDN or IP of the Wazuh manager to which the agent should be or shall be a connected.."
@@ -586,20 +599,20 @@ function installAgent() {
 	#
 	# Relevant script parameters
 	#		
-	# -Mgr					IP or FQDN of the Wazuh manager for ongoing agent connections. (Required.)
-	# -RegPass				Password for registration with Wazuh manager (put in quotes). (Required.)
-	# -Mgr2					The IP or FQDN of an optional second Wazuh manager for agents to connect to.
-	# -RegMgr  				The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
-	# -AgentName			Name under which to register this agent in place of locally detected Windows host name.
-	# -ExtraGroups  		Additional groups beyond the default groups that are applied by the script, which include:  
-	# 							linux, linux-local, osquery, osquery-local. 
-	# -VerDiscAddr			The Version Discover Address where a .txt record has been added with the target version of the Wazuh agent to install.
-	# -InstallVer			The version of the Wazuh Agent to install.
+	# -Mgr			IP or FQDN of the Wazuh manager for ongoing agent connections. (Required.)
+	# -RegPass		Password for registration with Wazuh manager (put in quotes). (Required.)
+	# -Mgr2			The IP or FQDN of an optional second Wazuh manager for agents to connect to.
+	# -RegMgr  		The IP or FQDN of the Wazuh manager for agent registration connection (defaults to $Mgr if not specified)
+	# -AgentName		Name under which to register this agent in place of locally detected Windows host name.
+	# -ExtraGroups  	Additional groups beyond the default groups that are applied by the script, which include:  
+	# 			linux, linux-local, osquery, osquery-local. 
+	# -VerDiscAddr		The Version Discover Address where a .txt record has been added with the target version of the Wazuh agent to install.
+	# -InstallVer		The version of the Wazuh Agent to install.
 	# -DefaultInstallVer	Command line paramenter and a preset within the script that is used as a last resort.
-	# -DownloadSource		Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
-	# -SkipOsquery  		Flag to not signal the Wazuh manager to push managed Osquery WPK to this system. (Default is to not skip this.)
-	# -Install				Flag to skip all checks and force installation
-	# -Debug					Flag to show debug output
+	# -DownloadSource	Static download path to fetch Wazuh agent installer.  Overrides WazuhVer value.
+	# -SkipOsquery  	Flag to not signal the Wazuh manager to push managed Osquery WPK to this system. (Default is to not skip this.)
+	# -Install		Flag to skip all checks and force installation
+	# -Debug		Flag to show debug output
 
 	if [ "$Mgr" == "" ]; then
 		echo ""; echo "*** Mgr variable must be used to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection."
@@ -848,7 +861,7 @@ $MgrAdd
 
 # Set default values for certain named parameters
 AgentName=`hostname`
-DefaultInstallVer="4.3.9"
+DefaultInstallVer="4.5.4"
 SkipOsquery=0
 Install=0
 Uninstall=0
