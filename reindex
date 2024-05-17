@@ -1,0 +1,122 @@
+#!/bin/bash
+
+. /root/.siem-esauth
+
+if [ "$1" == "" ]; then
+	echo -e "\nPlease supply a file name containing the list of indices to reindex.\n"
+	exit
+fi
+
+filename=$1
+file_lines=`cat $filename`
+
+for IDX in $file_lines ;
+do
+
+	echo -e "\n*** $IDX ***\n"
+
+	BUP="$IDX-backup"
+	
+	# Delete target index if already present.
+	if [[ ! `curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X GET "$ESPROTO://$ESHOST:$ESPORT/$BUP" | grep "index_not_found_exception"` ]]; then
+		echo "Index $BUP already exists.  Deleting..."
+		curl -s --insecure -u $ESUSER:$ESPASS -X DELETE "$ESPROTO://$ESHOST:$ESPORT/$BUP"
+		echo
+	fi
+
+	# Block writes to source index.
+	echo "Blocking writes to $IDX..."
+	curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X PUT "$ESPROTO://$ESHOST:$ESPORT/$IDX/_block/write" | jq . | grep '\"acknowledged\"'
+	
+	# Count documnents in source index and bail if count failure or zero.
+	SOURCEDCOUNT=`curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X GET "$ESPROTO://$ESHOST:$ESPORT/$IDX/_count" | jq .count`
+	echo "($SOURCEDCOUNT documents in $IDX)"
+	if [[ "$SOURCEDCOUNT" == "0" || "$SOURCEDCOUNT" == "" ]]; then
+		echo "Index is empty or its records cannot be counted.  Skipping..."
+		echo "Removing write block from $IDX..."
+		curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X PUT "$ESPROTO://$ESHOST:$ESPORT/$IDX/_settings" -H 'Content-Type: application/json' -d'{ "blocks" : { "write" : null } }' | jq . | grep "acknowledged"
+		continue
+	fi
+
+	# Initiate the reindexing task and bail if an empty or invalid task id is returned.
+	echo "Reindexing $IDX to $BUP..."
+	TASK=`curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X POST "$ESPROTO://$ESHOST:$ESPORT/_reindex?slices=auto&wait_for_completion=false" -H 'Content-Type: application/json' -d'
+	{
+	  "source": {
+	    "index": "'$IDX'"
+	  },
+	  "dest": {
+	    "index": "'$BUP'"
+	  }
+	}
+	' | jq .task | sed 's/"//g'`
+	if [[ ! `echo $TASK | egrep "^[a-zA-Z0-9:]+$"` ]]; then
+		echo "Bad or missing reindex task id.  Skipping this index..."!vi
+		echo $TASK
+		echo "Removing write block from $IDX..."
+		curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X PUT "$ESPROTO://$ESHOST:$ESPORT/$IDX/_settings" -H 'Content-Type: application/json' -d'{ "blocks" : { "write" : null } }' | jq . | grep "acknowledged"
+		continue
+	fi
+
+	# Check completion status of reindex task every 10 seconds, until is ceases to be false, bailing thereafter if the
+	# completion status is not true.
+	TSTATUS=`curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X GET "$ESPROTO://$ESHOST:$ESPORT/_tasks/$TASK" | jq .completed`
+	while [ "$TSTATUS" == "false" ]; do
+		sleep 10
+		TSTATUS=`curl -s --insecure -u $ESUSER:$ESPASS -X GET "$ESPROTO://$ESHOST:$ESPORT/_tasks/$TASK" | jq .completed`
+	done
+	if [[ "$TSTATUS" != "true" ]]; then
+		echo "Something unexpected went wrong with the reindexing task.  Skipping index..."
+		echo "Removing write block from $IDX..."
+		curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X PUT "$ESPROTO://$ESHOST:$ESPORT/$IDX/_settings" -H 'Content-Type: application/json' -d'{ "blocks" : { "write" : null } }' | jq . | grep "acknowledged"
+		continue
+	fi
+	
+	# Report how long that task took.
+	echo "That reindexing task took $((`curl -s --insecure -u $ESUSER:$ESPASS -X GET "$ESPROTO://$ESHOST:$ESPORT/_tasks/$TASK" | jq .response.took`/1000)) seconds."
+	
+	# Count documnents in target index and bail if count failure or zero.
+	sleep 10
+	TARGETDCOUNT=`curl --max-time 60 --insecure -u $ESUSER:$ESPASS -X GET "$ESPROTO://$ESHOST:$ESPORT/$BUP/_count" 2> /dev/null | jq .count`
+	if [[ "$TARGETDCOUNT" == "0" || "$TARGETDCOUNT" == "" ]]; then
+		echo "Target index is empty or its records cannot be counted.  Skipping..."
+		# Output full task status details to help account for the problem.
+		curl -s --insecure -u $ESUSER:$ESPASS -X GET "$ESPROTO://$ESHOST:$ESPORT/_tasks/$TASK" | jq .
+		echo "Removing write block from $IDX..."
+		curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X PUT "$ESPROTO://$ESHOST:$ESPORT/$IDX/_settings" -H 'Content-Type: application/json' -d'{ "blocks" : { "write" : null } }' | jq . | grep "acknowledged"
+		continue
+	fi
+
+	# Bail if the count of documents in the source and target indices differ.
+	if [[ "$SOURCEDCOUNT" != "$TARGETDCOUNT" ]]; then
+		echo "Document count in $BUP ($TARGETDCOUNT) differs from $IDX ($SOURCEDCOUNT).  Skipping..."
+		# Output full task status details to help account for the problem.
+		curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X GET "$ESPROTO://$ESHOST:$ESPORT/_tasks/$TASK" | jq .
+		echo "Removing write block from $IDX..."
+		curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X PUT "$ESPROTO://$ESHOST:$ESPORT/$IDX/_settings" -H 'Content-Type: application/json' -d'{ "blocks" : { "write" : null } }' | jq . | grep "acknowledged"
+		continue
+	fi
+
+	# Delete original index, clone the target index back to the original name, and delete the old target index name.
+	echo "Deleting $IDX so $BUP can replace it..."
+	curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X DELETE $ESPROTO://$ESHOST:$ESPORT/$IDX | jq . | grep "acknowledged"
+	echo "Blocking writes to $BUP so we can clone it back to $IDX..."
+	curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X PUT "$ESPROTO://$ESHOST:$ESPORT/$BUP/_block/write" | jq . | grep '\"acknowledged\"'
+	echo "Cloning $BUP to $IDX..."
+	curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X POST $ESPROTO://$ESHOST:$ESPORT/$BUP/_clone/$IDX | jq . | grep '\"acknowledged\"'
+	echo "Deleting $BUP..."
+	curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X DELETE $ESPROTO://$ESHOST:$ESPORT/$BUP | jq . | grep "acknowledged"
+
+	FINALCOUNT=`curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X GET "$ESPROTO://$ESHOST:$ESPORT/$IDX/_count" | jq .count`
+	echo "Reindexed $IDX contains $FINALCOUNT documents."
+	
+	echo "Removing write block from $IDX..."
+	curl --max-time 60 -s --insecure -u $ESUSER:$ESPASS -X PUT "$ESPROTO://$ESHOST:$ESPORT/$IDX/_settings" -H 'Content-Type: application/json' -d'{ "blocks" : { "write" : null } }' | jq . | grep "acknowledged"
+
+	if [[ "$SOURCEDCOUNT" == "$FINALCOUNT" ]]; then
+			echo "+++ REINDEX SUCCEEDED +++"
+	else
+			echo "--- REINDEX FAILED ---"
+	fi
+
+done
