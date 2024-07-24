@@ -73,6 +73,7 @@ echo "
 </ossec_config>
 " > /var/ossec/etc/ossec.conf
 
+# Supply BNC code signing cert
 echo "-----BEGIN CERTIFICATE-----
 MIIDNzCCAh+gAwIBAgIURDCxvmgAH12XqdEdQH/CKgy0+CIwDQYJKoZIhvcNAQEL
 BQAwKzELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAklOMQ8wDQYDVQQKDAZCTkMgQ0Ew
@@ -96,10 +97,13 @@ O7bM4haWNBQkxEU=
 " > /var/ossec/etc/bnc_wpk_root.pem
 chown root:wazuh /var/ossec/etc/bnc_wpk_root.pem
 
-yum -y install python27-pip
+# Meet Wazuh docker listener prereqs
+yum -y install python3-pip
 /usr/bin/pip3 install docker
 
-echo -e '#!/bin/bash\nsystemctl stop wazuh-agent; rm -rf /var/ossec/logs/*; systemctl start wazuh-agent' > /etc/cron.daily/flush-logs;
+# Set up daily log flushing via cron
+echo -e '#!/bin/bash\nsystemctl stop wazuh-agent; rm -rf /var/ossec/logs/*; systemctl start wazuh-agent' > /etc/cron.daily/flush-logs
+chmod 744 /etc/cron.daily/flush-logs
 systemctl restart crond 
 
 systemctl restart wazuh-agent
