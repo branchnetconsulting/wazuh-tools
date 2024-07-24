@@ -1,27 +1,22 @@
 #!/bin/bash
 
 #
-# Amazon Linux install and self-register of Wazuh GTIS SIEM agent
+# Amazon Linux 2 install and self-register of Wazuh GTIS SIEM agent
 #
 
 # Dynamic named parameters
 environment=${environment:-}
 app_name=${app_name:-}
-waz_ver=${waz_ver:-3.12.3}
+waz_ver=${waz_ver:-4.5.4}
 waz_mgr=${waz_mgr:-}
-waz_reg_mgr=${waz_reg_mgr:-}
 waz_pwd=${waz_pwd:-}
 waz_grps=${waz_grps:-docker-aws-hosts}
-
 while [ $# -gt 0 ]; do
-
    if [[ $1 == *"--"* ]]; then
         param="${1/--/}"
         declare $param="$2"
-        # echo $1 $2 // Optional to see the parameter:value result
    fi
-
-  shift
+   shift
 done
 ## End Dyamic named parameters
 
@@ -33,14 +28,13 @@ WAZ_AGENT_NAME="$LABEL_APP-$LABEL_ENV-$INSTANCE_ID"
 cd ~
 
 # Dynamically generate a Wazuh config profile name for the major and minor version of a given Linux distro, like ubuntu14, ubuntu 14.04.
-CFG_PROFILE=`. /etc/os-release; echo $ID\`echo $VERSION_ID | cut -d. -f1\`, $ID\`echo $VERSION_ID\``
+CFG_PROFILE=`redhat,amzn,amzn2`
 
 # Wazuh Agent download/install/register
-yum -y -q install wget
-wget -q -O /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm https://packages.wazuh.com/3.x/yum/wazuh-agent-$waz_ver-1.x86_64.rpm
+curl -s https://packages.wazuh.com/4.x/yum/wazuh-agent-$waz_ver-1.x86_64.rpm > /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
 yum -y install /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
 rm -f /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
-/var/ossec/bin/agent-auth -m $waz_reg_mgr -P "$waz_pwd" -G "$waz_grps" -A $WAZ_AGENT_NAME
+/var/ossec/bin/agent-auth -m $waz_mgr -P "$waz_pwd" -G "$waz_grps" -A $WAZ_AGENT_NAME
 
 #
 # Dynamically generate ossec.conf
@@ -54,10 +48,9 @@ echo "
       <protocol>tcp</protocol>
     </server>
     <config-profile>$CFG_PROFILE</config-profile>
-    <notify_time>60</notify_time>
-    <time-reconnect>180</time-reconnect>
+    <notify_time>30</notify_time>
+    <time-reconnect>120</time-reconnect>
     <auto_restart>yes</auto_restart>
-    <crypto_method>aes</crypto_method>
   </client>
   <active-response>
     <disabled>yes</disabled>
@@ -68,27 +61,45 @@ echo "
     <label key=\"app\">$LABEL_APP</label>
   </labels>
   <logging>
-    <log_format>json</log_format>
+    <log_format>plain</log_format>
   </logging>
+  <agent-upgrade>
+    <ca_verification>
+      <enabled>yes</enabled>
+      <ca_store>etc/wpk_root.pem</ca_store>
+      <ca_store>etc/bnc_wpk_root.pem</ca_store>
+    </ca_verification>
+  </agent-upgrade>
 </ossec_config>
 " > /var/ossec/etc/ossec.conf
 
-#
-# Generate local_internal_options.conf
-#
-echo "
-logcollector.remote_commands=1
-wazuh_command.remote_commands=1
-sca.remote_commands=1
-" > /var/ossec/etc/local_internal_options.conf
+echo "-----BEGIN CERTIFICATE-----
+MIIDNzCCAh+gAwIBAgIURDCxvmgAH12XqdEdQH/CKgy0+CIwDQYJKoZIhvcNAQEL
+BQAwKzELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAklOMQ8wDQYDVQQKDAZCTkMgQ0Ew
+HhcNMjIxMDAzMjExNzU5WhcNMzIwOTMwMjExNzU5WjArMQswCQYDVQQGEwJVUzEL
+MAkGA1UECAwCSU4xDzANBgNVBAoMBkJOQyBDQTCCASIwDQYJKoZIhvcNAQEBBQAD
+ggEPADCCAQoCggEBANpnhmd+2mUHCjzqvwHx6KeYSaQa2IFNXoQHlj70vMSBm7dH
+GebtQSCF1W3XlRwCW6lK6MitSnPSx8D9ct8QvI7cWYvcjZ1OcY3Vv69rfM5akqi4
+J1wlWn2HkLmoEdoMwNAQD9c+3XCS9KRC6VcIW7XH+029iTisPNP+X1vFeFCyjz68
+SxpL7Ili5GrcDaCWD7Rw7fZjkyTIOrm80vAVGPuXMpSYbdFCwk12j0TQuVovg9bG
+b0ykvZBuNrhzfw/KVoxNmsnagZ1gZgMyRJFaje2RmwQu719lu+qoVunzoMZnt/bj
+WlLvPENSrYvjhO7+LEVE+uHPgZb5IhAM3GTXpQECAwEAAaNTMFEwHQYDVR0OBBYE
+FPT8KA/lCLNFutMi+d3RVX8gCpBzMB8GA1UdIwQYMBaAFPT8KA/lCLNFutMi+d3R
+VX8gCpBzMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBAEdHaQzB
+4t6ICDqaoClIlukZPnPOBX3vIaXSTucdX5s0bX0wGNngG+FKM7Ka/jY51YyfCFOr
+6J6v0GSIFmTeOX/G4zoy+daxd1sIkMq16urBHxWepanhKmM2UnIrVEqaD2Jjgt30
+yuIVJyENaCrXhdH82HndaVEUR8aGnEVUmgPpg+9pRAh8sQUu7LCENI+HP+uaa29c
+e1A3jj1X98UOy+58chxEHtyaZy06v3vz4UNWgJf/LGBMT7wO3c8TsTT5KmgHR460
+zraxbhmzb4JAji0bZuYlldSjhizRCpJjroFjWHluDUa9Oqi5La52o+rpRVwT53bY
+O7bM4haWNBQkxEU=
+-----END CERTIFICATE-----
+" > /var/ossec/etc/bnc_wpk_root.pem
+chown root:wazuh /var/ossec/etc/bnc_wpk_root.pem
 
 yum -y install python27-pip
-/usr/bin/pip-2.7 install docker
+/usr/bin/pip3 install docker
 
-echo -e '#!/bin/bash\nservice wazuh-agent stop; rm -rf /var/ossec/logs/*; service wazuh-agent start' > /etc/cron.daily/flush-logs;
-service crond restart
+echo -e '#!/bin/bash\nsystemctl stop wazuh-agent; rm -rf /var/ossec/logs/*; systemctl start wazuh-agent' > /etc/cron.daily/flush-logs;
+systemctl restart crond 
 
-service wazuh-agent restart
-
-
-
+systemctl restart wazuh-agent
