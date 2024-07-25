@@ -28,7 +28,7 @@ WAZ_AGENT_NAME="$LABEL_APP-$LABEL_ENV-$INSTANCE_ID"
 cd ~
 
 # Dynamically generate a Wazuh config profile name for the major and minor version of a given Linux distro, like ubuntu14, ubuntu 14.04.
-CFG_PROFILE=`redhat,amzn,amzn2`
+CFG_PROFILE="redhat,amzn,amzn2"
 
 # Wazuh Agent download/install/register
 curl -s https://packages.wazuh.com/4.x/yum/wazuh-agent-$waz_ver-1.x86_64.rpm > /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
