@@ -1,4 +1,2 @@
 # wazuh-tools
-Resources for those administering Wazuh SIEMs
-by Kevin Branch (@BlueWolfNinja)
-https://x.com/BlueWolfNinja
+Resources authored by Kevin Branch ([@BlueWolfNinja](https://x.com/BlueWolfNinja)) for those administering Wazuh SIEMs
