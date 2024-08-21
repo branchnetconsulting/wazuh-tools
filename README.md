@@ -1,4 +1,4 @@
 # wazuh-tools
-Useful scripts for those administering Wazuh
+Resources for those administering Wazuh SIEMs
 by Kevin Branch (@BlueWolfNinja)
 https://x.com/BlueWolfNinja
