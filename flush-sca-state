@@ -7,7 +7,6 @@
 # Run this interactively or via cron to cause a fresh set of alerts to be generated accounting for
 # all SCA findings for each agent when they next run an SCA scan.
 # This must be run on all managers in a Wazuh manager cluster to which agents check in.
-# To 
 #
 
 mkdir /var/ossec/queue/db-backup 2> /dev/null
