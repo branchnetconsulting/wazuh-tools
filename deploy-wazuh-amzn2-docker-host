@@ -99,7 +99,7 @@ chown root:wazuh /var/ossec/etc/bnc_wpk_root.pem
 
 # Meet Wazuh docker listener prereqs
 yum -y install python3-pip
-/usr/bin/pip3 install docker
+/usr/bin/pip3 install docker urllib3 requests
 
 # Set up daily log flushing via cron
 echo -e '#!/bin/bash\nsystemctl stop wazuh-agent; rm -rf /var/ossec/logs/*; systemctl start wazuh-agent' > /etc/cron.daily/flush-logs
