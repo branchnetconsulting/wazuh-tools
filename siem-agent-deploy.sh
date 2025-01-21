@@ -684,6 +684,7 @@ function installAgent() {
 			fi
 			rm -f /tmp/wazuh-agent-$InstallVer-1.x86_64.rpm 2> /dev/null
 			wget -O /tmp/wazuh-agent-$InstallVer-1.x86_64.rpm $DownloadSource 2> /dev/null
+   			rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
 			if [ $Debug == 1 ]; then
 				yum -y install /tmp/wazuh-agent-$InstallVer-1.x86_64.rpm
 			else
