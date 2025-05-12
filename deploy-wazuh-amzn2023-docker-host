@@ -1,0 +1,110 @@
+#!/bin/bash
+
+#
+# Amazon Linux 2023 install and self-register of Wazuh GTIS SIEM agent
+#
+
+# Dynamic named parameters
+environment=${environment:-}
+app_name=${app_name:-}
+waz_ver=${waz_ver:-4.5.4}
+waz_mgr=${waz_mgr:-}
+waz_pwd=${waz_pwd:-}
+waz_grps=${waz_grps:-docker-aws-hosts}
+while [ $# -gt 0 ]; do
+   if [[ $1 == *"--"* ]]; then
+        param="${1/--/}"
+        declare $param="$2"
+   fi
+   shift
+done
+## End Dyamic named parameters
+
+TOKEN=$(curl -XPUT -H "X-aws-ec2-metadata-token-ttl-seconds: 60" -s http://169.254.169.254/latest/api/token)
+INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+LABEL_ENV=$environment
+LABEL_APP=$app_name
+WAZ_AGENT_NAME="$LABEL_APP-$LABEL_ENV-$INSTANCE_ID"
+
+cd ~
+
+# Dynamically generate a Wazuh config profile name for the major and minor version of a given Linux distro, like ubuntu14, ubuntu 14.04.
+CFG_PROFILE="redhat,amzn,amzn2"
+
+# Wazuh Agent download/install/register
+curl -s https://packages.wazuh.com/4.x/yum/wazuh-agent-$waz_ver-1.x86_64.rpm > /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
+yum -y install /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
+rm -f /tmp/wazuh-agent-$waz_ver-1.x86_64.rpm
+/var/ossec/bin/agent-auth -m $waz_mgr -P "$waz_pwd" -G "$waz_grps" -A $WAZ_AGENT_NAME
+
+#
+# Dynamically generate ossec.conf
+#
+echo "
+<ossec_config>
+  <client>
+    <server>
+      <address>$waz_mgr</address>
+      <port>1514</port>
+      <protocol>tcp</protocol>
+    </server>
+    <config-profile>$CFG_PROFILE</config-profile>
+    <notify_time>30</notify_time>
+    <time-reconnect>120</time-reconnect>
+    <auto_restart>yes</auto_restart>
+  </client>
+  <active-response>
+    <disabled>yes</disabled>
+  </active-response>
+  <labels>
+    <label key=\"instance-id\">$INSTANCE_ID</label>
+    <label key=\"env\">$LABEL_ENV</label>
+    <label key=\"app\">$LABEL_APP</label>
+  </labels>
+  <logging>
+    <log_format>plain</log_format>
+  </logging>
+  <agent-upgrade>
+    <ca_verification>
+      <enabled>yes</enabled>
+      <ca_store>etc/wpk_root.pem</ca_store>
+      <ca_store>etc/bnc_wpk_root.pem</ca_store>
+    </ca_verification>
+  </agent-upgrade>
+</ossec_config>
+" > /var/ossec/etc/ossec.conf
+
+# Supply BNC code signing cert
+echo "-----BEGIN CERTIFICATE-----
+MIIDNzCCAh+gAwIBAgIURDCxvmgAH12XqdEdQH/CKgy0+CIwDQYJKoZIhvcNAQEL
+BQAwKzELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAklOMQ8wDQYDVQQKDAZCTkMgQ0Ew
+HhcNMjIxMDAzMjExNzU5WhcNMzIwOTMwMjExNzU5WjArMQswCQYDVQQGEwJVUzEL
+MAkGA1UECAwCSU4xDzANBgNVBAoMBkJOQyBDQTCCASIwDQYJKoZIhvcNAQEBBQAD
+ggEPADCCAQoCggEBANpnhmd+2mUHCjzqvwHx6KeYSaQa2IFNXoQHlj70vMSBm7dH
+GebtQSCF1W3XlRwCW6lK6MitSnPSx8D9ct8QvI7cWYvcjZ1OcY3Vv69rfM5akqi4
+J1wlWn2HkLmoEdoMwNAQD9c+3XCS9KRC6VcIW7XH+029iTisPNP+X1vFeFCyjz68
+SxpL7Ili5GrcDaCWD7Rw7fZjkyTIOrm80vAVGPuXMpSYbdFCwk12j0TQuVovg9bG
+b0ykvZBuNrhzfw/KVoxNmsnagZ1gZgMyRJFaje2RmwQu719lu+qoVunzoMZnt/bj
+WlLvPENSrYvjhO7+LEVE+uHPgZb5IhAM3GTXpQECAwEAAaNTMFEwHQYDVR0OBBYE
+FPT8KA/lCLNFutMi+d3RVX8gCpBzMB8GA1UdIwQYMBaAFPT8KA/lCLNFutMi+d3R
+VX8gCpBzMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBAEdHaQzB
+4t6ICDqaoClIlukZPnPOBX3vIaXSTucdX5s0bX0wGNngG+FKM7Ka/jY51YyfCFOr
+6J6v0GSIFmTeOX/G4zoy+daxd1sIkMq16urBHxWepanhKmM2UnIrVEqaD2Jjgt30
+yuIVJyENaCrXhdH82HndaVEUR8aGnEVUmgPpg+9pRAh8sQUu7LCENI+HP+uaa29c
+e1A3jj1X98UOy+58chxEHtyaZy06v3vz4UNWgJf/LGBMT7wO3c8TsTT5KmgHR460
+zraxbhmzb4JAji0bZuYlldSjhizRCpJjroFjWHluDUa9Oqi5La52o+rpRVwT53bY
+O7bM4haWNBQkxEU=
+-----END CERTIFICATE-----
+" > /var/ossec/etc/bnc_wpk_root.pem
+chown root:wazuh /var/ossec/etc/bnc_wpk_root.pem
+
+# Meet Wazuh docker listener prereqs
+yum -y install python3-pip
+/usr/bin/pip3 install docker urllib3 requests
+
+# Set up daily log flushing via cron
+echo -e '#!/bin/bash\nsystemctl stop wazuh-agent; rm -rf /var/ossec/logs/*; systemctl start wazuh-agent' > /etc/cron.daily/flush-logs
+chmod 744 /etc/cron.daily/flush-logs
+systemctl restart crond 
+
+systemctl restart wazuh-agent
