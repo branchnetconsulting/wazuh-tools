@@ -1,0 +1,19 @@
+#!/bin/bash
+
+cd /tmp
+
+rm -f GeoLite2-ASN.tgz GeoLite2-City.tgz GeoLite2-Country.tgz
+
+wget `curl https://geoip.elastic.co/v1/database?elastic_geoip_service_tos=agree | jq | grep "GeoLite2-ASN.tgz" | grep '"url"' | cut -d\" -f4` -O GeoLite2-ASN.tgz
+wget `curl https://geoip.elastic.co/v1/database?elastic_geoip_service_tos=agree | jq | grep "GeoLite2-City.tgz" | grep '"url"' | cut -d\" -f4` -O GeoLite2-City.tgz
+wget `curl https://geoip.elastic.co/v1/database?elastic_geoip_service_tos=agree | jq | grep "GeoLite2-Country.tgz" | grep '"url"' | cut -d\" -f4` -O GeoLite2-Country.tgz
+
+tar zxf GeoLite2-ASN.tgz
+tar zxf GeoLite2-City.tgz
+tar zxf GeoLite2-Country.tgz
+
+rm GeoLite2-*.tgz
+
+chown wazuh-indexer:wazuh-indexer GeoLite2-ASN.mmdb GeoLite2-City.mmdb GeoLite2-Country.mmdb
+
+mv GeoLite2-{ASN,City,Country}.mmdb /usr/share/wazuh-indexer/modules/ingest-geoip/
