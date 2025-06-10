@@ -102,6 +102,11 @@ chown root:wazuh /var/ossec/etc/bnc_wpk_root.pem
 yum -y install python3-pip
 /usr/bin/pip3 install docker urllib3 requests
 
+# Install cron (cronie) which is no included by default in Amazon Linux 2023
+yum install cronie -y
+systemctl enable crond.service
+systemctl start crond.service
+
 # Set up daily log flushing via cron
 echo -e '#!/bin/bash\nsystemctl stop wazuh-agent; rm -rf /var/ossec/logs/*; systemctl start wazuh-agent' > /etc/cron.daily/flush-logs
 chmod 744 /etc/cron.daily/flush-logs
