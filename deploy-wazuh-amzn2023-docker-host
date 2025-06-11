@@ -109,7 +109,7 @@ yum -y install python3-pip
 yum -y install cronie 
 systemctl enable crond.service
 systemctl start crond.service
-yum -t install rsyslog 
+yum -y install rsyslog 
 systemctl enable rsyslog.service
 systemctl start rsyslog.service
 
