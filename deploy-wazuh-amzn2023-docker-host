@@ -105,10 +105,13 @@ yum -y remove python3-requests
 yum -y install python3-pip
 /usr/bin/pip3 install docker urllib3 requests
 
-# Install cron (cronie) which is no included by default in Amazon Linux 2023
-yum install cronie -y
+# Install cron (cronie) and rsyslog, which are no included by default in Amazon Linux 2023
+yum -y install cronie 
 systemctl enable crond.service
 systemctl start crond.service
+yum -y install rsyslog 
+systemctl enable rsyslog.service
+systemctl start rsyslog.service
 
 # Set up daily log flushing via cron
 echo -e '#!/bin/bash\nsystemctl stop wazuh-agent; rm -rf /var/ossec/logs/*; systemctl start wazuh-agent' > /etc/cron.daily/flush-logs
