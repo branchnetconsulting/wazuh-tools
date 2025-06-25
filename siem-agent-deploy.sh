@@ -3,12 +3,12 @@
 #
 # siem-agent-deploy.sh
 #
-# Version 10.1
+# Version 10.2
 # Changes in this version
 # -----------------------
 #
-# Updated default Wazuh Version to 4.5.4
-# Typo fixes
+# Updated default Wazuh Version to 4.11.2
+# Adding gpg keys for rpm and apt
 #
 # -----------------------
 # 
@@ -670,8 +670,12 @@ function installAgent() {
 			rm -f /tmp/wazuh-agent_$InstallVer-1_amd64.deb 2> /dev/null
 			wget -O /tmp/wazuh-agent_$InstallVer-1_amd64.deb $DownloadSource 2> /dev/null
 			if [ $Debug == 1 ]; then
-			dpkg -i /tmp/wazuh-agent_$InstallVer-1_amd64.deb
+				curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
+				chmod 644 /usr/share/keyrings/wazuh.gpg
+    				dpkg -i /tmp/wazuh-agent_$InstallVer-1_amd64.deb
 			else
+   				curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
+				chmod 644 /usr/share/keyrings/wazuh.gpg 2> /dev/null
 				dpkg -i /tmp/wazuh-agent_$InstallVer-1_amd64.deb 2> /dev/null
 			fi
 			rm -f /tmp/wazuh-agent_$InstallVer-1_amd64.deb 2> /dev/null
@@ -685,8 +689,10 @@ function installAgent() {
 			rm -f /tmp/wazuh-agent-$InstallVer-1.x86_64.rpm 2> /dev/null
 			wget -O /tmp/wazuh-agent-$InstallVer-1.x86_64.rpm $DownloadSource 2> /dev/null
 			if [ $Debug == 1 ]; then
-				yum -y install /tmp/wazuh-agent-$InstallVer-1.x86_64.rpm
+				rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    				yum -y install /tmp/wazuh-agent-$InstallVer-1.x86_64.rpm
 			else
+   				rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH 2> /dev/null
 				yum -y install /tmp/wazuh-agent-$InstallVer-1.x86_64.rpm 2> /dev/null
 			fi 
 			rm -f /tmp/wazuh-agent-$InstallVer-1.x86_64.rpm 2> /dev/null
@@ -861,7 +867,7 @@ $MgrAdd
 
 # Set default values for certain named parameters
 AgentName=`hostname`
-DefaultInstallVer="4.5.4"
+DefaultInstallVer="4.11.2"
 SkipOsquery=0
 Install=0
 Uninstall=0
