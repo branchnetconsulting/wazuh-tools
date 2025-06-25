@@ -105,7 +105,7 @@ yum -y remove python3-requests
 yum -y install python3-pip
 /usr/bin/pip3 install docker urllib3 requests
 
-# Install cron (cronie) and rsyslog, which are no included by default in Amazon Linux 2023
+# Install cron (cronie) and rsyslog, which are not included by default in Amazon Linux 2023
 yum -y install cronie 
 systemctl enable crond.service
 systemctl start crond.service
