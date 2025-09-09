@@ -1,28 +1,3 @@
-#!/bin/bash
-
-#
-# wazuh-logtest-eventchannel
-# Use this on Wazuh manager 4.2.x.
-# For Wazuh manager older than 4.2, use ossec-logtest-eventchannel instead.
-# by Kevin Branch
-#
-# Use this wrapper of the standard ossec-logtest tool for testing Wazuh decoders and rules involving Windows EventChannel events.  
-# Just paste in the [full_log] JSON record strong from a Windows eventchannel event in Kibana and this script should successfully
-# test it for you.
-#
-# Note that by default, all stock Wazuh Windows eventchannel rules have full_log disabled, so you will have to remove this line
-# from the rules you want to produce [full_log] so that you can test them with ossec-logtest-eventchannel:
-#    <options>no_full_log</options
-# You could do this granularly, or to remove this line across the entire stock ruleset, you could run this:
-#    sed -i '/<options>no_full_log<\/options>/d' /var/ossec/ruleset/rules/*
-# You may also have custom Windows rules in /var/ossec/etc/rules/ from which the no_full_log line needs to be removed.
-# At a bare minimum you must remove this line from rule 60000 or ossec-logtest-eventchannel will not work.
-#
-
-sed 's/<rule_dir>ruleset\/rules<\/rule_dir>/<rule_dir>ruleset\/rules-logtest<\/rule_dir>/' /var/ossec/etc/ossec.conf > /var/ossec/etc/ossec-logtest.conf
-mkdir /var/ossec/ruleset/rules-logtest 2> /dev/null
-rsync -pog /var/ossec/ruleset/rules/* /var/ossec/ruleset/rules-logtest/
-sed -i '/<rule id="60000" level="0">/,+7 d' /var/ossec/ruleset/rules-logtest/0575-win-base_rules.xml
-sed -i 's/<group name="windows,">/<group name="windows,">\n\n  <rule id="60000" level="0">\n    <decoded_as>json<\/decoded_as>\n    <field name="win.system.providerName">\\.+<\/field>\n    <description>Group of windows rules<\/description>\n  <\/rule>/
-' /var/ossec/ruleset/rules-logtest/0575-win-base_rules.xml
-/var/ossec/bin/wazuh-logtest-legacy -c /var/ossec/etc/ossec-logtest.conf $1 $2 $3
+# Replaced with something much better, and moved to a different repo.
+# For current information, see:
+#    https://bluewolfninja.com/simulating-wazuh-analysis-of-sample-windows-events
