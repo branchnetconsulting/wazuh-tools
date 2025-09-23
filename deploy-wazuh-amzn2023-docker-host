@@ -101,9 +101,15 @@ chown root:wazuh /var/ossec/etc/bnc_wpk_root.pem
 # Amazon Linux has an outdated rpm version of python3-requests which prevents a pip install of the latest.  Remove it
 yum -y remove python3-requests
 
-# Meet Wazuh docker listener prereqs
+# Meet Wazuh docker listener prereqs in a Python virtual environment and adjust the main script to operate from it.
 yum -y install python3-pip
-/usr/bin/pip3 install docker urllib3 requests
+mkdir /venv
+cd /venv
+python3 -m venv docker-listener
+./docker-listener/bin/pip install urllib3 
+./docker-listener/bin/pip install docker
+sed -i 1d /var/ossec/wodles/docker/DockerListener
+sed -i '1i#!/venv/docker-listener/bin/python3' /var/ossec/wodles/docker/DockerListener
 
 # Install cron (cronie) and rsyslog, which are not included by default in Amazon Linux 2023
 yum -y install cronie 
