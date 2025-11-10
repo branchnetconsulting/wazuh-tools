@@ -98,9 +98,6 @@ O7bM4haWNBQkxEU=
 " > /var/ossec/etc/bnc_wpk_root.pem
 chown root:wazuh /var/ossec/etc/bnc_wpk_root.pem
 
-# Amazon Linux has an outdated rpm version of python3-requests which prevents a pip install of the latest.  Remove it
-yum -y remove python3-requests
-
 # Meet Wazuh docker listener prereqs in a Python virtual environment and adjust the main script to operate from it.
 yum -y install python3-pip
 mkdir /venv
