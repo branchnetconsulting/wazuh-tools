@@ -22,6 +22,7 @@ done
 
 TOKEN=$(curl -XPUT -H "X-aws-ec2-metadata-token-ttl-seconds: 60" -s http://169.254.169.254/latest/api/token)
 INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+LABEL_AVAILABILITY_ZONE=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/availability-zone)
 LABEL_ENV=$environment
 LABEL_APP=$app_name
 WAZ_AGENT_NAME="$LABEL_APP-$LABEL_ENV-$INSTANCE_ID"
@@ -60,6 +61,7 @@ echo "
     <label key=\"instance-id\">$INSTANCE_ID</label>
     <label key=\"env\">$LABEL_ENV</label>
     <label key=\"app\">$LABEL_APP</label>
+    <label key=\"availability-zone\">$LABEL_AVAILABILITY_ZONE</label>
   </labels>
   <logging>
     <log_format>plain</log_format>
