@@ -1,11 +1,12 @@
 #
 # siem-agent-deploy.ps1
-# Version 10.2
+# Version 10.3
 # Changes in this Version
 # -----------------------
 # Added -UseBasicParsing to the Invoke-WebRequest commmand to avoid the new Microsoft interactive security prompt.
-# CVE-2025-54100
-# KB ID: 5074596
+#    CVE-2025-54100
+#    KB ID: 5074596
+# Set the default install version to 4.14.1 
 # -----------------------
 # last material change 12/10/2025
 #
