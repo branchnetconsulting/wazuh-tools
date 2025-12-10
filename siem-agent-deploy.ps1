@@ -627,7 +627,7 @@ function installAgent {
 			$success = $false;
 			do{
 				try{
-					Invoke-WebRequest -Uri $DownloadSource -OutFile wazuh-agent.msi
+					Invoke-WebRequest -UseBasicParsing -Uri $DownloadSource -OutFile wazuh-agent.msi
 					$success = $true
 				}
 				catch{
