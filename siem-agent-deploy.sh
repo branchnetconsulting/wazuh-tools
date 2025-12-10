@@ -3,15 +3,13 @@
 #
 # siem-agent-deploy.sh
 #
-# Version 10.2
+# Version 10.3
 # Changes in this version
 # -----------------------
-#
-# Updated default Wazuh Version to 4.11.2
+# Updated default Wazuh Version to 4.14.1
 # Adding gpg keys for rpm and apt
-#
 # -----------------------
-# 
+# Last material change on 12/10/2025 
 #
 # This script is for checking and/or installing the Wazuh agent on Linux/MacOs systems.  It can directly install or uninstall it, conditionally 
 # install it, or simply check to see if installation/reinstallation is needed.  The Wazuh agent for Linux/MacOS presently includes Wazuh agent 
@@ -867,7 +865,7 @@ $MgrAdd
 
 # Set default values for certain named parameters
 AgentName=`hostname`
-DefaultInstallVer="4.11.2"
+DefaultInstallVer="4.14.1"
 SkipOsquery=0
 Install=0
 Uninstall=0
