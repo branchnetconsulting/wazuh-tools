@@ -1,6 +1,6 @@
 #
 # siem-agent-deploy.ps1
-# Version 10.3
+# Version 10.4
 # Changes in this Version
 # -----------------------
 # Added -UseBasicParsing to the Invoke-WebRequest commmand to avoid the new Microsoft interactive security prompt.
@@ -74,7 +74,7 @@
 #
 # Sample command line:
 #
-# PowerShell.exe -ExecutionPolicy Bypass -File .\siem-agent-deploy.ps1 -InstallVer "4.5.4" -Mgr "{Manager DNS or IP}" -RegPass "{Your_Password}" -ExtraGroups "{Your_comma_separated_group_list}" -Debug
+# PowerShell.exe -ExecutionPolicy Bypass -File .\siem-agent-deploy.ps1 -InstallVer "4.14.1" -Mgr "{Manager DNS or IP}" -RegPass "{Your_Password}" -ExtraGroups "{Your_comma_separated_group_list}" -Debug
 #
 
 #
@@ -117,7 +117,7 @@ function show_usage {
      Write-Host "    [-ExtraGroups" -NoNewline; Write-Host "    LIST_OF_EXTRA_GROUPS]" -ForegroundColor Green
      Write-Host "    [-VerDiscAddr" -NoNewline; Write-Host "    VERSION_DISCOVERY_ADDRESS]" -ForegroundColor Green
      "    [-SkipSysmon]","    [-SkipOsquery]","    [-Install]","    [-Uninstall]","    [-CheckOnly]","    [-Local]","    [-Debug]" | Write-Host
-     Write-Host "    ./siem-agent-deploy.sh -Mgr" -NoNewline;Write-Host -ForegroundColor Green ' "siem.company.org"' -NoNewline;Write-Host " -RegPass" -NoNewline; Write-Host -ForegroundColor Green ' "h58fg3FS###12"' -NoNewline; Write-Host " -DefaultInstallVer" -NoNewline; Write-Host -ForegroundColor Green ' "4.5.4"' -NoNewline; Write-Host " -ExtraGroups"  -NoNewline; Write-Host -ForegroundColor Green ' "server,office"'
+     Write-Host "    ./siem-agent-deploy.ps1 -Mgr" -NoNewline;Write-Host -ForegroundColor Green ' "siem.company.org"' -NoNewline;Write-Host " -RegPass" -NoNewline; Write-Host -ForegroundColor Green ' "h58fg3FS###12"' -NoNewline; Write-Host " -DefaultInstallVer" -NoNewline; Write-Host -ForegroundColor Green ' "4.14.1"' -NoNewline; Write-Host " -ExtraGroups"  -NoNewline; Write-Host -ForegroundColor Green ' "server,office"'
 }
 
 # 
@@ -130,7 +130,13 @@ function tprobe {
 	if ($Debug) { Write-Output "Probing $tp_host on port $tp_port..." }
 	if ( -not ( $tp_host -as [IPAddress] -as [Bool] ) ) {
 		$IPBIG=""
-		$IPBIG=([System.Net.Dns]::GetHostEntry($tp_host)).AddressList.IPAddressToString
+		try {
+			$IPBIG = ([System.Net.Dns]::GetHostEntry($tp_host)).AddressList.IPAddressToString
+		} catch {
+			if ($Debug) { Write-Output "Failed to resolve IP for $tp_host" }
+			$global:result = "2"
+			return
+		}
 		if ( $IPBIG -eq "" ) {	
 			if ($Debug) { Write-Output "Failed to resolve IP for $tp_host" }
 			$global:result = "2"
@@ -139,6 +145,7 @@ function tprobe {
 	}
 	$tcpClient = New-Object System.Net.Sockets.TcpClient
 	$connection = $tcpClient.ConnectAsync($tp_host, $tp_port).Wait(1000)
+	$tcpClient.Close()
 	if ($connection) {
 		if ($Debug) { Write-Output "Success!" }
 		$global:result = "0"
@@ -186,7 +193,7 @@ function writeMergeScript {
 $ScriptToWrite = @'
 #
 # merge-wazuh-conf.ps1
-# version 1.1
+# version 1.2
 # by Kevin Branch (Branch Network Consulting, LLC)
 #
 # This builds and applies a fresh ossec-agent/ossec.conf from a merge of all ossec-agent/conf.d/*.conf files, with automatic revertion to the previous ossec.conf in the event that Wazuh Agent fails to restart or reconnect with the newer merged version of ossec.conf.
@@ -211,12 +218,20 @@ $ScriptToWrite = @'
 # 10001 - Error - "merge-wazuh-conf: new ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..."
 # 10002 - Info  - "merge-wazuh-conf: reverted ossec.conf and Wazuh agent successfully restarted..."
 # 10003 - Error - "merge-wazuh-conf: reverted ossec.conf and Wazuh agent still failed to start"
-# 10004 - Info  - "merge-wazuh-conf: exited due to a previous failed ossec.conf remerge attempt less than an hour ago"
+# 10004 - Error - "merge-wazuh-conf: exited due to a previous failed ossec.conf remerge attempt less than an hour ago"
 # 10005 - Info  - "merge-wazuh-conf: ossec.conf is already up to date"
+# 10006 - Error - "merge-wazuh-conf: timed out waiting for conf.d directory creation"
+# 10007 - Info  - "merge-wazuh-conf: skipped due to script already running"
 #
 
 # Create EventLog Source "Wazuh-Modular" in the "Application" log if missing so logging is possible if needed.
 New-EventLog -LogName 'Application' -Source "Wazuh-Modular" -ErrorAction 'silentlycontinue'
+
+# Ensure Wazuh service exists before proceeding
+if (-not (Get-Service -Name "WazuhSvc" -ErrorAction SilentlyContinue)) {
+    Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10008 -EntryType Error -Message "merge-wazuh-conf: WazuhSvc service not found" -Category 0
+    exit
+}
 
 # As a safeguard, ensure that the Windows Wazuh Agent service is set to autorecover if it fails.
 & sc.exe failure wazuhsvc reset=86400 actions=restart/900000 | out-null
@@ -231,14 +246,23 @@ If ([Environment]::Is64BitOperatingSystem) {
 
 # If Wazuh agent conf.d directory is not yet present, then create it and populate it with a 000-base.conf copied from current ossec.conf file.
 if ( -not (Test-Path -LiteralPath "$PFPATH\ossec-agent\conf.d" -PathType Container ) ) {
-    New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\conf.d" | out-null
-    while ( -not ( Test-Path "$PFPATH\ossec-agent\conf.d" -PathType Container ) ) {
-	sleep 1
- 	Write-Output "directory missing, pausing..."
+    New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\conf.d" | Out-Null
+
+    $dirWaitCount = 0
+    while ( -not (Test-Path "$PFPATH\ossec-agent\conf.d" -PathType Container) ) {
+        Start-Sleep 1
+        $dirWaitCount++
+        Write-Output "directory missing, pausing..."
+
+        if ($dirWaitCount -ge 30) {
+            Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10006 -EntryType Error -Message "merge-wazuh-conf: timed out waiting for conf.d directory creation" -Category 0
+            exit
+        }
     }
+
     Copy-Item "$PFPATH\ossec-agent\ossec.conf" "$PFPATH\ossec-agent\conf.d\000-base.conf"
     # If the newly generated 000-base.conf (from old ossec.conf) is missing the merge-wazuh-conf command section, then append it now.
-    $baseFile = Get-Content "$PFPATH/ossec-agent/conf.d/000-base.conf" -erroraction 'silentlycontinue'
+    $baseFile = Get-Content "$PFPATH\ossec-agent\conf.d\000-base.conf" -ErrorAction SilentlyContinue
 }
 # If there was a failed ossec.conf remerge attempt less than an hour ago then bail out (failed as in Wazuh agent would not start using latest merged ossec.conf)
 # This is to prevent an infinite loop of remerging, restarting, failing, reverting, and restarting again, caused by bad material in a conf.d file.
@@ -267,7 +291,8 @@ if ($hash1 -eq $hash2) {
     # If another instance of this script is already running, then exit.
     # Since after a merge, this script restarts the Wazuh agent and then waits to confirm
     # the agent comes all the way back up, this will be a common occurrence.
-    if ( -not ( (Get-WMIObject -Class Win32_Process -Filter "Name='PowerShell.EXE'" | Where-Object {$_.CommandLine -Like "*merge-wazuh-conf.ps1*"}).CommandLine.count -EQ 1 ) ) {
+	$mergeScriptInstances = @(Get-CimInstance -ClassName Win32_Process -Filter "Name='PowerShell.EXE'" | Where-Object { $_.CommandLine -Like "*merge-wazuh-conf.ps1*" })
+	if ( -not ($mergeScriptInstances.Count -eq 1) ) {
         Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10007 -EntryType Information -Message "merge-wazuh-conf: skipped due to script already running" -Category 0
         exit
     }
@@ -275,22 +300,33 @@ if ($hash1 -eq $hash2) {
     # Pause to give time for above log message to be transmitted to Wazuh manager.  The upcoming agent restart will otherwise cause this log to be lost.
     Start-Sleep 10
     # If deploy-wazuh-modular is already running, then ossec.conf has already been backed up and we should not do it again here.
-    if ( (Get-WMIObject -Class Win32_Process -Filter "Name='PowerShell.EXE'" | Where-Object {$_.CommandLine -Like "*deploy-wazuh-modular.ps1*"}).CommandLine.count -EQ 0 ) {
+	$deployModularInstances = @(Get-CimInstance -ClassName Win32_Process -Filter "Name='PowerShell.EXE'" | Where-Object { $_.CommandLine -Like "*deploy-wazuh-modular.ps1*" })
+	if ( $deployModularInstances.Count -eq 0 ) {
         Copy-Item "$PFPATH\ossec-agent\ossec.conf" "$PFPATH\ossec-agent\ossec.conf-BACKUP" -Force
     }
     Copy-Item "$PFPATH\ossec-agent\conf.d\config.merged" "$PFPATH\ossec-agent\ossec.conf" -Force
-    Stop-Service WazuhSvc
-    Start-Service WazuhSvc
-    Start-Sleep 30
+    Stop-Service WazuhSvc -ErrorAction SilentlyContinue
+    $startFailed = $false
+    try {
+        Start-Service WazuhSvc -ErrorAction Stop
+    } catch {
+        Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10001 -EntryType Error -Message "merge-wazuh-conf: new ossec.conf appears to prevent Wazuh Agent from starting. Reverting and restarting..." -Category 0
+        $startFailed = $true
+    }
+
+    if (-not $startFailed) {
+        Start-Sleep 30
+    }
     # If after replacing ossec.conf and restarting, the Wazuh Agent fails to start, then revert to the backed up ossec.conf, restart, and hopefully recovering the service.
-    if ( ( -not ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) ) -or ( -not ( ( netstat -nat ) -match ':1514[^\d]+ESTABLISHED' ) ) ) {
-        Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10001 -EntryType Error -Message "merge-wazuh-conf: new ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..." -Category 0
+    if ( $startFailed -or ( -not ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) ) -or ( -not ( ( netstat -nat ) -match ':1514[^\d]+ESTABLISHED' ) ) ) {
+        if (-not $startFailed) {
+            Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10001 -EntryType Error -Message "merge-wazuh-conf: new ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..." -Category 0
+        }
         Move-Item "$PFPATH\ossec-agent\ossec.conf" "$PFPATH\ossec-agent\ossec.conf-BAD" -Force
         Move-Item "$PFPATH\ossec-agent\ossec.conf-BACKUP" "$PFPATH\ossec-agent\ossec.conf" -Force
-        Stop-Service WazuhSvc
-        Start-Service WazuhSvc
+        Stop-Service WazuhSvc -ErrorAction SilentlyContinue
+        Start-Service WazuhSvc -ErrorAction SilentlyContinue
         Start-Sleep 15
-        # Indicate if the service was successfully recovered by reverting ossec.conf.
         if ( ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) -and ( ( netstat -nat ) -match ':1514[^\d]+ESTABLISHED' ) ) {
             Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10002 -EntryType Information -Message "merge-wazuh-conf: reverted ossec.conf and Wazuh agent successfully restarted..." -Category 0
         } else {
@@ -299,14 +335,23 @@ if ($hash1 -eq $hash2) {
     }
 }
 '@
-New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\scripts" -erroraction 'silentlycontinue' | out-null
-while ( -not ( Test-Path "$PFPATH\ossec-agent\scripts" -PathType Container ) ) {
-   sleep 1
-   Write-Output "directory missing, pausing..."
-}
-$ScriptToWrite | Out-File -FilePath "$PFPATH\ossec-agent\scripts\merge-wazuh-conf.ps1" -Encoding "UTF8"
+New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\scripts" -ErrorAction SilentlyContinue | Out-Null
+
+$dirWaitCount = 0
+while ( -not (Test-Path "$PFPATH\ossec-agent\scripts" -PathType Container) ) {
+    Start-Sleep 1
+    $dirWaitCount++
+    Write-Output "directory missing, pausing..."
+
+    if ($dirWaitCount -ge 30) {
+        if ($Debug) { Write-Output "Timed out waiting for $PFPATH\ossec-agent\scripts to be created." }
+        $global:result = "2"
+        return
+    }
 }
 
+$ScriptToWrite | Out-File -FilePath "$PFPATH\ossec-agent\scripts\merge-wazuh-conf.ps1" -Encoding UTF8
+}
 # Checks if agent is in desired state
 # return values
 #	0 - no failure, but pass back Connected flag and CorrectGroupPrefix value to inform next steps to be taken.  
@@ -329,20 +374,13 @@ function checkAgent {
 	#					that handshakes even when service down.
 	# -Debug			Flag to show debug output
 
-	if ($Mgr -eq $null) { 
-		if ($Debug) { Write-Output "Must use '-Mgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection." }
-		show_usage
-		$global:result = "2"
-		return
-	}
-	
 	if ($Debug) { Write-Output "Checking connection status of agent." }
 	$global:Connected = $false
 	
 	# Probe manager ports to confirm it is really reachable.
 	# If we are not forcing an install (-Install) and it is fully evident the agent is presently connected to a manager, then no manager probes are necessary.  Otherwise perform them.
 	$StateFile = Get-Item -Path "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction SilentlyContinue
-	if ( ( -not ($Install) ) -and (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
+	if ( ( -not ($Install) ) -and $StateFile -and (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
 		if ($Debug) { Write-Output "Agent is connected to a manager. Skipping probing of manager..." }
 	} else {
 		# Confirm the self registration and agent connection ports on the manager(s) are responsive.  
@@ -365,7 +403,7 @@ function checkAgent {
 			if ($Debug) { Write-Output "Performing a load-balancer-aware check via an agent-auth.exe call to confirm manager is truly reachable..." }
 			Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
 			Start-Process -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "badpass" -Wait -WindowStyle 'Hidden' -redirectstandarderror "agent-auth-test-probe"
-			if ( ( Test-Path -LiteralPath "agent-auth-test-probe" ) -or ( Get-Content "agent-auth-test-probe" | select-String "Invalid password" ) ) {
+			if ( ( Test-Path -LiteralPath "agent-auth-test-probe" ) -and ( Get-Content "agent-auth-test-probe" | select-String "Invalid password" ) ) {
 				Remove-Item -Path "agent-auth-test-probe" -erroraction 'silentlycontinue'
 				if ($Debug) { Write-Output "LBprobe check succeeded.  Manager is truly reachable." }
 			} else {
@@ -381,15 +419,15 @@ function checkAgent {
 	# Is the agent presently really connected to a Wazuh manager?  If not, wait a little over a minute and check again.
 	# Set the "Connected" flag if success at 1st or 2nd check.
 	#
-	if ( (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
+	if (  $StateFile -and (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
 		if ($Debug) { Write-Output "The Wazuh agent is connected to a Wazuh manager." }
 		$global:Connected = $true
 	} else {
-		if ( $StateFile.LastWriteTime -gt (Get-Date).AddMinutes(-10) ) {
+		if ( $StateFile -and $StateFile.LastWriteTime -gt (Get-Date).AddMinutes(-10) ) {
 			if ($Debug) { Write-Output "*** Waiting 70 seconds to see if Wazuh agent is only temporarily disconnected from manager." }
 			Start-Sleep -Seconds 70
 			$StateFile = Get-Item -Path "$PFPATH\ossec-agent\wazuh-agent.state" -erroraction SilentlyContinue
-			if ( (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
+			if ( $StateFile -and (($StateFile.LastWriteTime) -gt (Get-Date).AddMinutes(-10)) -and (Get-Content -Path "$PFPATH\ossec-agent\wazuh-agent.state" | Select-String -Pattern "status='connected'").Matches.Success ) {
 				if ($Debug) { Write-Output "The Wazuh agent is now connected to a Wazuh manager." }
 				$global:Connected = $true
 			} else {
@@ -508,7 +546,7 @@ function uninstallAgent {
 		$MergedFile = Get-Content "$PFPATH\ossec-agent\shared\merged.mg" -erroraction 'silentlycontinue'
 		$MergedFileName = "$PFPATH\ossec-agent\shared\merged.mg"
 		$CurrentAgentName=(Get-Content "$PFPATH\ossec-agent\client.keys").Split(" ")[1]
-		if ( ($StateFile | Select-String -Pattern "'connected'" -quiet) -and ($CurrentAgentName -eq $AgentName) ) {
+		if ( $StateFile -and ($StateFile | Select-String -Pattern "'connected'" -quiet) -and ($CurrentAgentName -eq $AgentName) ) {
 			if ($Debug) { Write-Output "Registration will be recycled unless there is an agent group mismatch." }
 			$CorrectAgentName = $true
 			$global:MightRecycleRegistration=$true
@@ -527,22 +565,35 @@ function uninstallAgent {
 	Stop-Service WazuhSvc -erroraction 'silentlycontinue'
 
 
-	# If Wazuh agent already installed and the -Uninstall flag is set or Wazuh agent is not connected to a manager, blow it away.
-	if ( ($Install) -or ($Uninstall) -or ($Connected -eq $false)) {
-		if (Test-Path "$PFPATH\ossec-agent\wazuh-agent.exe" -PathType leaf) {
-			if ($Debug) { Write-Output "Uninstalling existing Wazuh Agent..." }
-			Uninstall-Package -Name "Wazuh Agent" -erroraction 'silentlycontinue' | out-null
-			Remove-Item "$PFPATH\ossec-agent" -recurse
-		} else {
-			if ($Debug) { Write-Output "Wazuh Agent not present..." }
-		}
-		if (Test-Path "$PFPATH\ossec-agent" -PathType Container) {
-		Remove-Item "$PFPATH\ossec-agent" -recurse -force
-		}
-		if ($Debug) { Write-Output "Uninstallation done..." }
-	} else {
-		if ($Debug) { Write-Output "Uninstallation not needed..." }
-	}	
+    # If Wazuh agent already installed and the -Uninstall flag is set or Wazuh agent is not connected to a manager, blow it away.
+    if ( ($Install) -or ($Uninstall) -or ($Connected -eq $false)) {
+        if (Test-Path "$PFPATH\ossec-agent\wazuh-agent.exe" -PathType Leaf) {
+            if ($Debug) { Write-Output "Uninstalling existing Wazuh Agent..." }
+            Uninstall-Package -Name "Wazuh Agent" -ErrorAction SilentlyContinue | Out-Null
+        } else {
+            if ($Debug) { Write-Output "Wazuh Agent not present..." }
+        }
+
+        $removeWaitCount = 0
+        while ( (Test-Path "$PFPATH\ossec-agent" -PathType Container) -and ($removeWaitCount -lt 5) ) {
+            Remove-Item "$PFPATH\ossec-agent" -Recurse -Force -ErrorAction SilentlyContinue
+            if (Test-Path "$PFPATH\ossec-agent" -PathType Container) {
+                Start-Sleep 10
+                $removeWaitCount++
+                if ($Debug) { Write-Output "Waiting for ossec-agent directory to be released..." }
+            }
+        }
+
+        if (Test-Path "$PFPATH\ossec-agent" -PathType Container) {
+            if ($Debug) { Write-Output "Uninstall failed" }
+            $global:result = "2"
+            return
+        }
+
+        if ($Debug) { Write-Output "Uninstallation done..." }
+    } else {
+        if ($Debug) { Write-Output "Uninstallation not needed..." }
+    }	
 }
 
 #
@@ -572,22 +623,11 @@ function installAgent {
 	# -Debug        		Flag to show debug output
 	
 	if ( !($PSVersionTable.PSVersion.Major) -ge 5 ) {
-		if ($Debug) { write-host "*** PowerShell 5.0 or higher is required by this script." }
+		if ($Debug) { Write-Output "*** PowerShell 5.0 or higher is required by this script." }
 		$global:result = "2"
 		return
 	}
 	
-	if ($Mgr -eq $null -or $RegPass -eq $null) { 
-		if ( $Mgr -eq $null ) {
-		write-host "*** Must use '-Mgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection"
-		} else {
-		write-host "*** Must use '-RegPass' to specify the password to use for agent registration."
-		}
-		show_usage
-		$global:result = "2"
-		return
-	}
-
 	if ( ($Install) -or ( -not ($Connected) ) ) {
 		# If InstallVer is not discovered or set as a parameter, use the DefaultInstaller value either set on command line or is hard-coded in script.
 		if ( -not ($VerDiscAddr -eq $null) ) {
@@ -609,7 +649,7 @@ function installAgent {
 			$connection = $false
 			$tcpClient = New-Object System.Net.Sockets.TcpClient
 			$connection = $tcpClient.ConnectAsync("www.google.com", 443).Wait(1000)
-			Remove-Variable tcpClient
+            $tcpClient.Close()
 			if ( -not $connection ) {
 				if ($Debug) { Write-Output "Unable to open web connections to the Internet according to test against https://www.google.com`nYou may need to use the -Local option." }
 				$global:result = "2"
@@ -649,20 +689,35 @@ function installAgent {
 		}
 		
 		# Install Wazuh Agent and then remove the installer file
-		if ($Debug) {  Write-Output "Installing Wazuh Agent" }
-		Start-Process -FilePath .\wazuh-agent.msi -ArgumentList "/q" -Wait -WindowStyle 'Hidden'
-		if ( -not ($Local) ) {
-			Remove-Item -Path .\wazuh-agent.msi -erroraction silentlycontinue
+		if ($Debug) { Write-Output "Installing Wazuh Agent" }
+		
+		if ( -not (Test-Path -LiteralPath ".\wazuh-agent.msi") ) {
+		if ($Debug) { Write-Output "wazuh-agent.msi was not found." }
+		    $global:result = "2"
+		    return
+	    }
+		$proc = Start-Process -FilePath ".\wazuh-agent.msi" -ArgumentList "/qn" -Wait -PassThru -WindowStyle Hidden
+		
+		if ($proc.ExitCode -notin @(0,3010)) {
+		    if ($Debug) { Write-Output "Wazuh Agent installation failed with exit code $($proc.ExitCode)" }
+		    $global:result = "2"
+		    return
 		}
-	
+		
+		if ($Debug) { Write-Output "Wazuh Agent installation succeeded with exit code $($proc.ExitCode)" }
+		
+		if (-not ($Local)) {
+		    Remove-Item -Path .\wazuh-agent.msi -ErrorAction SilentlyContinue
+		}
+		
 		# Create ossec-agent\scripts and write the merge-wazuh-conf.ps1 file to it, and write bnc_wpk_root.pem file
 		writePEMfile
 		writeMergeScript
-    }
-	
+	}
+		
 	# If we can safely skip self registration and just restore the backed up client.keys file, then do so. Otherwise, self-register.
 	if ($Debug) { Write-Output "Stopping Wazuh agent to register and adjust config..." }
-	Stop-Service WazuhSvc
+	Stop-Service WazuhSvc -ErrorAction SilentlyContinue
 	Remove-Item -Path "$PFPATH\ossec-agent\ossec.log" -erroraction silentlycontinue
 	if ( ( $MightRecycleRegistration ) -and ( $Connected ) -and ( $CorrectGroupPrefix ) ) { 
 		Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$RegFileName"
@@ -670,9 +725,14 @@ function installAgent {
 		# Register the agent with the manager
 		Remove-Item -Path "$RegFileName" -erroraction silentlycontinue
 		if ($Debug) { Write-Output "Registering Wazuh Agent with $RegMgr..." }
+		if ( -not (Test-Path -LiteralPath "$PFPATH\ossec-agent\agent-auth.exe") ) {
+            if ($Debug) { Write-Output "agent-auth.exe was not found." }
+            $global:result = "2"
+            return
+        }
 		if ($CorrectGroupPrefix) {
 			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$CurrentGroups", "-A", "$AgentName" -Wait -RedirectStandardError "$env:TEMP\reg.state"
-	        } else {
+			} else {
 			Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$TargetGroups", "-A", "$AgentName" -Wait -RedirectStandardError "$env:TEMP\reg.state"
 		}
 		if ($Debug) { type "$env:TEMP\reg.state" }
@@ -681,22 +741,28 @@ function installAgent {
 			if ($Debug) { Write-Output "Waiting 45 seconds for Manager to discover agent is disconnected before retrying registration..." }
 			Start-Sleep 45
 			if ($CorrectGroupPrefix) {
-			    Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$CurrentGroups", "-A", "$AgentName" -Wait -RedirectStandardError "$env:TEMP\reg.state"
-	                } else {
-			    Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$TargetGroups", "-A", "$AgentName" -Wait -RedirectStandardError "$env:TEMP\reg.state"
-		        }
+				Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$CurrentGroups", "-A", "$AgentName" -Wait -RedirectStandardError "$env:TEMP\reg.state"
+					} else {
+				Start-Process -NoNewWindow -FilePath "$PFPATH\ossec-agent\agent-auth.exe" -ArgumentList "-m", "$RegMgr", "-P", "$RegPass", "-G", "$TargetGroups", "-A", "$AgentName" -Wait -RedirectStandardError "$env:TEMP\reg.state"
+				}
 			if ($Debug) { type "$env:TEMP\reg.state" }
 		}
 		if ( ( -not (Test-Path "$PFPATH\ossec-agent\client.keys" -PathType leaf) )  -or ( -not (Get-Item $RegFileName).length -gt 0)   ) {
 			Copy-Item "$env:TEMP\client.keys.bnc" -Destination "$RegFileName" -erroraction silentlycontinue
 			Copy-Item "$env:TEMP\ossec.conf.bnc" -Destination "$ConfigFileName" -erroraction silentlycontinue
-			Start-Service WazuhSvc
+			try {
+                Start-Service WazuhSvc -ErrorAction Stop
+            } catch {
+                if ($Debug) { Write-Output "Failed to start WazuhSvc." }
+                $global:result = "2"
+                return
+            }
 			if ($Debug) {  Write-Output "Registration failed.  Reverted to previous known working client.keys and restarted Wazuh..." }
 			$global:result = "2"
 			return
 		}
 	}
-
+	
 	# Detect Windows version for use in configprofile line of ossec.conf
 	switch ((Get-CimInstance Win32_OperatingSystem).BuildNumber)
 	{
@@ -728,7 +794,8 @@ function installAgent {
 	#
 	# Dynamically generate ossec.conf
 	#
-if ( -not ( $Mgr2 -eq $null ) ) {
+	$MgrAdd = ""
+	if ( -not ( $Mgr2 -eq $null ) ) {
 $MgrAdd = @"
 		<server>
             		<address>$Mgr2</address>
@@ -736,7 +803,7 @@ $MgrAdd = @"
             		<protocol>tcp</protocol>
         	</server>
 "@
-}
+	}
 	
 $ConfigToWrite = @"
 <!-- Wazuh Modular version 1.0 -->
@@ -782,7 +849,7 @@ $MgrAdd
 
 	# Start up the Wazuh agent service
 	if ($Debug) { Write-Output "Starting up the Wazuh agent..." }
-	Start-Service WazuhSvc
+	Start-Service WazuhSvc -ErrorAction SilentlyContinue
 
 	if ($Debug) { write-output "Configuring WazuhSvc Windows service to auto-restart after a 15 minute delay if the service fails." }
 	& sc.exe failure wazuhsvc reset=86400 actions=restart/900000 | out-null
@@ -818,14 +885,28 @@ $MgrAdd
 # Main
 #
 
-$DEPLOY_VERSION=10.1
+$DEPLOY_VERSION=10.4
 
 If ( $Help -eq $true ) {
 	show_usage
 	exit 2
 }
 
-New-EventLog -LogName 'Application' -Source "Wazuh-Modular" -ErrorAction 'silentlycontinue'
+if ((-not $Uninstall) -and ($Mgr -eq $null)) {
+    Write-Output "*** Must use '-Mgr' to specify the FQDN or IP of the Wazuh manager to which the agent shall retain a connection"
+    show_usage
+    exit 2
+}
+
+if ((-not $Uninstall) -and (-not $CheckOnly) -and ($RegPass -eq $null)) {
+    Write-Output "*** Must use '-RegPass' to specify the password to use for agent registration."
+    show_usage
+    exit 2
+}
+
+if (-not [System.Diagnostics.EventLog]::SourceExists("Wazuh-Modular")) {
+	New-EventLog -LogName 'Application' -Source "Wazuh-Modular" -ErrorAction 'silentlycontinue'
+}
 
 # Set https protocol defaults to try stronger TLS first and allow all three forms of TLS
 [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
@@ -859,24 +940,26 @@ Remove-Item -Path C:\Windows\System32\wazuh-agent.msi -erroraction silentlyconti
 if ($Local) {
 	if ( -not (Test-Path -LiteralPath "agent-deploy.zip") ) {
 		if ($Debug) { Write-Output "Option '-Local' specified but no 'agent-deploy.zip' file was found in current directory.  Giving up and aborting the installation..." }
-		$global:result = "2"
-		return
+		exit 2
 	}
 	Microsoft.PowerShell.Archive\Expand-Archive "agent-deploy.zip" -Force -DestinationPath .
 	if ( -not (Test-Path -LiteralPath "nuget.zip") ) {
 		if ($Debug) { Write-Output "Option '-Local' specified but no 'nuget.zip' file was found in current directory.  Giving up and aborting the installation..." }
-		$global:result = "2"
-		return
+		exit 2
 	}
 	if ( -not (Test-Path -LiteralPath "C:\Program Files\PackageManagement\ProviderAssemblies" -PathType Container ) ) {
 		New-Item -ItemType "directory" -Path "C:\Program Files\PackageManagement\ProviderAssemblies"
 	}
 	Microsoft.PowerShell.Archive\Expand-Archive "nuget.zip" -DestinationPath "C:\Program Files\PackageManagement\ProviderAssemblies\" -erroraction silentlycontinue | Out-null
-	Import-PackageProvider -Name NuGet 
+    try {
+        Import-PackageProvider -Name NuGet -ErrorAction Stop | Out-Null
+    } catch {
+        if ($Debug) { Write-Output "Failed to import NuGet package provider." }
+		exit 2
+    } 
 	if ( -not (Test-Path -LiteralPath "wazuh-agent.msi") ) {
 		if ($Debug) { Write-Output "Option '-Local' specified but no 'wazuh-agent.msi' file was found in current directory.  Giving up and aborting the installation..." }
-		$global:result = "2"
-		return
+		exit 2
 	}
 }
 
@@ -925,7 +1008,7 @@ if ( $Install -or ( -not ($Connected ) ) -or ( -not ($CorrectGroupPrefix ) ) ) {
 			exit 2
 		}
 		installAgent
-		if ( "result" -eq "2" ) {
+		if ( "$result" -eq "2" ) {
 			exit 2
 		}
 		exit 0
