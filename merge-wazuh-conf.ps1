@@ -1,6 +1,6 @@
 #
 # merge-wazuh-conf.ps1
-# version 1.1
+# version 1.2
 # by Kevin Branch (Branch Network Consulting, LLC)
 #
 # This builds and applies a fresh ossec-agent/ossec.conf from a merge of all ossec-agent/conf.d/*.conf files, with automatic revertion to the previous ossec.conf in the event that Wazuh Agent fails to restart or reconnect with the newer merged version of ossec.conf.
@@ -25,12 +25,21 @@
 # 10001 - Error - "merge-wazuh-conf: new ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..."
 # 10002 - Info  - "merge-wazuh-conf: reverted ossec.conf and Wazuh agent successfully restarted..."
 # 10003 - Error - "merge-wazuh-conf: reverted ossec.conf and Wazuh agent still failed to start"
-# 10004 - Info  - "merge-wazuh-conf: exited due to a previous failed ossec.conf remerge attempt less than an hour ago"
+# 10004 - Error - "merge-wazuh-conf: exited due to a previous failed ossec.conf remerge attempt less than an hour ago"
 # 10005 - Info  - "merge-wazuh-conf: ossec.conf is already up to date"
+# 10006 - Error - "merge-wazuh-conf: timed out waiting for conf.d directory creation"
+# 10007 - Info  - "merge-wazuh-conf: skipped due to script already running"
+# 10008 - Error - "merge-wazuh-conf: WazuhSvc service not found"
 #
 
 # Create EventLog Source "Wazuh-Modular" in the "Application" log if missing so logging is possible if needed.
 New-EventLog -LogName 'Application' -Source "Wazuh-Modular" -ErrorAction 'silentlycontinue'
+
+# Ensure Wazuh service exists before proceeding
+if (-not (Get-Service -Name "WazuhSvc" -ErrorAction SilentlyContinue)) {
+    Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10008 -EntryType Error -Message "merge-wazuh-conf: WazuhSvc service not found" -Category 0
+    exit
+}
 
 # As a safeguard, ensure that the Windows Wazuh Agent service is set to autorecover if it fails.
 & sc.exe failure wazuhsvc reset=86400 actions=restart/900000 | out-null
@@ -45,14 +54,23 @@ If ([Environment]::Is64BitOperatingSystem) {
 
 # If Wazuh agent conf.d directory is not yet present, then create it and populate it with a 000-base.conf copied from current ossec.conf file.
 if ( -not (Test-Path -LiteralPath "$PFPATH\ossec-agent\conf.d" -PathType Container ) ) {
-    New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\conf.d" | out-null
-    while ( -not ( Test-Path "$PFPATH\ossec-agent\conf.d" -PathType Container ) ) {
-	    sleep 1
- 	    Write-Output "directory missing, pausing..."
+    New-Item -ItemType "directory" -Path "$PFPATH\ossec-agent\conf.d" | Out-Null
+
+    $dirWaitCount = 0
+    while ( -not (Test-Path "$PFPATH\ossec-agent\conf.d" -PathType Container) ) {
+        Start-Sleep 1
+        $dirWaitCount++
+        Write-Output "directory missing, pausing..."
+
+        if ($dirWaitCount -ge 30) {
+            Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10006 -EntryType Error -Message "merge-wazuh-conf: timed out waiting for conf.d directory creation" -Category 0
+            exit
+        }
     }
+
     Copy-Item "$PFPATH\ossec-agent\ossec.conf" "$PFPATH\ossec-agent\conf.d\000-base.conf"
     # If the newly generated 000-base.conf (from old ossec.conf) is missing the merge-wazuh-conf command section, then append it now.
-    $baseFile = Get-Content "$PFPATH/ossec-agent/conf.d/000-base.conf" -erroraction 'silentlycontinue'
+    $baseFile = Get-Content "$PFPATH\ossec-agent\conf.d\000-base.conf" -ErrorAction SilentlyContinue
 }
 # If there was a failed ossec.conf remerge attempt less than an hour ago then bail out (failed as in Wazuh agent would not start using latest merged ossec.conf)
 # This is to prevent an infinite loop of remerging, restarting, failing, reverting, and restarting again, caused by bad material in a conf.d file.
@@ -81,7 +99,8 @@ if ($hash1 -eq $hash2) {
     # If another instance of this script is already running, then exit.
     # Since after a merge, this script restarts the Wazuh agent and then waits to confirm
     # the agent comes all the way back up, this will be a common occurrence.
-    if ( -not ( (Get-WMIObject -Class Win32_Process -Filter "Name='PowerShell.EXE'" | Where-Object {$_.CommandLine -Like "*merge-wazuh-conf.ps1*"}).CommandLine.count -EQ 1 ) ) {
+	$mergeScriptInstances = @(Get-CimInstance -ClassName Win32_Process -Filter "Name='PowerShell.EXE'" | Where-Object { $_.CommandLine -Like "*merge-wazuh-conf.ps1*" })
+	if ( -not ($mergeScriptInstances.Count -eq 1) ) {
         Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10007 -EntryType Information -Message "merge-wazuh-conf: skipped due to script already running" -Category 0
         exit
     }
@@ -89,22 +108,33 @@ if ($hash1 -eq $hash2) {
     # Pause to give time for above log message to be transmitted to Wazuh manager.  The upcoming agent restart will otherwise cause this log to be lost.
     Start-Sleep 10
     # If deploy-wazuh-modular is already running, then ossec.conf has already been backed up and we should not do it again here.
-    if ( (Get-WMIObject -Class Win32_Process -Filter "Name='PowerShell.EXE'" | Where-Object {$_.CommandLine -Like "*deploy-wazuh-modular.ps1*"}).CommandLine.count -EQ 0 ) {
+	$deployModularInstances = @(Get-CimInstance -ClassName Win32_Process -Filter "Name='PowerShell.EXE'" | Where-Object { $_.CommandLine -Like "*deploy-wazuh-modular.ps1*" })
+	if ( $deployModularInstances.Count -eq 0 ) {
         Copy-Item "$PFPATH\ossec-agent\ossec.conf" "$PFPATH\ossec-agent\ossec.conf-BACKUP" -Force
     }
     Copy-Item "$PFPATH\ossec-agent\conf.d\config.merged" "$PFPATH\ossec-agent\ossec.conf" -Force
-    Stop-Service WazuhSvc
-    Start-Service WazuhSvc
-    Start-Sleep 30
+    Stop-Service WazuhSvc -ErrorAction SilentlyContinue
+    $startFailed = $false
+    try {
+        Start-Service WazuhSvc -ErrorAction Stop
+    } catch {
+        Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10001 -EntryType Error -Message "merge-wazuh-conf: new ossec.conf appears to prevent Wazuh Agent from starting. Reverting and restarting..." -Category 0
+        $startFailed = $true
+    }
+
+    if (-not $startFailed) {
+        Start-Sleep 30
+    }
     # If after replacing ossec.conf and restarting, the Wazuh Agent fails to start, then revert to the backed up ossec.conf, restart, and hopefully recovering the service.
-    if ( ( -not ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) ) -or ( -not ( ( netstat -nat ) -match ':1514[^\d]+ESTABLISHED' ) ) ) {
-        Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10001 -EntryType Error -Message "merge-wazuh-conf: new ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..." -Category 0
+    if ( $startFailed -or ( -not ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) ) -or ( -not ( ( netstat -nat ) -match ':1514[^\d]+ESTABLISHED' ) ) ) {
+        if (-not $startFailed) {
+            Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10001 -EntryType Error -Message "merge-wazuh-conf: new ossec.conf appears to prevent Wazuh Agent from starting.  Reverting and restarting..." -Category 0
+        }
         Move-Item "$PFPATH\ossec-agent\ossec.conf" "$PFPATH\ossec-agent\ossec.conf-BAD" -Force
         Move-Item "$PFPATH\ossec-agent\ossec.conf-BACKUP" "$PFPATH\ossec-agent\ossec.conf" -Force
-        Stop-Service WazuhSvc
-        Start-Service WazuhSvc
+        Stop-Service WazuhSvc -ErrorAction SilentlyContinue
+        Start-Service WazuhSvc -ErrorAction SilentlyContinue
         Start-Sleep 15
-        # Indicate if the service was successfully recovered by reverting ossec.conf.
         if ( ( (Get-Service -Name "WazuhSvc").Status -eq "Running" ) -and ( ( netstat -nat ) -match ':1514[^\d]+ESTABLISHED' ) ) {
             Write-EventLog -LogName "Application" -Source "Wazuh-Modular" -EventID 10002 -EntryType Information -Message "merge-wazuh-conf: reverted ossec.conf and Wazuh agent successfully restarted..." -Category 0
         } else {
