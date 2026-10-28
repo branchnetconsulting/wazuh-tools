@@ -6,9 +6,9 @@
 # Added -UseBasicParsing to the Invoke-WebRequest commmand to avoid the new Microsoft interactive security prompt.
 #    CVE-2025-54100
 #    KB ID: 5074596
-# Set the default install version to 4.14.1 
+# Set the default install version to 4.14.7 
 # -----------------------
-# last material change 12/10/2025
+# last material change 10/28/2026
 #
 # This script is for checking and/or installing the Wazuh agent on Windows systems.  It can directly install or uninstall it, conditionally 
 # install it, or simply check to see if installation/reinstallation is needed.  The Wazuh agent for Windows presently includes Wazuh agent 
